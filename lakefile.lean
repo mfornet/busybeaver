@@ -11,5 +11,8 @@ package "busybeaver" where
 require "leanprover-community" / "mathlib"
 
 @[default_target]
+lean_exe beaver where
+  root := `Main
+
 lean_lib «Busybeaver» where
   -- add any library configuration options here
