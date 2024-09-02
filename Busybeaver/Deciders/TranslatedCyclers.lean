@@ -118,6 +118,36 @@ by {
   split <;> simp_all
 }
 
+lemma step_tick.state_deterministic (hAB: A t-[M:t]-> B) (hAB': A' t-[M:t]-> B'): A.state = A'.state ∧ B.state = B'.state :=
+by {
+  -- Little massage of the hypotheses
+  simp [step_tick] at hAB
+  split at hAB
+  · cases hAB
+  rename_i sym' dir lab' heq
+  simp at hAB
+  simp [← hAB.1]
+  unfold step_tick at hAB'
+  split at hAB'
+  · cases hAB'
+  simp at hAB'
+
+  -- Now we begin the proof
+  obtain ⟨hB', htA'⟩ := hAB'
+  obtain ⟨hB, htA⟩ := hAB
+
+  rw [← htA] at htA'
+  simp at htA'
+  obtain ⟨htA's, htA'h⟩ := htA'
+  constructor
+  · exact htA's.symm
+  rename_i heq'
+  simp [default] at heq'
+  rw [htA's, htA'h, heq] at heq'
+  cases heq'
+  rw [← hB']
+}
+
 lemma MultiTStep.to_multistep (h: A t-[M : L]->> B): A.toConfig -[M]{L.length}-> B.toConfig :=
 by induction h with
 | refl => exact .refl
@@ -151,7 +181,7 @@ by {
   }
 }
 
-instance MultiTStep.split (h: A t-[M: L ++ L']->> B): ∃C, (A t-[M:L]->> C) ∧ C t-[M:L']->> B :=
+lemma MultiTStep.split (h: A t-[M: L ++ L']->> B): ∃C, (A t-[M:L]->> C) ∧ C t-[M:L']->> B :=
 by induction L generalizing A with
 | nil => {
   use A
@@ -169,6 +199,46 @@ by induction L generalizing A with
   constructor
   · exact MultiTStep.step A C C' head tail hAC hC'.1
   · exact hC'.2
+}
+
+/--
+Induction principle that pops the tail of the transcript instead of the head.
+-/
+lemma MultiTStep.reverseInduction
+  {motive: (L: List (Tick l s)) → (A B: TickingConfig l s) → (A t-[M:L]->> B) → Prop}
+  (refl: (C: TickingConfig l s) → motive [] C C (.refl C))
+  (tail:
+    (A B C: TickingConfig l s) → (t: Tick l s) → (L: List (Tick l s)) →
+    (hAB: A t-[M:L]->> B) → (hBC: B t-[M:t]-> C) → motive L A B hAB →
+    motive (L ++ [t]) A C (by calc A
+    _ t-[M:L]->> B := hAB
+    _ t-[M:[t]]->> C := by {
+      simp
+      exact hBC
+    }))
+  (h: A t-[M:L]->> B): motive L A B h :=
+by induction L using List.reverseRecOn generalizing B with
+| nil => {
+  cases h
+  exact refl A
+}
+| append_singleton L t IH => {
+  obtain ⟨C, hAC, hBC⟩ := h.split
+  simp at hBC
+  exact tail A C B t L hAC hBC (IH hAC)
+}
+
+lemma MultiTStep.state_deterministic (hAB: A t-[M:L]->> B) (hAB': A t-[M:L]->> B'): B.state = B'.state :=
+by induction hAB using MultiTStep.reverseInduction generalizing B' with
+| refl C => {
+  cases hAB'
+  rfl
+}
+| tail A C B t L _ hCB _ => {
+  obtain ⟨C', _, hCB'⟩ := hAB'.split
+  simp at hCB'
+  obtain ⟨_, hBB'⟩ := step_tick.state_deterministic hCB hCB'
+  exact hBB'
 }
 
 /-
@@ -240,6 +310,15 @@ by {
   obtain ⟨q, hq⟩ := hRecord
   rw [List.mem_iff_append] at hq
   obtain ⟨S, T, hST⟩ := hq
+  rw [hST] at hAB hBC
+  obtain ⟨aC, hAaC, haCB⟩ := hAB.split
+  obtain ⟨bC, hBbC, hbCC⟩ := hBC.split
+  cases haCB
+  rename_i aC' haCaC' haC'B
+  cases hbCC
+  rename_i bC' hbCbC' hbC'C
+
+  rw [hST]
   sorry
 }
 
