@@ -409,6 +409,13 @@ by induction S using Finset.induction with
 | @insert A S _ IH => simp [Finset.union_eq_empty, IH]
 
 @[simp]
+lemma Finset.mem_fold_union [DecidableEq α] [DecidableEq β] {f: α → Finset β} {S: Finset α} {b : β}:
+  b ∈ Finset.fold Union.union ∅ f S ↔ ∃ a ∈ S, b ∈ f a :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => simp [IH]
+
+@[simp]
 def BBResult.join.fold_union [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
   (Finset.fold BBResult.join B f S).undec = Finset.fold Union.union B.undec (λ a ↦ (f a).undec) S :=
 by induction S using Finset.induction with
@@ -541,6 +548,24 @@ by {
   apply inferInstance
 }
 
+instance is_child.isTrans: IsTrans (Machine l s) is_child :=
+by {
+  constructor
+  intro A B C hA hB
+  intro lab sym
+  specialize hA lab sym
+  specialize hB lab sym
+  rcases hB with hB | hB
+  · left
+    exact hB
+  rcases hA with hA | hA
+  · left
+    rw [← hA]
+    exact hB
+  right
+  simp [*]
+}
+
 @[simp]
 lemma is_child.refl: M ≤c M :=
 by {
@@ -662,6 +687,15 @@ by {
   simp_all only
 }
 
+lemma next_machines'.is_child (h: M' ∈ next_machines' M lab sym hM): M ≤c M' :=
+by {
+  simp [next_machines'] at h
+  obtain ⟨sym', dir, lab', _, hM'⟩ := h
+  cases hM'
+  simp
+  exact update_with.is_child hM
+}
+
 lemma is_child.ne_exists_halt_trans (h: M ≤c M') (h': M ≠ M'):
   ∃sym lab sym' dir lab', M sym lab = .halt ∧ M' sym lab = .next sym' dir lab' :=
 by {
@@ -726,6 +760,9 @@ by induction M using BBCompute.induct decider with
     exact h Mn Hmn
   }
 
+  /-
+  This is the case disjunction mentionned above.
+  -/
   have hTerm: terminating_children M =
     (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) := by {
     apply Finset.ext
@@ -735,6 +772,10 @@ by induction M using BBCompute.induct decider with
   rw [hTerm]
   simp
 
+  /-
+  First case, the child machine has the same halting transition as M, that is, it halts.
+  In this case in terminates in the same number of steps as M
+  -/
   have hSameM : Busybeaver' l s ((terminating_children M).filter (λ M ↦ M.M C.state C.tape.head =
   .halt)) = nh := by {
     apply Busybeaver'.eq_of_all_eq
@@ -794,12 +835,32 @@ by induction M using BBCompute.induct decider with
   rw [Busybeaver'.fold_max_eq_fold_union]
 
   /-
-  We need to prove that the two sets considered are "equivalent" when seen from the Busybeaver'
-  point of view.
+  We begin the second case mentionned above. We need to prove that the next_machines' of M are
+  actually enough to consider to compute the busybeaver for all the other child machines.
   -/
 
   apply Busybeaver'.biject_fold
-  · sorry
+  · intro M' hM'
+    exists M'
+    simp
+    simp only [Finset.mem_fold_union, Finset.mem_image, id] at hM'
+    obtain ⟨childs, hchilds, hM'childs⟩ := hM'
+    obtain ⟨nextM, hnextM, hchilds⟩ := hchilds
+    cases hchilds
+    simp [terminating_children] at hM'childs
+    constructor
+    · simp [terminating_children]
+      calc
+        is_child M'.M nextM.val := hM'childs
+        is_child nextM.val M := next_machines'.is_child hnextM
+    · simp [next_machines'] at hnextM
+      obtain ⟨sym', dir, lab', hs, hdef⟩ := hnextM
+      cases hdef
+      simp at hM'childs
+      specialize hM'childs C.state C.tape.head
+      simp [update_with] at hM'childs
+      rw [← hM'childs]
+      simp
   · /-
     The tricky bit of the proof.
 
@@ -809,6 +870,9 @@ by induction M using BBCompute.induct decider with
     - otherwise, "normalize" the machine into a machine using the successor of the sates/symbols
       this one is a next_machine'
     -/
+    intro M' hM'
+    simp [terminating_children] at hM'
+    simp
     sorry
 }
 
