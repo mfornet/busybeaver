@@ -26,6 +26,9 @@ def is_infinite: PartialHTape Γ → Bool
 | finite _ => false
 | infinite _ => true
 
+attribute [coe] PartialHTape.finite
+attribute [coe] PartialHTape.infinite
+
 /-
 Coercion and lifting operations on partial half tapes for convenience.
 -/
@@ -157,6 +160,10 @@ by simp [instHAppendList, append]
 @[simp]
 lemma append_empty_end {L: List Γ}: L ++ ({}: PartialHTape Γ) = L :=
   by simp
+
+@[simp]
+lemma append_lists {L R: List Γ}: PartialHTape.finite (L ++ R) = L ++ (PartialHTape.finite R) :=
+  by simp [instHAppendList, append]
 
 def infty: PartialHTape Γ := PartialHTape.infinite (default: Turing.ListBlank Γ)
 
@@ -506,10 +513,54 @@ inductive MultiPStep (M: Machine l s): ℕ → PartialConfig l s → PartialConf
 
 notation A " p-[" M "]{" n "}-> " B => MultiPStep M n A B
 
-def MultiPStep.refl' (hAB: A = B): A p-[M]{0}-> B :=
+instance MultiPStep.decidable: Decidable (A p-[M]{n}-> B) :=
+by induction n generalizing A with
+| zero => {
+  by_cases hAB: A = B
+  · rw [hAB]
+    apply isTrue
+    exact MultiPStep.refl B
+  · apply isFalse
+    intro hAB'
+    cases hAB'
+    simp at hAB
+}
+| succ n IH => {
+  cases hAC: M.pstep? A
+  · apply isFalse
+    intro hAB
+    cases hAB
+    rename_i _ hAB' _
+    rw [hAC] at hAB'
+    cases hAB'
+  · rename_i C
+    specialize @IH C
+    cases IH with
+    | isFalse hCB => {
+      apply isFalse
+      intro hAB
+      cases hAB
+      rename_i _ hAC' hC'B
+      rw [hAC] at hAC'
+      cases hAC'
+      contradiction
+    }
+    | isTrue hCB => {
+      apply isTrue
+      exact step A C B n hAC hCB
+    }
+}
+
+@[simp]
+def MultiPStep.refl': (A p-[M]{0}-> B) ↔ A = B :=
 by {
-  rw [hAB]
-  exact .refl _
+  constructor
+  · intro hAB
+    cases hAB
+    rfl
+  · intro hAB
+    rw [hAB]
+    exact .refl _
 }
 
 instance MultiPStep.instTrans: Trans (MultiPStep M n) (MultiPStep M n') (MultiPStep M (n + n')) :=
@@ -667,11 +718,11 @@ by induction n generalizing L R L' R' q q' dir dir' with
 }
 
 lemma MultiPStep.locality' {L R L' R': List (Symbol s)} {T T' Tl Tr Tl' Tr': PartialHTape (Symbol s)}
-  (h: (L {q;dir} R) p-[M]{n}-> (L' {q';dir'} R'))
   (hTl: Tl = L ++ T)
   (hTr: Tr = R ++ T')
   (hTl': Tl' = L' ++ T)
   (hTr': Tr' = R' ++ T')
+  (h: (L {q;dir} R) p-[M]{n}-> (L' {q';dir'} R'))
   :
   (Tl {q;dir} Tr) p-[M]{n}-> (Tl' {q';dir'} Tr') :=
 by {
@@ -679,20 +730,76 @@ by {
   exact locality h
 }
 
+syntax "locality" (term)? "with" term "," term: tactic
+macro_rules
+| `(tactic| locality $h with $left, $right) => `(tactic| apply MultiPStep.locality' (h:=$h) (T:=$left) (T':=$right) <;> simp)
+| `(tactic| locality with $left, $right) => `(tactic| apply MultiPStep.locality' (T:=$left) (T':=$right) (by simp) (by simp) (by simp) (by simp))
+
 lemma MultiPStep.locality_left₀ {R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} R')):
-    (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} R' ++ T') :=
-by apply locality' h (T:=T) (T':=T') <;> simp
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} R')): (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} R' ++ T') :=
+  by locality h with T, T'
 
 lemma MultiPStep.locality_left₁ {R L': List (Symbol s)} {T T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})):
-    (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} T') :=
-by apply locality' h (T:=T) (T':=T') <;> simp
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} T') :=
+  by locality h with T, T'
 
 lemma MultiPStep.locality_left₂ {R L': List (Symbol s)} {T: PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})):
-    (T {q;dir} R) p-[M]{n}-> ((L' ++ T) {q';dir'} {}) :=
-by apply locality' h (T:=T) (T':={}) <;> simp
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): (T {q;dir} R) p-[M]{n}-> ((L' ++ T) {q';dir'} {}) :=
+  by locality h with T, {}
+
+lemma MultiPStep.locality_left₃ {R L': List (Symbol s)} {T: PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): ({} {q;dir} R ++ T) p-[M]{n}-> (L' {q';dir'} T) :=
+  by locality h with {}, T
+
+lemma MultiPStep.locality_left₀_finite_left {R L' R' T: List (Symbol s)} {T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} R')): (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} R' ++ T') :=
+  by locality h with T, T'
+
+lemma MultiPStep.locality_left₁_finite_left {R L' T: List (Symbol s)} {T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} T') :=
+  by locality h with T, T'
+
+lemma MultiPStep.locality_left₂_finite {R L' T: List (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): (T {q;dir} R) p-[M]{n}-> ((L' ++ T) {q';dir'} {}) :=
+  by locality h with T, {}
+
+lemma MultiPStep.locality_left₃_finite {R L' T: List (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): ({} {q;dir} R ++ T) p-[M]{n}-> (L' {q';dir'} T) :=
+  by locality h with {}, T
+
+/--
+The locality tactic tries to turn a proof of step of a complex tape into a "local step" on the edges
+of the tape.
+
+TODO: this is a very very crude implementation of a potentially very powerful tactic.
+-/
+syntax "locality" (term)?: tactic
+syntax "locality!": tactic
+
+macro_rules
+| `(tactic| locality) => `(tactic|
+    first
+    | apply MultiPStep.locality_left₀
+    | apply MultiPStep.locality_left₁
+    | apply MultiPStep.locality_left₂
+    | apply MultiPStep.locality_left₃
+    | apply MultiPStep.locality_left₀_finite_left
+    | apply MultiPStep.locality_left₁_finite_left
+    | apply MultiPStep.locality_left₂_finite
+    | apply MultiPStep.locality_left₃_finite
+  )
+| `(tactic| locality $h) => `(tactic|
+    first
+    | apply MultiPStep.locality_left₀ $h
+    | apply MultiPStep.locality_left₁ $h
+    | apply MultiPStep.locality_left₂ $h
+    | apply MultiPStep.locality_left₃ $h
+    | apply MultiPStep.locality_left₀_finite_left $h
+    | apply MultiPStep.locality_left₁_finite_left $h
+    | apply MultiPStep.locality_left₂_finite $h
+    | apply MultiPStep.locality_left₃_finite $h
+  )
+| `(tactic| locality!) => `(tactic| locality; decide)
 
 section Example
 
@@ -709,9 +816,6 @@ def tmpMach: Machine 4 2
 | 4, 1 => .next 1 .left 4
 | _, _ => unreachable!
 
-lemma onestep: ({} {2}> [(1: Symbol 2)]) p-[tmpMach]-> ([(1: Symbol 2)] {2}> {}) :=
-  by decide
-
 /-
 Example of using the locality principle and decidable equality to perform actual computations
 with partial states.
@@ -723,30 +827,18 @@ example: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replic
 by induction n with
 | zero => {
   simp
-  exact .refl _
 }
 | succ n IH => {
-  have htmp := by {
-  calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
-    _ p-[tmpMach]{0}-> ({} {2}> ([(1: Symbol 2)] ++ PartialHTape.finite (List.replicate n (1: Symbol 2)))) := by {
-      apply MultiPStep.refl'
-      simp
-      rfl
-    }
-    _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by {
-      simp only [MultiPStep.single]
-      exact pstep?.locality_left₁ onestep
-    }
-    _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ PartialHTape.finite [(1: Symbol 2)]) {2}> {}) := by {
-      exact MultiPStep.locality_left₂ IH
-    }
+  have htmp := calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
+    _ p-[tmpMach]{0}-> ({} {2}> ([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2))) := by simp; rfl
+    _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by locality!
+    _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)]) {2}> {}) := by locality IH
     _ p-[tmpMach]{0}-> ((List.replicate (n+1) (1: Symbol 2)) {2}> {}) := by {
-      apply MultiPStep.refl'
-      simp [PartialHTape.append, PartialHTape.instHAppendList]
+      simp [-PartialHTape.append_lists]
       symm
       exact List.replicate_succ' n 1
     }
-  }
+
   simp at htmp
   simp
   rw [Nat.add_comm n] at *
