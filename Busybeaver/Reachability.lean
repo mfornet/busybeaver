@@ -450,7 +450,7 @@ Monad for computations that prove (non-)termination of machine M
 -/
 inductive HaltM {l s: ℕ} (M: TM.Machine l s) (α: Type u)
 | unknown: α → HaltM M α
-| halts_prf : M.halts init → HaltM M α
+| halts_prf n : M.halts_in n init → HaltM M α
 | loops_prf : ¬(M.halts init) → HaltM M α
 deriving Repr
 
@@ -461,7 +461,7 @@ instance (M: TM.Machine l s): Monad (HaltM M) where
   pure := .unknown
   bind := λ m f ↦ match m with
     | .unknown v => f v
-    | .halts_prf p => .halts_prf p
+    | .halts_prf n p => .halts_prf n p
     | .loops_prf p => .loops_prf p
 
 def decided: HaltM M α → Bool
@@ -473,9 +473,8 @@ end HaltM
 def Machine.stepH
   (M: TM.Machine l s) (σ: {s // init -[M]{k}-> s}): HaltM M {s' // init -[M]{k + 1}-> s'} :=
   match hi: M.step σ.val with
-  | .none => .halts_prf (by {
+  | .none => .halts_prf k (by {
     obtain ⟨s, hs⟩ := σ
-    exists k
     exists s
     constructor
     · simp_all [Machine.LastState]

@@ -118,6 +118,22 @@ instance Machine.finite: Fintype $ Machine l s := by {
   apply inferInstance
 }
 
+instance Machine.decEq: DecidableEq (Machine l s) := by {
+  intro A B
+  refine @decidable_of_decidable_of_iff (∀ lab sym, A lab sym = B lab sym) _ ?_ ?_
+  · apply Fintype.decidableForallFintype
+
+  constructor
+  · intro h
+    apply funext
+    intro lab
+    apply funext
+    intro sym
+    exact h lab sym
+  · intro h lab sym
+    rw [h]
+}
+
 instance Config.inhabited: Inhabited $ Config l s := ⟨⟨default, default⟩⟩
 
 def Machine.step (M: Machine l s) (orig: Config l s): Option (Config l s) := match M orig.state orig.tape.head with
