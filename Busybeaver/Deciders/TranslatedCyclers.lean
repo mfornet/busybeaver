@@ -42,6 +42,8 @@ def TickingConfig.toConfig (C: TickingConfig l s): Config l s := {
   tape := C.tape.forget
 }
 
+instance TickingConfig.coeConfig: Coe (TickingConfig l s) (Config l s) := ⟨TickingConfig.toConfig⟩
+
 variable {C: TickingConfig l s}
 
 @[simp]
@@ -89,7 +91,7 @@ inductive MultiTStep (M: Machine l s): List (Tick l s) → TickingConfig l s →
 
 notation A " t-[" M ":" L "]->> " B => MultiTStep M L A B
 
-lemma single_step {A B: TickingConfig l s} (h: A t-[M : t]-> B): A.toConfig -[M]-> B.toConfig :=
+lemma single_step {A B: TickingConfig l s} (h: A t-[M : t]-> B): A -[M]-> B :=
 by {
   simp [step_tick] at h
   split at h
@@ -148,7 +150,7 @@ by {
   rw [← hB']
 }
 
-lemma MultiTStep.to_multistep (h: A t-[M : L]->> B): A.toConfig -[M]{L.length}-> B.toConfig :=
+lemma MultiTStep.to_multistep (h: A t-[M : L]->> B): A -[M]{L.length}-> B :=
 by induction h with
 | refl => exact .refl
 | step A B C t L hAB _ IH => exact Machine.Multistep.succ (single_step hAB) IH
@@ -250,7 +252,7 @@ def Machine.stepT
   (M: TM.Machine l s) (σ: {s // default t-[M : L]->> s}):
   HaltM M {s': (TickingConfig l s × Tick l s) // default t-[M : L ++ [s'.2]]->> s'.1} :=
   match hi: step_tick M σ.val with
-  | .none => .halts_prf L.length σ.val.toConfig (by {
+  | .none => .halts_prf L.length σ.val (by {
     simp at hi
     constructor
     · simp [Machine.LastState]
@@ -347,7 +349,7 @@ by induction n generalizing A B C with
 If a machine follows the transcript pattern of a translated cycler, then it loops.
 -/
 lemma ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
-  ¬M.halts A.toConfig :=
+  ¬M.halts A :=
 by {
   /- SKETCH
 
@@ -388,9 +390,9 @@ by {
   simp at hAE'ms
 
   let nstep := L.length + n / L.length * L.length - n
-  have hEE': E -[M]{nstep}-> E'.toConfig := Machine.Multistep.split_le  hAE'ms hEr (Nat.le_of_lt hLrep)
+  have hEE': E -[M]{nstep}-> E' := Machine.Multistep.split_le  hAE'ms hEr (Nat.le_of_lt hLrep)
 
-  refine Machine.halts_in.no_multistep' hEl (C:=E'.toConfig) (n:=nstep) ?_ hEE'
+  refine Machine.halts_in.no_multistep' hEl (C:=E') (n:=nstep) ?_ hEE'
   simp [nstep]
   exact Nat.zero_lt_sub_of_lt hLrep
 }
