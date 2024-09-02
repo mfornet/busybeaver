@@ -22,23 +22,24 @@ instance [ToString α]: ToString (HaltM M α) where
 
 def log_decs (M: Machine l s): HaltM M Unit := do
   let res := allDecs M;
-  dbg_trace res;
+  if ¬res.decided then
+    dbg_trace res
   res
 
 def compute (l s: ℕ): Busybeaver.BBResult l s :=
-  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m0RB l s)))
-  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m1RB l s)))
+  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute allDecs (Busybeaver.BBCompute.m0RB l s)))
+  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute allDecs (Busybeaver.BBCompute.m1RB l s)))
   Busybeaver.BBResult.join res0.get res1.get
 
 axiom task_correct {α: Type} {f: Unit → α}: (Task.spawn f |>.get) = f ()
 
 set_option compiler.extract_closed false
-def main (args: List String): IO Unit := do
+unsafe def main (args: List String): IO Unit := do
   match args with
   | [nlabs, nsyms] => {
     match nlabs.trim.toNat?, nsyms.trim.toNat? with
     | some nl, some ns => 
-      IO.println "Starting computation"
+      let start ← IO.monoMsNow
       let l := nl - 1
       let s := ns - 1
       if hl: l = 0 then
@@ -48,6 +49,7 @@ def main (args: List String): IO Unit := do
         }
         IO.println s!"Busybeaver(1, {s+1}) = 1"
       else
+        IO.println "Starting computation"
         let comp := compute l s
         if hcomp: comp.undec = ∅ then
           have _: comp.val = Busybeaver l s := by {
@@ -57,8 +59,10 @@ def main (args: List String): IO Unit := do
           }
           IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
         else
-          IO.println s!"#Undecided: {Multiset.card comp.undec}"
+          IO.println s!"Undec: {repr comp.undec}"
+          IO.println s!"#Undec: {Multiset.card comp.undec}"
           IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
+      IO.println s!"In: {(← IO.monoMsNow) - start}ms"
     | _, _ => IO.println "Invalid arguments, expected integers"
   }
   | _ => IO.println "Not enough arguments: beaver {nlabs} {nsyms}"
