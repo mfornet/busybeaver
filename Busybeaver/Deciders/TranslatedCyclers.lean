@@ -302,12 +302,6 @@ by induction k with
 }
 
 /--
-If a ticking machine steps twice off the border, then we can extend it any number of times.
--/
-lemma ticking_bot_twice (hAB: A t-[M:(q, ⊥)]-> B) (hBC: B t-[M:(q,⊥)]-> C): ∃D, C t-[M:(q,⊥)]-> D :=
-  sorry
-
-/--
 If a ticking machine goes twice through the transcript, with a record within the transcript, then
 we can push that cycle once more, keeping the same transcript
 
