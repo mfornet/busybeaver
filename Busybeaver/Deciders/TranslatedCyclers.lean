@@ -443,11 +443,15 @@ def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick
     · exact ispref.2
   }⟩)
 
-def translatedCyclerDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
+abbrev TickCache (M: Machine l s) := { T: TickingConfig l s × List (Tick l s) // default t-[M:T.2.reverse]->> T.1}
+def translatedCyclerDecider (bound: ℕ) (M: Machine l s) (start: TickCache M := ⟨(default, []), by {
+  simp
+  exact TReach.MultiTStep.refl default
+}⟩): HaltM M (TickCache M) :=
   let rec loop (n: ℕ) (history: List (Tick l s))
-    (current: TickingConfig l s) (hC: default t-[M: history.reverse]->> current): HaltM M Unit :=
+    (current: TickingConfig l s) (hC: default t-[M: history.reverse]->> current): HaltM M (TickCache M) :=
     match n with
-    | .zero => .unknown ()
+    | .zero => .unknown ⟨(current, history), hC⟩
     | .succ n => do
       let ⟨(cfg, q, b), prf⟩ ← TReach.Machine.stepT M ⟨current, hC⟩
       let nh := (q, b) :: history
@@ -474,5 +478,5 @@ def translatedCyclerDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
         | none => loop n nh cfg hprf
       else
         loop n nh cfg hprf
-
-  loop bound [] default (TReach.MultiTStep.refl default)
+  let ⟨(cfg, hist), prf⟩ := start
+  loop bound hist cfg prf
