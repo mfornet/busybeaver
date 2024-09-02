@@ -8,9 +8,6 @@ namespace TM
 
 abbrev TickingTape s := Turing.Tape (WithBot (Symbol s))
 
-instance TickingTape.inhabited: Inhabited (TickingTape s) :=
-  ⟨{ head := (default : Symbol s), left := default, right := default }⟩
-
 structure TickingConfig (l s) where
   state : Label l
   tape : TickingTape s
@@ -68,15 +65,15 @@ instance: Repr (TickingConfig l s) := ⟨λ cfg _ ↦
 
 end PrettyPrint
 
-
 def step_tick (M: Machine l s) (C: TickingConfig l s): Option (TickingConfig l s × Tick l s) :=
-  let unboted: Symbol s := (WithBot.unbot' default C.tape.head)
-  match M C.state unboted with
+  match M C.state (WithBot.unbot' default C.tape.head)  with
   | .halt => .none
   | .next sym' dir lab' =>
-    .some ({state := lab', tape := (C.tape.write ↑sym').move dir }, (C.state, unboted))
+    .some ({state := lab', tape := (C.tape.write ↑sym').move dir }, (C.state, C.tape.head))
 
 namespace TReach
+
+variable {M: Machine l s}
 
 notation A " t-[" M ":" T "]-> " B => step_tick M A = Option.some (B, T)
 
@@ -108,7 +105,62 @@ by {
   congr
 }
 
+@[simp]
+lemma step_tick.none {M: Machine l s}: step_tick M C = .none ↔ M C.state (WithBot.unbot' default C.tape.head) = .halt :=
+by {
+  simp [step_tick]
+  split <;> simp_all
+}
+
 lemma MultiTStep.to_multistep (h: A t-[M : L]->> B): A.toConfig -[M]{L.length}-> B.toConfig :=
 by induction h with
 | refl => exact .refl
 | step A B C t L hAB _ IH => exact Machine.Multistep.succ (single_step hAB) IH
+
+@[simp]
+lemma MultiTStep.single: (A t-[M:[t]]->> B) ↔ (A t-[M:t]-> B) :=
+by {
+  constructor
+  · intro hAB
+    cases hAB
+    rename_i B' hAB' hBB'
+    cases hBB'
+    exact hAB'
+  · intro hAB
+    apply MultiTStep.step
+    · exact hAB
+    · exact MultiTStep.refl B
+}
+
+lemma MultiTStep.tail {M: Machine l s} (hAB: A t-[M:L]->> B) (hBC: B t-[M:t]-> C): A t-[M:L.concat t]->> C := 
+by induction hAB with
+| refl A => {
+  simp
+  exact hBC
+}
+| step A B C' t' L hAB _ IH => {
+  simp
+  apply MultiTStep.step A B C t' (L ++ [t]) hAB
+  specialize  IH hBC
+  simp at IH
+  exact IH
+}
+
+/-
+The very convenient step-or-prove-termination function that greatly simplifies writing deciders that
+step through an execution: if the machine stops at some point the decider also stops, proving
+termination.
+-/
+def Machine.stepT
+  (M: TM.Machine l s) (σ: {s // default t-[M : L]->> s}): HaltM M {s': (TickingConfig l s × Tick l
+  s) // default t-[M : L.concat s'.2]->> s'.1} :=
+  match hi: step_tick M σ.val with
+  | .none => .halts_prf L.length σ.val.toConfig (by {
+    simp at hi
+    constructor
+    · simp [Machine.LastState]
+      exact hi
+    · exact σ.property.to_multistep
+  })
+  | .some nxt => .unknown ⟨nxt, MultiTStep.tail σ.property hi⟩
+
