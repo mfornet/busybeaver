@@ -62,6 +62,21 @@ by {
     exact ListBlank.nth_map f Tl _
 }
 
+@[simp]
+lemma default_nth {Γ: Type*} [Inhabited Γ]: nth default i = default (α:=Γ) :=
+by {
+  simp [nth]
+  split <;> simp [default, ListBlank.nth]
+}
+
+@[simp]
+lemma map_default {Γ Γ': Type*} [Inhabited Γ] [Inhabited Γ'] {f: PointedMap Γ Γ'}: Turing.Tape.map f default = default :=
+by {
+  apply ext
+  intro i
+  simp
+}
+
 end Turing.Tape
 
 namespace TM.Machine
@@ -70,6 +85,23 @@ def translated (M: Machine l s) (S S': Symbol s): Machine l s :=
   λ lab sym ↦ match M lab (swap S S' sym) with
   | .halt => .halt
   | .next sym' dir lab' => .next (swap S S' sym') dir lab'
+
+@[simp]
+lemma translated.involutive {M: Machine l s}: (M.translated S S').translated S S' = M :=
+by {
+  apply funext
+  intro lab
+  apply funext
+  intro symo
+  unfold translated
+  split <;> {
+    rename_i heq
+    split at heq <;> {
+      cases heq
+      try simp_all
+    }
+  }
+}
 
 variable {S S': Symbol s} (hS: default ≠ S) (hS': default ≠ S')
 
@@ -85,18 +117,7 @@ instance translated.transformation: Transformation (l:=l) (s:=s) (λ C ↦ ⟨C.
   fMinv := by {
     intro M
     beta_reduce
-    apply funext
-    intro lab
-    apply funext
-    intro symo
-    unfold translated
-    split <;> {
-      rename_i heq
-      split at heq <;> {
-        cases heq
-        try simp_all
-      }
-    }
+    simp
   }
 
   simulate := by {
@@ -115,3 +136,18 @@ instance translated.transformation: Transformation (l:=l) (s:=s) (λ C ↦ ⟨C.
 
 lemma translated.equi_halts: (M, C) =H (M.translated S S', ⟨C.state, C.tape.translate S S' hS hS'⟩) :=
   translated.transformation hS hS' |>.equi_halts
+
+lemma translated.equi_halts' {M: Machine l s} (hS: default ≠ S) (hS': default ≠ S'): (M, default) =H (M.translated S S', default) := by {
+  suffices (Turing.Tape.translate default S S' hS hS') = default by {
+    have hMe := translated.equi_halts (M:=M) (C:=default) hS hS'
+    conv at hMe =>
+      pattern Config.tape (default (α:=Config l s))
+      unfold default
+      unfold Config.inhabited
+      unfold Config.tape
+      simp
+    rw [this] at hMe
+    exact hMe
+  }
+  simp [Turing.Tape.translate]
+}
