@@ -137,18 +137,46 @@ def backward_step (M: Machine l s) (C: SymbolicConfig l s): Finset { S: Symbolic
       }
     }
 
-lemma backward_step.empty_unreachable {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCh: C.tape.head = some sym):
-  M.unreachable_trans C.state sym A :=
+def sym_matches (tS: WithTop (Symbol s)) (S: Symbol s): Bool := match tS with
+| ⊤ => True
+| .some S' => S' == S
+
+def SymbolicConfig.matches (C: SymbolicConfig l s) (C': Config l s): Prop :=
+  C.state == C'.state ∧ (∀i, sym_matches (C.tape.nth i) (C'.tape.nth i))
+
+lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matches C'): ¬(A -[M]-> C') :=
 by {
-  intro n Cc hCcs hCch htrans
+  intro hAC'
+  obtain ⟨sym', dir, hM, hC't⟩ := Machine.step.some_rev hAC'
   simp [backward_step, Finset.filter_eq_empty_iff] at h
-  induction htrans using Machine.Multistep.tail_rec with
-  | refl C => {
+
+  obtain ⟨hCC's, hCC't⟩ := hCC'
+  simp at hCC's
+
+  rw [← hCC's] at hM
+
+  specialize h A.state A.tape.head sym' dir hM
+  apply h
+  rw [← Turing.Tape.nth_zero]
+  cases dir
+  · simp [Turing.Dir.other, -Turing.Tape.nth_zero] at *
+    rw [hC't] at hCC't
+    specialize hCC't 1
+    simp [Turing.Tape.write] at hCC't
+    simp [sym_matches] at hCC't
+    split at hCC't
+    · rename_i heq
+      rw [heq]
+      sorry
+    · simp at hCC't
+      rename_i heq
+      rw [hCC't] at heq
+      exact heq
+  · simp [Turing.Dir.other, -Turing.Tape.nth_zero] at *
+    rw [hC't] at hCC't
+    specialize hCC't (-1)
+    simp [Turing.Tape.write] at hCC't
     sorry
-  }
-  | tail A B C' n hBC hAB IH => {
-    sorry
-  }
 }
 
 lemma halting_trans.empty_loops {M: Machine l s} (h: M.halting_trans = ∅): ¬(M.halts default) :=
