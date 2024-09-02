@@ -9,6 +9,8 @@ import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Quotient
 import Busybeaver.Deciders.NoHaltState
 
+import Mathlib.Algebra.BigOperators.Group.Finset
+
 namespace TM.Busybeaver
 open TM.Machine
 
@@ -116,6 +118,76 @@ def BBResult.join.fold_max [DecidableEq α] {f: α → BBResult l s} {S: Finset 
 by induction S using Finset.induction with
 | empty => simp_all
 | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
+
+instance Multiset.add.associative {α}: Std.Associative (λ (A B: Multiset α) ↦ A + B):=
+by {
+  constructor
+  intro A B C
+  exact add_assoc A B C
+}
+
+instance Multiset.add.commutative {α}: Std.Commutative (λ (A B: Multiset α) ↦ A + B):=
+by {
+  constructor
+  intro A B
+  exact AddCommMagma.add_comm A B
+}
+
+@[simp]
+def BBResult.join.fold_join [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
+  (Finset.fold BBResult.join B f S).undec = B.undec + ∑ a ∈ S, (f a).undec
+    /- Finset.fold (hc:=Multiset.add.commutative) B.undec (λ a ↦ f a |>.undec) S -/
+  :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert a S' hA IH => {
+  simp [Finset.fold_insert hA, join, Finset.sum_insert hA]
+  conv_rhs =>
+    rw [← add_assoc, AddCommMonoid.add_comm B.undec, add_assoc]
+  simp [IH]
+}
+
+@[simp]
+def Multiset.mem_sum [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
+  e ∈ ∑ a ∈ S, f a
+  ↔ ∃ R ∈ S.image f, e ∈ R
+  :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert a S' hA IH => simp [Finset.fold_insert hA, IH]
+
+@[simp]
+def Multiset.add_empty [DecidableEq α] {A B: Multiset α}: A + B = 0 ↔ A = 0 ∧ B = 0 :=
+by {
+  constructor
+  · intro h
+    have hABc: ∀ a, (A + B).count a = 0 := by {
+      rw [h]
+      intro a
+      rfl
+    }
+    constructor <;>
+    · apply Multiset.le_zero.mp
+      rw [Multiset.le_iff_count]
+      intro a
+      specialize hABc a
+      rw [Multiset.count_add] at hABc
+      conv_rhs => simp
+      first
+      | exact Nat.le.intro hABc
+      | {
+          conv_lhs at hABc => rw [AddCommMonoid.add_comm]
+          exact Nat.le.intro hABc
+        }
+  · intro h
+    rw [h.1, h.2]
+    simp
+}
+
+@[simp]
+def Multiset.sum_empty_iff_all_empty [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
+  ∑ a ∈ S, f a = 0 ↔ ∀ a ∈ S, f a = 0 :=
+by sorry
 
 def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match h with
 | .unknown _ => { val := 0, undec := {M}}
@@ -345,8 +417,6 @@ by induction M using BBCompute.induct decider with
 | case2 M n C Clast Mdec Mntrans IH => {
   unfold BBCompute at hM
   simp [Mdec, Mntrans] at hM
-  sorry
-  /-
   obtain ⟨Mc, hMc, hMc'⟩ := hM
   specialize IH ⟨Mc, hMc⟩
   simp at IH
@@ -355,7 +425,6 @@ by induction M using BBCompute.induct decider with
   calc
     is_child M' Mc := IH
     is_child Mc M := next_machines.is_child Clast.1 hMc
-  -/
 }
 
 lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M'):
@@ -676,8 +745,7 @@ by induction M using BBCompute.induct decider with
     intro Mn Hmn
     have hMchild := next_machines.is_child Clast.1 Hmn
     apply IH ⟨Mn, Hmn⟩
-    · -- exact h Mn Hmn
-      sorry
+    · exact h Mn Hmn
     · exact is_child.used_symbols_mono hMchild hsym
     · exact is_child.used_states_mono hMchild hlab
   }
@@ -753,7 +821,7 @@ by induction M using BBCompute.induct decider with
     intro _ _ S f n
     induction S using Finset.induction with
     | empty => simp
-    | @insert A S hA IH => {
+    | @insert A S _ IH => {
       simp [IH]
       conv =>
         rhs
@@ -772,6 +840,8 @@ by induction M using BBCompute.induct decider with
 
   /-
   Before embarquing in this, lets proove some properties about C
+
+  FIXME: not used for now but will probably be
   -/
   have hCs: C.state ∈ used_states M := used_states.mono_default hlab Clast.2
   have hCt: C.tape.head ∈ used_symbols M := used_symbols.mono_default hsym Clast.2
@@ -857,14 +927,11 @@ theorem correct_complete (h: (BBResult.join (BBCompute decider (m0RB l s)) (BBCo
 by {
   simp [BBResult.join, only_0RB_1RB]
   simp [BBResult.join, Finset.union_eq_empty] at h
-  sorry
-  /-
   congr
   · symm
     exact correct_0RB h.1
   · symm
     exact correct_1RB h.2
-  -/
 }
 
 end BBCompute
