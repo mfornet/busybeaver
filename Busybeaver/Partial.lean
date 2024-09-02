@@ -285,7 +285,7 @@ structure PartialConfig (l s) where
   tape: PartialTape (Symbol s)
 deriving DecidableEq
 
-notation L " {" C ":" D "} " R => PartialConfig.mk C (PartialTape.mk D L R)
+notation L " {" C ";" D "} " R => PartialConfig.mk C (PartialTape.mk D L R)
 notation L " <{" C "} " R => PartialConfig.mk C (PartialTape.mk Turing.Dir.left L R)
 notation L " {" C "}> " R => PartialConfig.mk C (PartialTape.mk Turing.Dir.right L R)
 
@@ -306,6 +306,19 @@ inductive MultiPStep (M: Machine l s): ℕ → PartialConfig l s → PartialConf
 | step A B C n: (A p-[M]-> B) → MultiPStep M n B C → MultiPStep M n.succ A C
 
 notation A " p-[" M "]{" n "}-> " B => MultiPStep M n A B
+
+section Delab
+
+open Lean PrettyPrinter Delaborator SubExpr
+
+@[app_unexpander PartialConfig.mk]
+def PartialConfig.unexp : Unexpander
+| `($_ $state { dir := Turing.Dir.left, left := $L, right := $R }) => `(($L) <{$state} ($R))
+| `($_ $state { dir := Turing.Dir.right, left := $L, right := $R }) => `(($L) {$state}> ($R))
+| `($_ $state { dir := $D, left := $L, right := $R }) => `(($L) {$state ; $D} ($R))
+| _ => throw ()
+
+end Delab
 
 def MultiPStep.refl' (hAB: A = B): A p-[M]{0}-> B :=
 by {
@@ -363,33 +376,33 @@ lemma step.finiteness_right
     A.tape.right.is_infinite ↔ B.tape.right.is_infinite := sorry
 
 lemma step.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: (L {q:dir} R) p-[M]-> (L' {q':dir'} R')):
-  ((L ++ T) {q:dir} R ++ T') p-[M]-> ((L' ++ T) {q':dir'} R' ++ T') :=
+  (h: (L {q;dir} R) p-[M]-> (L' {q';dir'} R')):
+  ((L ++ T) {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} R' ++ T') :=
 by {
   sorry
 }
 
 lemma step.locality' {L R L' R': List (Symbol s)} {T T' Tl Tr Tl' Tr': PartialHTape (Symbol s)}
-  (h: (L {q:dir} R) p-[M]-> (L' {q':dir'} R'))
+  (h: (L {q;dir} R) p-[M]-> (L' {q';dir'} R'))
   (hTl: Tl = L ++ T)
   (hTr: Tr = R ++ T')
   (hTl': Tl' = L' ++ T)
   (hTr': Tr' = R' ++ T')
   :
-  (Tl {q:dir} Tr) p-[M]-> (Tl' {q':dir'} Tr') :=
+  (Tl {q;dir} Tr) p-[M]-> (Tl' {q';dir'} Tr') :=
 by {
   rw [hTl, hTr, hTl', hTr']
   exact locality h
 }
 
 lemma step.locality_left₀ {R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: ({} {q:dir} R) p-[M]-> (L' {q':dir'} R')):
-  (T {q:dir} R ++ T') p-[M]-> ((L' ++ T) {q':dir'} R' ++ T') :=
+  (h: ({} {q;dir} R) p-[M]-> (L' {q';dir'} R')):
+  (T {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} R' ++ T') :=
   by apply step.locality' h (T:=T) (T':=T') <;> try simp
 
 lemma step.locality_left₁ {R L': List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: ({} {q:dir} R) p-[M]-> (L' {q':dir'} {})):
-  (T {q:dir} R ++ T') p-[M]-> ((L' ++ T) {q':dir'} T') :=
+  (h: ({} {q;dir} R) p-[M]-> (L' {q';dir'} {})):
+  (T {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} T') :=
   by apply step.locality' h (T:=T) (T':=T') <;> try simp
 
 /--
@@ -402,8 +415,8 @@ This is the key lemma to build inductive proofs about TMs, reasonning on incresi
 patterns of partial configurations.
 -/
 lemma MultiPStep.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: (L {q:dir} R) p-[M]{n}-> (L' {q':dir'} R')):
-    ((L ++ T) {q:dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q':dir'} R' ++ T') :=
+  (h: (L {q;dir} R) p-[M]{n}-> (L' {q';dir'} R')):
+    ((L ++ T) {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} R' ++ T') :=
 by induction n generalizing L R L' R' q q' dir dir' with
 | zero => {
   cases h
@@ -438,31 +451,31 @@ by induction n generalizing L R L' R' q q' dir dir' with
 }
 
 lemma MultiPStep.locality' {L R L' R': List (Symbol s)} {T T' Tl Tr Tl' Tr': PartialHTape (Symbol s)}
-  (h: (L {q:dir} R) p-[M]{n}-> (L' {q':dir'} R'))
+  (h: (L {q;dir} R) p-[M]{n}-> (L' {q';dir'} R'))
   (hTl: Tl = L ++ T)
   (hTr: Tr = R ++ T')
   (hTl': Tl' = L' ++ T)
   (hTr': Tr' = R' ++ T')
   :
-  (Tl {q:dir} Tr) p-[M]{n}-> (Tl' {q':dir'} Tr') :=
+  (Tl {q;dir} Tr) p-[M]{n}-> (Tl' {q';dir'} Tr') :=
 by {
   rw [hTl, hTr, hTl', hTr']
   exact locality h
 }
 
 lemma MultiPStep.locality_left₀ {R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: ({} {q:dir} R) p-[M]{n}-> (L' {q':dir'} R')):
-    (T {q:dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q':dir'} R' ++ T') :=
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} R')):
+    (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} R' ++ T') :=
 by apply locality' h (T:=T) (T':=T') <;> simp
 
 lemma MultiPStep.locality_left₁ {R L': List (Symbol s)} {T T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: ({} {q:dir} R) p-[M]{n}-> (L' {q':dir'} {})):
-    (T {q:dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q':dir'} T') :=
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})):
+    (T {q;dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q';dir'} T') :=
 by apply locality' h (T:=T) (T':=T') <;> simp
 
 lemma MultiPStep.locality_left₂ {R L': List (Symbol s)} {T: PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
-  (h: ({} {q:dir} R) p-[M]{n}-> (L' {q':dir'} {})):
-    (T {q:dir} R) p-[M]{n}-> ((L' ++ T) {q':dir'} {}) :=
+  (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})):
+    (T {q;dir} R) p-[M]{n}-> ((L' ++ T) {q';dir'} {}) :=
 by apply locality' h (T:=T) (T':={}) <;> simp
 
 section Example
