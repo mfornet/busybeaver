@@ -81,6 +81,18 @@ def sym_eval (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConfig l 
 def symbolic_halting (M: Machine l s): Finset (SymbolicConfig l s) :=
   M.halting_trans.image λ ⟨lab, sym⟩ ↦ SymbolicConfig.from_trans lab sym
 
+lemma symbolic_halting.empty_step {C: SymbolicConfig l s} (h: C ∈ symbolic_halting M): sym_eval M C = ∅ :=
+by {
+  simp [symbolic_halting] at h
+  obtain ⟨a, b, hAB, hCdef⟩ := h
+  simp [halting_trans] at hAB
+  rw [← hCdef] at *
+  cases hCdef
+  simp [SymbolicConfig.from_trans] at *
+  simp [sym_eval]
+  split <;> simp_all
+}
+
 def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 1 .right 1 else .halt
 
 def sym_eval_bw (M: Machine l s) (C: SymbolicConfig l s) (lab: Label l) (sym: Symbol s): Option
@@ -155,8 +167,7 @@ by {
 
   rw [← hCC's] at hM
 
-  specialize h A.state A.tape.head sym' dir hM
-  apply h
+  apply h A.state A.tape.head sym' dir hM
   rw [← Turing.Tape.nth_zero]
   cases dir
   · simp [Turing.Dir.other, -Turing.Tape.nth_zero] at *
@@ -165,8 +176,9 @@ by {
     simp [Turing.Tape.write] at hCC't
     simp [sym_matches] at hCC't
     split at hCC't
-    · rename_i heq
+    · rename_i heq -- TODO: this branch is a contradiction
       rw [heq]
+      simp [WithTop.some]
       sorry
     · simp at hCC't
       rename_i heq
