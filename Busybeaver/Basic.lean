@@ -110,7 +110,7 @@ instance: Repr (Config l s) := ⟨λ cfg _ ↦
 instance: Repr (Stmt l s) where
   reprPrec := λ s _ ↦ match s with
     | .halt => "---"
-    | .next s d l => repr s ++ repr d ++ repr l
+    | .next s d l => repr s ++ repr d ++ toString (Char.ofNat (l + Char.toNat 'A'))
 
 instance: Repr (Machine l s) := ⟨λ M _ ↦
   joinSep (Finset.univ (α:=Label l) |>.sort (· ≤ ·) |>.map (λ lab ↦
