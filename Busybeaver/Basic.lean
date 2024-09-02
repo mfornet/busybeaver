@@ -15,6 +15,54 @@ instance: LE (Symbol s) := inferInstance
 instance: Repr (Symbol s) := inferInstance
 instance: Inhabited (Symbol s) := inferInstance
 
+instance: Repr Turing.Dir where
+  reprPrec := λ d _ ↦ match d with
+    | .left => "L"
+    | .right => "R"
+
+def Turing.Dir.other: Turing.Dir → Turing.Dir
+| .left => .right
+| .right => .left
+
+lemma Turing.Dir.eq_left_or_eq_right {d: Turing.Dir}: d = .left ∨ d = .right :=
+by cases d <;> trivial
+
+@[simp]
+lemma Turing.Tape.move.other [Inhabited α] {Γ: Turing.Tape α}: (Γ.move d).move d.other = Γ :=
+by cases d <;> simp [move, Turing.Dir.other]
+
+@[simp]
+lemma Turing.Dir.other.symmetric {d: Turing.Dir}: d.other.other = d :=
+by cases d <;> simp [other]
+
+instance Finset.instUnionComm [DecidableEq α]: Std.Commutative (α:=Finset α) Union.union :=
+by {
+  constructor
+  intro a b
+  exact Finset.union_comm _ _
+}
+
+instance Finset.instUnionAssoc [DecidableEq α]: Std.Associative (α:=Finset α) Union.union :=
+by {
+  constructor
+  intro a b c
+  exact Finset.union_assoc _ _ _
+}
+
+@[simp]
+lemma Finset.fold_union_empty [DecidableEq α] [DecidableEq β] {f: α → Finset β} {S: Finset α}:
+  Finset.fold Union.union ∅ f S = ∅ ↔ ∀ a ∈ S, f a = ∅ :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => simp [Finset.union_eq_empty, IH]
+
+@[simp]
+lemma Finset.mem_fold_union [DecidableEq α] [DecidableEq β] {f: α → Finset β} {S: Finset α} {b : β}:
+  b ∈ Finset.fold Union.union ∅ f S ↔ ∃ a ∈ S, b ∈ f a :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => simp [IH]
+
 namespace TM
 
 section Defs
@@ -58,11 +106,6 @@ private def left_repr (l: Turing.ListBlank (Symbol s)) (bound: ℕ): List Format
 -- TODO: maybe a smarter way to define it will be needed
 instance: Repr (Config l s) := ⟨λ cfg _ ↦
   Std.Format.joinSep (left_repr cfg.tape.left 10) " " ++ s!" {cfg.state}>{cfg.tape.head} " ++ Std.Format.joinSep (right_repr cfg.tape.right 10) " "⟩
-
-instance: Repr Turing.Dir where
-  reprPrec := λ d _ ↦ match d with
-    | .left => "L"
-    | .right => "R"
 
 instance: Repr (Stmt l s) where
   reprPrec := λ s _ ↦ match s with

@@ -237,6 +237,27 @@ by induction h generalizing k with
     _ -[M]{k - 1}-> C := hC
 }
 
+lemma tail_rec
+  {motive: (n: ℕ) → (A B: Config l s) → (A -[M]{n}-> B) → Prop}
+  (refl: (C: Config l s) → motive 0 C C refl) {n: ℕ} {A B: Config l s} (h: A -[M]{n}-> B)
+  (tail: (A B C: Config l s) → (n: ℕ) → (hBC: B -[M]-> C) → (hAB: A -[M]{n}-> B) → (IH: motive n A B
+  hAB) → motive n.succ A C (by calc A
+      _ -[M]{n}-> B := hAB
+      _ -[M]{1}-> C := single hBC)):
+  motive n A B h :=
+by induction n generalizing A B with
+| zero => {
+  cases h
+  exact refl A
+}
+| succ n IH => {
+  obtain ⟨C, hAC, hCB⟩ := h.split
+  apply single' at hCB
+  apply tail
+  · exact hCB
+  · exact IH hAC
+}
+
 end Machine.Multistep
 
 namespace Machine.Progress

@@ -10,17 +10,6 @@ import Busybeaver.Enumerate.Basic
 -- For the theorem at the end of the file
 import Busybeaver.Enumerate.ZVisits
 
-def Turing.Dir.other: Turing.Dir → Turing.Dir
-| .left => .right
-| .right => .left
-
-lemma Turing.Dir.eq_left_or_eq_right {d: Turing.Dir}: d = .left ∨ d = .right :=
-by cases d <;> trivial
-
-@[simp]
-lemma Turing.Dir.other.symmetric {d: Turing.Dir}: d.other.other = d :=
-by cases d <;> simp [other]
-
 def Turing.Tape.reverse [Inhabited Γ] (T: Turing.Tape Γ): Turing.Tape Γ := {T with left := T.right, right := T.left}
 
 namespace Turing.Tape.reverse

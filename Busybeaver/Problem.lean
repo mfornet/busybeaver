@@ -388,34 +388,6 @@ by induction S using Finset.induction with
 | empty => simp_all
 | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
 
-instance Finset.instUnionComm [DecidableEq α]: Std.Commutative (α:=Finset α) Union.union :=
-by {
-  constructor
-  intro a b
-  exact Finset.union_comm _ _
-}
-
-instance Finset.instUnionAssoc [DecidableEq α]: Std.Associative (α:=Finset α) Union.union :=
-by {
-  constructor
-  intro a b c
-  exact Finset.union_assoc _ _ _
-}
-
-@[simp]
-lemma Finset.fold_union_empty [DecidableEq α] [DecidableEq β] {f: α → Finset β} {S: Finset α}:
-  Finset.fold Union.union ∅ f S = ∅ ↔ ∀ a ∈ S, f a = ∅ :=
-by induction S using Finset.induction with
-| empty => simp
-| @insert A S _ IH => simp [Finset.union_eq_empty, IH]
-
-@[simp]
-lemma Finset.mem_fold_union [DecidableEq α] [DecidableEq β] {f: α → Finset β} {S: Finset α} {b : β}:
-  b ∈ Finset.fold Union.union ∅ f S ↔ ∃ a ∈ S, b ∈ f a :=
-by induction S using Finset.induction with
-| empty => simp
-| @insert A S _ IH => simp [IH]
-
 @[simp]
 def BBResult.join.fold_union [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
   (Finset.fold BBResult.join B f S).undec = Finset.fold Union.union B.undec (λ a ↦ (f a).undec) S :=
