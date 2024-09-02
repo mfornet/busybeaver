@@ -1,7 +1,7 @@
 import Lake
 open Lake DSL
 
-package "busybeaver" where
+package «busybeaver» where
   -- Settings applied to both builds and interactive editing
   leanOptions := #[
     ⟨`pp.unicode.fun, true⟩ -- pretty-prints `fun a ↦ b`
@@ -9,11 +9,11 @@ package "busybeaver" where
   -- add any additional package configuration options here
   moreLeancArgs := #["-g"]
 
-require "leanprover-community" / "mathlib"
+require mathlib from git "https://github.com/leanprover-community/mathlib4"
 
 
 @[default_target]
-lean_exe beaver where
+lean_exe «beaver» where
   moreLeancArgs := #["-g"]
   root := `Main
 
