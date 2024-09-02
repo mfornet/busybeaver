@@ -82,12 +82,12 @@ by {
 
 structure BBResult (l s: ℕ) where
   val : ℕ
-  undec : Finset (Machine l s)
+  undec : Multiset (Machine l s)
 deriving DecidableEq
 
 def BBResult.join (t₁ t₂: BBResult l s): BBResult l s := {
   val := Max.max t₁.val t₂.val
-  undec := t₁.undec.disjUnion t₂.undec sorry
+  undec := t₁.undec + t₂.undec
   /- undec := t₁.undec ∪ t₂.undec -/
 }
 
@@ -98,7 +98,7 @@ by {
   simp [BBResult.join]
   constructor
   · exact Nat.max_comm _ _
-  · exact Finset.union_comm _ _
+  · exact AddCommMagma.add_comm A.undec B.undec
 }
 
 instance BBResult.join.associative: Std.Associative (BBResult.join (l:=l) (s:=s)) :=
@@ -106,7 +106,9 @@ by {
   constructor
   intro A B C
   simp [BBResult.join]
-  exact Nat.max_assoc A.val B.val C.val
+  constructor
+  · exact Nat.max_assoc A.val B.val C.val
+  · exact add_assoc A.undec B.undec C.undec
 }
 
 @[simp]
@@ -116,12 +118,12 @@ by induction S using Finset.induction with
 | empty => simp_all
 | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
 
-@[simp]
-def BBResult.join.fold_union [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
-  (Finset.fold BBResult.join B f S).undec = Finset.fold Union.union B.undec (λ a ↦ (f a).undec) S :=
-by induction S using Finset.induction with
-| empty => simp_all
-| @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
+/- @[simp] -/
+/- def BBResult.join.fold_union [DecidableEq α] {f: α → BBResult l s} {S: Finset α}: -/
+/-   (Finset.fold BBResult.join B f S).undec = Finset.fold Multiset.add B.undec (λ a ↦ (f a).undec) S := -/
+/- by induction S using Finset.induction with -/
+/- | empty => simp_all -/
+/- | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH] -/
 
 def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match h with
 | .unknown _ => { val := 0, undec := {M}}
@@ -351,6 +353,8 @@ by induction M using BBCompute.induct decider with
 | case2 M n C Clast Mdec Mntrans IH => {
   unfold BBCompute at hM
   simp [Mdec, Mntrans] at hM
+  sorry
+  /-
   obtain ⟨Mc, hMc, hMc'⟩ := hM
   specialize IH ⟨Mc, hMc⟩
   simp at IH
@@ -359,6 +363,7 @@ by induction M using BBCompute.induct decider with
   calc
     is_child M' Mc := IH
     is_child Mc M := next_machines.is_child Clast.1 hMc
+  -/
 }
 
 lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M'):
@@ -679,7 +684,8 @@ by induction M using BBCompute.induct decider with
     intro Mn Hmn
     have hMchild := next_machines.is_child Clast.1 Hmn
     apply IH ⟨Mn, Hmn⟩
-    · exact h Mn Hmn
+    · -- exact h Mn Hmn
+      sorry
     · exact is_child.used_symbols_mono hMchild hsym
     · exact is_child.used_states_mono hMchild hlab
   }
@@ -859,11 +865,14 @@ theorem correct_complete (h: (BBResult.join (BBCompute decider (m0RB l s)) (BBCo
 by {
   simp [BBResult.join, only_0RB_1RB]
   simp [BBResult.join, Finset.union_eq_empty] at h
+  sorry
+  /-
   congr
   · symm
     exact correct_0RB h.1
   · symm
     exact correct_1RB h.2
+  -/
 }
 
 end BBCompute

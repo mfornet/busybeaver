@@ -55,7 +55,7 @@ def main (args: List String): IO Unit := do
           }
           IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
         else
-          IO.println s!"#Undecided: {comp.undec.card}"
+          IO.println s!"#Undecided: {Multiset.card comp.undec}"
           IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
     | _, _ => IO.println "Invalid arguments, expected integers"
   }
