@@ -407,6 +407,18 @@ by {
 
 end TReach
 
+lemma List.takeWhile_append_drop {p: α → Bool} (L: List α):
+  (L.takeWhile p) ++ (L.drop (L.takeWhile p).length) = L :=
+by induction L with
+| nil => simp
+| cons head tail IH => {
+  by_cases h: p head = true
+  · rw [List.takeWhile_cons_of_pos h]
+    simp [IH]
+  · rw [List.takeWhile_cons_of_neg h]
+    simp
+}
+
 def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick l s) // L' ++ L' <+: ((q, ⊥) :: L) ∧ (q, ⊥) ∈ L' } :=
   let rec loopy (left: List (Tick l s)) (right: List (Tick l s))(hq: (q, ⊥) ∈ left) (hL: (q, ⊥) :: L
   = left ++ right): Option { P: List (Tick l s) × List (Tick l s) // (q, ⊥) :: L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ (q, ⊥) ∈ P.1 } :=
@@ -421,14 +433,19 @@ def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick
       apply absurd hlr
       exact List.ne_nil_of_mem hq
     }
-    | head :: tail => loopy (left.concat head) tail (by {
+    | head :: tail =>
+      let upto := tail.takeWhile (λ t ↦ t.2 ≠ ⊥)
+      loopy (left ++ head :: upto) (tail.drop upto.length) (by {
       simp
       left
       exact hq
     }) (by {
       rw [hL]
-      simp
+      simp [upto]
+      symm
+      exact List.takeWhile_append_drop tail
     })
+  termination_by right.length
   loopy [(q, ⊥)] L (by simp) (by simp) |>.map (λ ⟨(left, right), issum, ispref⟩ ↦ ⟨left, by {
     constructor
     · simp_all
