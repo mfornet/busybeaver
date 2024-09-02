@@ -5,7 +5,7 @@ import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.NoHaltState
 
 open TM
-abbrev TM22 := Machine 2 1
+abbrev TM22 := Machine 1 1
 
 def allDecs: (M: TM22) → HaltM M Unit := λ M ↦ do
   noHaltDec M
@@ -20,6 +20,6 @@ def main : IO Unit := do
   IO.println "Done";
   IO.println s!"N elems: {init.card}"
   IO.println "Filter";
-  let res := (Busybeaver init allDecs);
+  let res := (BBcompute init allDecs);
   IO.println s!"Max: {res.val}";
   IO.println s!"Undec: {res.undec.card}"
