@@ -947,6 +947,91 @@ end TM.Machine
 
 section Example
 
+def List.repeat (L: List α): ℕ → List α
+| 0 => []
+| n + 1 => L ++ (List.repeat L n)
+
+@[simp]
+lemma List.repeat.zero: List.repeat L 0 = [] := rfl
+
+@[simp]
+lemma List.repeat.succ: List.repeat L (n + 1) = L ++ (List.repeat L n) := rfl
+
+lemma List.repeat.concat_comm: List.repeat L n ++ L = L ++ List.repeat L n :=
+by induction n with
+| zero => simp
+| succ n IH => simp [IH]
+
+@[simp]
+lemma List.repeat.length: (List.repeat L n).length = n * L.length :=
+by induction n with
+| zero => simp
+| succ n IH => {
+  simp
+  rw [Nat.add_one_mul, IH, Nat.add_comm]
+}
+
+lemma List.repeat.add: List.repeat L (n + k) = List.repeat L n ++ List.repeat L k :=
+by induction k with
+| zero => simp
+| succ k IH => {
+  simp
+  rw [← Nat.add_assoc, succ, ← concat_comm, IH]
+  simp
+  exact concat_comm
+}
+
+@[simp]
+lemma List.repeat.singleton_replicate: List.repeat [e] n = List.replicate n e :=
+by induction n with
+| zero => simp
+| succ n IH => {
+  simp
+  rw [IH]
+  rfl
+}
+
+instance List.instHMul: HMul (List α) ℕ (List α) where
+  hMul := List.repeat
+
+namespace List.hmul
+
+variable {L: List α} {n: ℕ}
+
+@[simp]
+lemma zero: L * 0 = [] :=
+  by simp [List.instHMul]
+
+@[simp]
+lemma succ: (L * (n + 1)) = L ++ L * n :=
+  by rfl
+
+@[simp]
+lemma empty: ([]: List α) * n = [] :=
+by induction n with
+| zero => simp
+| succ n IH => simp [IH]
+
+lemma concat_comm: L ++ L * n = (L * n) ++ L :=
+by {
+  simp [List.instHMul]
+  symm
+  exact repeat.concat_comm
+}
+
+@[simp]
+lemma length: (L * n).length = n * L.length :=
+  by simp [List.instHMul]
+
+@[simp]
+lemma add: (L * (n + k)) = L * n ++ L * k :=
+by {
+  simp [List.instHMul]
+  exact repeat.add
+}
+
+end List.hmul
+
 open TM
 
 def tmpMach: Machine 4 2
@@ -962,43 +1047,45 @@ def tmpMach: Machine 4 2
 | 4, 1 => .next 1 .left 4
 | _, _ => unreachable!
 
+abbrev SList:= List (Symbol 2)
+
 /-
 Example of using the locality principle and decidable equality to perform actual computations
 with partial states.
 -/
-lemma shiftRuleLeft: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2)) {2}> {}) :=
+lemma shiftRuleLeft: ({} {2}> ([1] * n: SList)) p-[tmpMach]{n}-> (([1] * n: SList) {2}> {}) :=
 by induction n with
 | zero => {
   simp
 }
 | succ n IH => {
   conv in n + 1 => rw [Nat.add_comm]
-  calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
-    _ = ({} {2}> ([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2))) := by simp; rfl
-    _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by locality!
-    _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)]) {2}> {}) := by locality IH
-    _ = ((List.replicate (n+1) (1: Symbol 2)) {2}> {}) := by {
+  calc ({} {2}> ([1] * (n + 1): SList))
+    _ = ({} {2}> ([1] ++ [1] * n: SList)) := by simp
+    _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> ([1] * n: SList)) := by locality!
+    _ p-[tmpMach]{n}-> ((([1] * n: SList) ++ [(1: Symbol 2)]) {2}> {}) := by locality IH
+    _ = (([1] * (n + 1): SList) {2}> {}) := by {
       simp [-PartialHTape.append_lists]
-      symm
-      exact List.replicate_succ' n 1
+      rw [← List.hmul.concat_comm]
+      rfl
     }
 }
 
-lemma shiftRuleRight: (List.replicate n (1: Symbol 2) <{4} {}) p-[tmpMach]{n}-> ({} <{4} (List.replicate n (1: Symbol 2))) :=
+lemma shiftRuleRight: (([1] * n: SList) <{4} {}) p-[tmpMach]{n}-> ({} <{4} ([1] * n: List (Symbol 2))) :=
 by induction n with
 | zero => {
   simp
 }
 | succ n IH => {
   conv in n + 1 => rw [Nat.add_comm]
-  calc (List.replicate (n+1) (1: Symbol 2) <{4} {})
-    _ = (([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2)) <{4} {}) := by simp; rfl
-    _ p-[tmpMach]{1}-> ((List.replicate n (1: Symbol 2)) <{4} [(1: Symbol 2)]) := by locality!
-    _ p-[tmpMach]{n}-> ({} <{4} (List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)])) := by locality IH
-    _ = ({} <{4} (List.replicate (n+1) (1: Symbol 2))) := by {
+  calc ([1] * (n + 1): SList) <{4} {}
+    _ = (([1] ++ [1] * n: SList) <{4} {}) := by simp
+    _ p-[tmpMach]{1}-> (([1] * n: SList) <{4} [(1: Symbol 2)]) := by locality!
+    _ p-[tmpMach]{n}-> ({} <{4} (([1] * n: SList) ++ [(1: Symbol 2)])) := by locality IH
+    _ = ({} <{4} ([1] * (n + 1): SList)) := by {
       simp [-PartialHTape.append_lists]
-      symm
-      exact List.replicate_succ' n 1
+      rw [← List.hmul.concat_comm]
+      rfl
     }
 }
 
