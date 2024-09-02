@@ -429,10 +429,10 @@ def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match 
 | .loops_prf _ => {val := 0, undec := {}}
 
 private def used_states (M: Machine l s): (Finset (Label l)) :=
-  Finset.univ (α:=Label l) |>.filter (λ l ↦ ∃sym sym' dir nlab, M nlab sym = .next sym' dir l)
+  Finset.univ (α:=Label l) |>.filter (λ l ↦ (∃sym, M l sym ≠ .halt) ∨ (∃ lab sym sym' dir, M lab sym = .next sym' dir l))
 
 private def used_symbols (M: Machine l s): Finset (Symbol s) :=
-  Finset.univ (α:=Symbol s) |>.filter (λ s ↦ ∃sym' dir lab lab', M lab sym' = .next s dir lab')
+  Finset.univ (α:=Symbol s) |>.filter (λ s ↦ (∃lab, M lab s ≠ .halt) ∨ (∃lab sym dir lab', M lab sym = .next s dir lab'))
 
 private def usable_states (M: Machine l s): Finset (Label l) :=
   used_states M ∪ if hM: (Finset.univ \ used_states M).Nonempty then {(Finset.univ \ (used_states M)).min' hM} else ∅
@@ -585,30 +585,42 @@ lemma is_child.used_states (h: M ≤c M'): used_states M ⊆ used_states M' :=
 by {
   intro lab hlab
   simp [TM.Busybeaver.used_states] at *
-  obtain ⟨sym, sym', dir, nlab, hM⟩ := hlab
-  exists sym
-  exists sym'
-  exists dir
-  exists nlab
-  specialize h nlab sym
-  rw [hM] at h
-  simp at h
-  exact h.symm
+  rcases hlab with ⟨sym, hM⟩ | ⟨lab', sym, sym', dir, hM⟩
+  · left
+    exists sym
+    specialize h lab sym
+    simp [hM] at h
+    rw [← h]
+    exact hM
+  · right
+    exists lab'
+    exists sym
+    exists sym'
+    exists dir
+    specialize h lab' sym
+    simp [hM] at h
+    exact h.symm
 }
 
 lemma is_child.used_symbols (h: M ≤c M'): used_symbols M ⊆ used_symbols M' :=
 by {
   intro sym hsym
   simp [TM.Busybeaver.used_symbols] at *
-  obtain ⟨sym', dir, lab, lab', hM⟩ := hsym
-  exists sym'
-  exists dir
-  exists lab
-  exists lab'
-  specialize h lab sym'
-  rw [hM] at h
-  simp at h
-  exact h.symm
+  rcases hsym with ⟨lab, hM⟩ | ⟨lab, sym', dir, lab', hM⟩
+  · left
+    exists lab
+    specialize h lab sym
+    simp [hM] at h
+    rw [← h]
+    exact hM
+  · right
+    exists lab
+    exists sym'
+    exists dir
+    exists lab'
+    specialize h lab sym'
+    simp [hM] at h
+    exact h.symm
 }
 
 lemma is_child.parent_step (h: M ≤c M') (hM': A -[M']-> B): (A -[M]-> B) ∨ M.LastState A :=
@@ -740,6 +752,88 @@ by {
   }
   apply Finset.exists_of_ssubset
   exact is_child.ne_halt_trans_ssub h h'
+}
+
+lemma is_child.perm_unused_states {M M': Machine l s} (h: M ≤c M') (hq: q ∉ TM.Busybeaver.used_states M) (hq': q' ∉ TM.Busybeaver.used_states M): M ≤c M'.perm q q' :=
+by {
+  intro lab sym
+  simp [TM.Busybeaver.used_states] at hq hq'
+  obtain ⟨hq₁, hq₂⟩ := hq
+  obtain ⟨hq'₁, hq'₂⟩ := hq'
+  by_cases hlq: lab = q
+  · left
+    rw [hlq]
+    exact hq₁ sym
+  by_cases hlq': lab = q'
+  · left
+    rw [hlq']
+    exact hq'₁ sym
+
+  rcases h lab sym with h' | h'
+  · left
+    exact h'
+  right
+  simp [Machine.perm, Machine.swap.ne hlq hlq']
+  split
+  · simp_all
+  simp_all
+  rename_i nlab _
+  suffices nlab ≠ q ∧ nlab ≠ q' by {
+    simp [Machine.swap.ne this.1 this.2]
+  }
+  constructor
+  · intro hnq
+    apply hq₂
+    rw [hnq] at h'
+    exact h'
+  · intro hnq'
+    apply hq'₂
+    rw [hnq'] at h'
+    exact h'
+}
+
+lemma is_child.translate_unused_symbols {M M': Machine l s}
+  (h: M ≤c M')
+  (hs: S ∉ TM.Busybeaver.used_symbols M)
+  (hs': S' ∉ TM.Busybeaver.used_symbols M): M ≤c M'.translated S S' :=
+by {
+  intro lab sym
+  rcases h lab sym with h' | h'
+  · left
+    exact h'
+
+  simp [TM.Busybeaver.used_symbols] at hs hs'
+  obtain ⟨hs₁, hs₂⟩ := hs
+  obtain ⟨hs'₁, hs'₂⟩ := hs'
+
+  by_cases hsS: sym = S
+  · left
+    rw [hsS]
+    exact hs₁ lab
+
+  by_cases hsS': sym = S'
+  · left
+    rw [hsS']
+    exact hs'₁ lab
+
+  simp [Machine.translated, Machine.swap.ne hsS hsS']
+  split
+  · left
+    simp_all
+  simp_all
+  rename_i sym' _ _ _
+  suffices sym' ≠ S ∧ sym' ≠ S' by {
+    simp [Machine.swap.ne this.1 this.2]
+  }
+  constructor
+  · intro hsymS
+    rw [hsymS] at h'
+    apply hs₂
+    exact h'
+  · intro hsymS'
+    rw [hsymS'] at h'
+    apply hs'₂
+    exact h'
 }
 
 noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
@@ -910,6 +1004,8 @@ by induction M using BBCompute.induct decider with
       next_machine'
     - otherwise, "normalize" the machine into a machine using the successor of the sates/symbols
       this one is a next_machine'
+
+    This in turns creates 4 subcases, each of which need to be handled independently.
     -/
     intro M' hM'
     simp [terminating_children] at hM'
@@ -961,6 +1057,11 @@ by induction M using BBCompute.induct decider with
         exact Finset.min'_mem _ unused_states
       }
 
+      /-
+      This is the "normalized machine".
+
+      It uses the next usable state instead of any unused state
+      -/
       exists (TM.Machine.perm.isTransformation (q:=lab) (q':=newlab)).lift_terminating (by {
         congr
         apply TM.Machine.swap.ne
@@ -981,15 +1082,40 @@ by induction M using BBCompute.induct decider with
       swap
       · simp [Transformation.lift_terminating]
 
-      simp
-      exists update_with M C.state C.tape.head (.next sym dir newlab)
+      /-
+      This is the parent of the normalized machine, that is the machine that covers the normalized
+      machine during its recursive call
+      -/
+      exists ⟨update_with M C.state C.tape.head (.next sym dir newlab), update_with.le_halt_trans Clast.1⟩
       constructor
-      · sorry
+      · simp [next_machines']
+        exists sym
+        exists dir
+        exists newlab
+        simp
+        constructor
+        · simp [usable_symbols, hsym']
+        · simp [usable_states, unused_states]
       · simp [Transformation.lift_terminating]
-        intro flab fsym
-        simp [TM.Busybeaver.update_with]
+        have hM'perm : M ≤c M'.M.perm lab newlab := is_child.perm_unused_states hM' hlab' hnlab
+        have hUpd : M ≤c update_with M C.state C.tape.head (.next sym dir newlab) := update_with.is_child Clast.1
+        intro lab' sym'
+        simp [update_with]
         split
-        · simp [TM.Machine.perm]
+        · simp
+          rename_i heq
+          rw [heq.1, heq.2] at *
+          suffices C.state ≠ lab ∧ C.state ≠ newlab by {
+            simp [perm, Machine.swap.ne this.1 this.2]
+            split
+            · rename_i heq
+              rw [hM's] at heq
+              cases heq
+            rename_i heq
+            rw [hM's] at heq
+            cases heq
+            simp
+          }
           sorry
         · sorry
     · sorry
