@@ -217,7 +217,6 @@ lemma from_halts (hM: M.halts { state := q, tape := default }): ∃L, M.ZVisits 
     induction hcR generalizing q with
     | refl => {
       simp [Machine.LastState] at hcFin
-      apply Machine.step.none at hcFin
       simp_all [default, ← h]
       exists []
       constructor
@@ -225,32 +224,31 @@ lemma from_halts (hM: M.halts { state := q, tape := default }): ∃L, M.ZVisits 
     }
     | @succ q' nxt C n step hn IH => {
       simp_all [← h, -h]
-      simp [Machine.step] at step
-      split at step; simp at *
-      rename_i sym dir nlab hnlab
+      have ⟨sym, dir, hdirnxt, hdirnxt'⟩ := Machine.step.some_rev step
+      simp_all
 
       by_cases h_sym: sym = default
       swap
       · exists []
         apply symNZ
-        · exact hnlab
+        · exact hdirnxt
         · exact h_sym
 
-      suffices hL: ∃L, M.ZVisits nlab L by {
+      suffices hL: ∃L, M.ZVisits nxt.state L by {
         obtain ⟨L, hL⟩ := hL
-        exists nlab :: L
+        exists nxt.state :: L
         constructor
         · simp_all
           trivial
         · exact hL
       }
 
-      apply IH
-      · have hq : ⟨q, default⟩ -[M]-> nxt := by simp_all [Machine.step]
-        exact Machine.halts.tail (.single hq) hM
-
-      rw [h_sym, default_write_default, default_move] at step
       simp_all
+      apply IH
+      · exists n
+        exists C
+
+      rw [← hdirnxt']
     }
   }
 
@@ -380,7 +378,7 @@ def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts �
   let rec decideInner (q': Label l) (cur: Finset (Label l)) (bound: ℕ)
     (hq': q' ∉ cur)
     (hcur: ∀ q'' ∈ cur, ∃dir nlab, M q'' default = .next default dir nlab ∧ (nlab ∈ cur ∨ nlab = q'))
-    (h: bound + cur.card = l + 1): (∃L, M.ZVisits q' L) ∨ (¬M.halts ⟨q', default⟩) := match bound with
+    (_h: bound + cur.card = l + 1): (∃L, M.ZVisits q' L) ∨ (¬M.halts ⟨q', default⟩) := match bound with
   | .zero => by {
     simp_all
     right
@@ -396,7 +394,7 @@ def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts �
       _ = l + 1 := by simp
     apply absurd hcurcard
     simp
-    exact Nat.le_of_eq h.symm
+    exact Nat.le_of_eq _h.symm
   }
   | .succ n => match hM : M q' default with
   | .halt => by {
@@ -411,39 +409,37 @@ def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts �
       exact symNZ q' sym dir nlab hM hsym
     by_cases hnlab: nlab ∈ cur
     · right
-      have curClosed: ClosedSet M (λ C ↦ C.state ∈ insert q' cur ∧ C.tape = default) ⟨q', default⟩ := by {
-        constructor
-        · intro ⟨⟨Cstate, Ctape⟩, hCcur, hCdef⟩
-          simp at hCcur
+      suffices ClosedSet M (λ C ↦ C.state ∈ insert q' cur ∧ C.tape = default) ⟨q', default⟩ from this.nonHalting
+      constructor
+      · intro ⟨⟨Cstate, Ctape⟩, hCcur, hCdef⟩
+        simp at hCcur
+        simp [*]
+        rcases hCcur with hCcur | hCcur
+        · simp at *
+          exists ⟨nlab, default⟩
+          simp_all
+          apply Progress.from_multistep (n:=0)
+          simp
+          apply Multistep.single
+          apply Machine.step.some' hM
+          · simp [default]
+          · simp
+        · obtain ⟨Cdir, Cnlab, hCnlab, hCnlabq'⟩ := hcur Cstate hCcur
+          exists ⟨Cnlab, default⟩
           simp [*]
-          rcases hCcur with hCcur | hCcur
-          · simp at *
-            exists ⟨nlab, default⟩
-            simp_all
-            apply Progress.from_multistep (n:=0)
-            simp
-            apply Multistep.single
-            apply Machine.step.some' hM
-            · simp [default]
-            · simp
-          · obtain ⟨Cdir, Cnlab, hCnlab, hCnlabq'⟩ := hcur Cstate hCcur
-            exists ⟨Cnlab, default⟩
-            simp [*]
-            constructor
-            · exact hCnlabq'.symm
-            apply Progress.from_multistep (n:=0)
-            simp
-            apply Multistep.single
-            simp at hCdef
-            apply Machine.step.some' hCnlab
-            · simp [hCdef, default]
-            · simp [hCdef]
-        · simp_all
-          exists ⟨q', default⟩
-          simp [*]
-          exact EvStep.refl
-      }
-      exact curClosed.nonHalting
+          constructor
+          · exact hCnlabq'.symm
+          apply Progress.from_multistep (n:=0)
+          simp
+          apply Multistep.single
+          simp at hCdef
+          apply Machine.step.some' hCnlab
+          · simp [hCdef, default]
+          · simp [hCdef]
+      · simp_all
+        exists ⟨q', default⟩
+        simp [*]
+        exact EvStep.refl
     by_cases hlabq' : nlab = q'
     · right
       simp [*] at *

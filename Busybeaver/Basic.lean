@@ -124,21 +124,6 @@ def Machine.step (M: Machine l s) (orig: Config l s): Option (Config l s) := mat
 | .halt => none
 | .next sym dir state => some { state, tape := orig.tape.write sym |>.move dir}
 
-namespace Machine.step
-
-variable {M: Machine l s}
-
-@[simp]
-lemma none (h: M.step c = .none): M c.state c.tape.head = .halt :=
- by {
-  simp [Machine.step] at h
-  split at h
-  · trivial
-  · contradiction
- }
-
-end Machine.step
-
 def Machine.eval (M: Machine l s) (bound: ℕ) (orig: Config l s): Option (Config l s) := match bound with
 | 0 => orig
 | n + 1 => M.step orig >>= M.eval n

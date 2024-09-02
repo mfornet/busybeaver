@@ -41,6 +41,34 @@ by {
   exact some h
 }
 
+@[simp]
+lemma some_rev (h: M.step B = .some C): ∃ sym dir, M B.state B.tape.head = .next sym dir C.state ∧ C.tape = (B.tape.write sym |>.move dir) :=
+by {
+  simp [step] at h
+  split at h
+  · cases h
+  cases h
+  rename_i sym dir _ _
+  exists sym
+  exists dir
+}
+
+@[simp]
+lemma none: (M.step c = .none) ↔ M c.state c.tape.head = .halt :=
+ by {
+  constructor
+  · intro h
+    simp [Machine.step] at h
+    split at h
+    · trivial
+    · contradiction
+  · intro h
+    simp [Machine.step]
+    split
+    · rfl
+    · simp_all
+ }
+
 end Machine.step
 
 inductive Machine.Multistep (M: Machine l s): ℕ → Config l s → Config l s → Prop
@@ -303,7 +331,7 @@ lemma no_multistep (hM: M.LastState A): ¬(A -[M]{n + 1}-> C) := by {
   intro hAC
   cases hAC
   rename_i B hAB hBC
-  simp [Machine.LastState] at hM
+  simp [Machine.LastState, -step.none] at hM
   rw [hM] at hAB
   cases hAB
 }
