@@ -15,26 +15,6 @@ instance: LE (Symbol s) := inferInstance
 instance: Repr (Symbol s) := inferInstance
 instance: Inhabited (Symbol s) := inferInstance
 
-instance: Repr Turing.Dir where
-  reprPrec := λ d _ ↦ match d with
-    | .left => "L"
-    | .right => "R"
-
-def Turing.Dir.other: Turing.Dir → Turing.Dir
-| .left => .right
-| .right => .left
-
-lemma Turing.Dir.eq_left_or_eq_right {d: Turing.Dir}: d = .left ∨ d = .right :=
-by cases d <;> trivial
-
-@[simp]
-lemma Turing.Tape.move.other [Inhabited α] {Γ: Turing.Tape α}: (Γ.move d).move d.other = Γ :=
-by cases d <;> simp [move, Turing.Dir.other]
-
-@[simp]
-lemma Turing.Dir.other.symmetric {d: Turing.Dir}: d.other.other = d :=
-by cases d <;> simp [other]
-
 instance Finset.instUnionComm [DecidableEq α]: Std.Commutative (α:=Finset α) Union.union :=
 by {
   constructor

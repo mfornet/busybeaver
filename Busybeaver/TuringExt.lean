@@ -49,7 +49,18 @@ instance Turing.BlankRel.instDecidableRel {Γ} [Inhabited Γ] [DecidableEq Γ]: 
   apply instDecidableOr
 }
 
-instance Turing.ListBlank.instDecidableEq {Γ} [Inhabited Γ] [DecidableEq Γ]: DecidableEq (Turing.ListBlank Γ) := by {
+
+namespace Turing.ListBlank
+
+variable {Γ} [Inhabited Γ]
+
+instance instHAppend: HAppend (List Γ) (ListBlank Γ) (ListBlank Γ) where
+  hAppend := append
+
+lemma append_assoc' {L₁ L₂: List Γ} {L: ListBlank Γ}: L₁ ++ L₂ ++ L = L₁ ++ (L₂ ++ L) :=
+  Turing.ListBlank.append_assoc L₁ L₂ L
+
+instance instDecidableEq [DecidableEq Γ]: DecidableEq (Turing.ListBlank Γ) := by {
   simp [Turing.ListBlank, Turing.BlankRel.setoid]
   refine @instDecidableEqQuotientOfDecidableEquiv _ _ ?_
   intro a b
@@ -57,9 +68,34 @@ instance Turing.ListBlank.instDecidableEq {Γ} [Inhabited Γ] [DecidableEq Γ]: 
   apply inferInstance
 }
 
+end Turing.ListBlank
+
 instance Turing.Tape.instDecidableEq {Γ} [Inhabited Γ] [DecidableEq Γ]: DecidableEq (Turing.Tape Γ) := by {
   unfold DecidableEq
   intro ⟨ha, La, Ra⟩ ⟨hb, Lb, Rb⟩
   simp
   repeat apply instDecidableAnd
 }
+
+namespace Turing.Dir
+instance: Repr Turing.Dir where
+  reprPrec := λ d _ ↦ match d with
+    | .left => "L"
+    | .right => "R"
+
+def other: Turing.Dir → Turing.Dir
+| .left => .right
+| .right => .left
+
+lemma eq_left_or_eq_right {d: Turing.Dir}: d = .left ∨ d = .right :=
+by cases d <;> trivial
+
+@[simp]
+lemma move.other [Inhabited α] {Γ: Turing.Tape α}: (Γ.move d).move d.other = Γ :=
+by cases d <;> simp [Turing.Tape.move, Turing.Dir.other]
+
+@[simp]
+lemma other.symmetric {d: Turing.Dir}: d.other.other = d :=
+by cases d <;> simp [other]
+
+end Turing.Dir
