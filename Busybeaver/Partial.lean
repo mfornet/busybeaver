@@ -76,6 +76,10 @@ def nonempty: PartialHTape Γ → Prop
 | .finite L => L ≠ []
 | .infinite _ => True
 
+@[simp]
+lemma nonempty.finite {L: List Γ}: (PartialHTape.finite L).nonempty ↔ (L ≠ []) :=
+  by simp [nonempty]
+
 def is_infinite.nonempty {T: PartialHTape Γ} (hT: T.is_infinite = true): T.nonempty :=
 by {
   cases T
@@ -116,11 +120,19 @@ lemma cons.nonempty {L: PartialHTape Γ}: (PartialHTape.cons A L).nonempty :=
   by cases L <;> simp [cons, PartialHTape.nonempty]
 
 @[simp]
-def cons.infinite_iff {L: PartialHTape Γ}: (PartialHTape.cons A L).is_infinite = L.is_infinite :=
+lemma cons.infinite_iff {L: PartialHTape Γ}: (PartialHTape.cons A L).is_infinite = L.is_infinite :=
   by cases L <;> simp [cons]
 
 @[simp]
-def cons.head {L: PartialHTape Γ}: (cons A L).head cons.nonempty = A :=
+lemma cons_list {L: List Γ} {g: Γ}: cons g L = .finite (g :: L) :=
+by simp [cons]
+
+@[simp]
+lemma cons_list' {L: Turing.ListBlank Γ} {g: Γ}: cons g L = .infinite (Turing.ListBlank.cons g L) :=
+by simp [cons]
+
+@[simp]
+lemma cons.head {L: PartialHTape Γ}: (cons A L).head cons.nonempty = A :=
   by cases L <;> simp [cons, PartialHTape.head]
 
 def tail: PartialHTape Γ → PartialHTape Γ
@@ -162,8 +174,56 @@ lemma append_empty_end {L: List Γ}: L ++ ({}: PartialHTape Γ) = L :=
   by simp
 
 @[simp]
-lemma append_lists {L R: List Γ}: PartialHTape.finite (L ++ R) = L ++ (PartialHTape.finite R) :=
+lemma append_lists {L R: List Γ}: L ++ (PartialHTape.finite R) = PartialHTape.finite (L ++ R) :=
   by simp [instHAppendList, append]
+
+@[simp]
+lemma append_listsblanks {L: List Γ} {R: Turing.ListBlank Γ}: L ++ (PartialHTape.infinite R) = PartialHTape.infinite (L ++ R) :=
+  by simp [instHAppendList, append]
+
+lemma cons_append {L: List Γ} {T: PartialHTape Γ} {g: Γ}: (g :: L) ++ T = cons g (L ++ T) :=
+by cases T with
+| finite L' => simp
+| infinite L' => simp [Turing.ListBlank.instHAppend]
+
+lemma append_assoc {L L': List Γ} {T: PartialHTape Γ}: L ++ L' ++ T = L ++ (L' ++ T) :=
+by cases T with
+| finite Ln => simp
+| infinite Ln => {
+  simp [Turing.ListBlank.instHAppend]
+  exact Turing.ListBlank.append_assoc L L' Ln
+}
+
+lemma append_tail {R: List Γ} {T: PartialHTape Γ} (hR: R ≠ []): (R ++ T).tail = R.tail ++ T :=
+by {
+  cases R
+  · simp at hR
+  simp [tail, cons_append]
+  cases T <;> simp
+}
+
+@[simp]
+lemma append_nonempty {R: List Γ} {T: PartialHTape Γ}: (R ++ T).nonempty ↔ (R ≠ []) ∨ T.nonempty :=
+by {
+  cases R with
+  | nil => simp
+  | cons head tail => simp [cons_append]
+}
+
+lemma append_nonempty' {R: List Γ} {T: PartialHTape Γ} (hR: R ≠ []): (R ++ T).nonempty :=
+by {
+  simp
+  left
+  exact hR
+}
+
+lemma append_head {R: List Γ} {T: PartialHTape Γ} {hR: R ≠ []} {hRT: (R ++ T).nonempty}: (R ++ T).head hRT = R.head hR := 
+by {
+  cases R
+  · simp at hR
+  simp [tail, cons_append]
+}
+
 
 def infty: PartialHTape Γ := PartialHTape.infinite (default: Turing.ListBlank Γ)
 
@@ -292,6 +352,20 @@ def head? (T: PartialTape Γ): Option Γ := T.pointed.head?
 
 def head (T: PartialTape Γ) (hT: T.well_formed): Γ := T.pointed.head hT
 
+def head.locality {L R: List Γ} {dir: Turing.Dir} {T T': PartialHTape Γ}
+  {hwf: PartialTape.well_formed (Γ:=Γ) {dir:=dir, left:=L, right:=R}}
+  {hewf: PartialTape.well_formed {dir:=dir, left:=L ++ T, right:=R ++ T'}}:
+  PartialTape.head {dir:=dir, left:=L ++ T, right:=R ++ T'} hewf = PartialTape.head {dir:=dir, left:=L, right:=R} hwf:=
+by {
+  cases dir <;> {
+    simp [well_formed, pointed] at hwf
+    simp [head, pointed]
+    conv_rhs =>
+      simp [PartialHTape.head]
+    exact PartialHTape.append_head
+  }
+}
+
 lemma head?.wf_eq_some_head {T: PartialTape Γ} (hT: T.well_formed): T.head? = some (T.head hT) :=
 by {
   simp [head?, head]
@@ -351,6 +425,30 @@ by {
   simp [move]
   split <;> simp [finiteness]
 }
+
+lemma move.locality {L R L' R': List Γ} {dirM dir dir': Turing.Dir} {T T': PartialHTape Γ}
+  {hwf: PartialTape.well_formed {dir, left:=L, right:=R}}
+  {hewf: PartialTape.well_formed {dir, left:=L++T, right:=R++T'}}
+
+  (h: PartialTape.move (Γ:=Γ) {dir, left:=L, right:=R} hwf dirM = {dir:=dir', left:=L', right:=R'}):
+  PartialTape.move {dir, left:=L++T, right:=R++T'} hewf dirM = {dir:=dir', left:=L'++T, right:=R'++T'} :=
+by {
+  simp [move] at h
+  split at h <;> {
+    cases h
+    simp [move, PartialHTape.cons_append]
+    try {
+      simp [PartialTape.well_formed, PartialTape.pointed] at hwf
+      simp [PartialHTape.append_tail hwf]
+      congr 1
+      simp [PartialTape.head, PartialTape.pointed]
+      conv_rhs =>
+        simp [PartialHTape.head]
+      exact PartialHTape.append_head
+    }
+  }
+}
+
 
 def write (T: PartialTape Γ) (sym: Γ): PartialTape Γ := match T.dir with
 | .left => { T with left := PartialHTape.cons sym T.left.tail }
@@ -414,7 +512,16 @@ def PartialConfig.unexp : Unexpander
 end Delab
 
 lemma PartialConfig.expand_well_formed {q: Label l} {dir: Turing.Dir} {L R: List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: (L {q;dir} R : PartialConfig l s).tape.well_formed): ((L ++ T) {q;dir} (R ++ T')).tape.well_formed := sorry
+  (h: (L {q;dir} R : PartialConfig l s).tape.well_formed): ((L ++ T) {q;dir} (R ++ T')).tape.well_formed :=
+by {
+  cases dir
+  · cases L
+    · simp [PartialTape.well_formed, PartialTape.pointed] at h
+    simp [PartialTape.well_formed, PartialTape.pointed]
+  · cases R
+    · simp [PartialTape.well_formed, PartialTape.pointed] at h
+    simp [PartialTape.well_formed, PartialTape.pointed]
+}
 
 namespace Machine
 
@@ -619,7 +726,29 @@ lemma pstep.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)
   (h: M.pstep (L {q;dir} R: PartialConfig l s) hwf = some (L' {q';dir'} R': PartialConfig l s)):
     M.pstep ((L ++ T) {q;dir} (R ++ T')) hewf = some ((L' ++ T) {q';dir'} (R' ++ T')) :=
 by {
-  sorry
+  simp [pstep] at h
+  split at h
+  · cases h
+  simp at h
+  rename_i heq
+  cases h.1
+  simp_all only [true_and, PartialHTape.append_nil]
+  simp [pstep, show M q (PartialTape.head { dir := dir, left := L ++ T, right := R ++ T' } hewf) = M q (PartialTape.head { dir := dir, left := ↑L, right := ↑R } hwf) by {
+    congr 1
+    exact PartialTape.head.locality
+  }, heq]
+  simp [PartialTape.write]
+  split
+  · cases L
+    · simp [PartialTape.well_formed, PartialTape.pointed] at hwf
+    simp [PartialHTape.cons_append]
+    simp [← PartialHTape.cons_append]
+    exact PartialTape.move.locality h
+  · cases R
+    · simp [PartialTape.well_formed, PartialTape.pointed] at hwf
+    simp [PartialHTape.cons_append]
+    simp [← PartialHTape.cons_append]
+    exact PartialTape.move.locality h
 }
 
 lemma pstep?.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
@@ -767,6 +896,31 @@ lemma MultiPStep.locality_left₃_finite {R L' T: List (Symbol s)} {q: Label l} 
   (h: ({} {q;dir} R) p-[M]{n}-> (L' {q';dir'} {})): ({} {q;dir} R ++ T) p-[M]{n}-> (L' {q';dir'} T) :=
   by locality h with {}, T
 
+lemma MultiPStep.locality_right₀ {L L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+  (h: (L {q;dir} {}) p-[M]{n}-> (L' {q';dir'} R')): ((L ++ T) {q;dir} T') p-[M]{n}-> ((L' ++ T) {q';dir'} R' ++ T') :=
+  by locality h with T, T'
+
+lemma MultiPStep.locality_right₁ {L R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+  (h: (L {q;dir} {}) p-[M]{n}-> ({} {q';dir'} R')): ((L ++ T) {q;dir} T') p-[M]{n}-> (T {q';dir'} R' ++ T') :=
+  by locality h with T, T'
+
+lemma MultiPStep.locality_right₂ {L R': List (Symbol s)} {T': PartialHTape (Symbol s)}
+  (h: (L {q;dir} {}) p-[M]{n}-> ({} {q';dir'} R')): (L {q;dir} T') p-[M]{n}-> ({} {q';dir'} R' ++ T') :=
+  by locality h with {}, T'
+
+lemma MultiPStep.locality_right₃ {L R': List (Symbol s)} {T: PartialHTape (Symbol s)}
+  (h: (L {q;dir} {}) p-[M]{n}-> ({} {q';dir'} R')): ((L ++ T) {q;dir} {}) p-[M]{n}-> (T {q';dir'} R') :=
+  by locality h with T, {}
+
+lemma MultiPStep.locality_right₂_finite {L R' T': List (Symbol s)}
+  (h: (L {q;dir} {}) p-[M]{n}-> ({} {q';dir'} R')): (L {q;dir} T') p-[M]{n}-> ({} {q';dir'} R' ++ T') :=
+  by locality h with {}, T'
+
+lemma MultiPStep.locality_right₃_finite {L R' T : List (Symbol s)}
+  (h: (L {q;dir} {}) p-[M]{n}-> ({} {q';dir'} R')): ((L ++ T) {q;dir} {}) p-[M]{n}-> (T {q';dir'} R') :=
+  by locality h with T, {}
+
+
 /--
 The locality tactic tries to turn a proof of step of a complex tape into a "local step" on the edges
 of the tape.
@@ -779,26 +933,24 @@ syntax "locality!": tactic
 macro_rules
 | `(tactic| locality) => `(tactic|
     first
-    | apply MultiPStep.locality_left₀
-    | apply MultiPStep.locality_left₁
-    | apply MultiPStep.locality_left₂
-    | apply MultiPStep.locality_left₃
+    -- Try finite lemmas first
     | apply MultiPStep.locality_left₀_finite_left
     | apply MultiPStep.locality_left₁_finite_left
     | apply MultiPStep.locality_left₂_finite
     | apply MultiPStep.locality_left₃_finite
+    | apply MultiPStep.locality_right₂_finite
+    | apply MultiPStep.locality_right₃_finite
+    -- Then more generic lemmas
+    | apply MultiPStep.locality_left₀
+    | apply MultiPStep.locality_left₁
+    | apply MultiPStep.locality_left₂
+    | apply MultiPStep.locality_left₃
+    | apply MultiPStep.locality_right₀
+    | apply MultiPStep.locality_right₁
+    | apply MultiPStep.locality_right₂
+    | apply MultiPStep.locality_right₃
   )
-| `(tactic| locality $h) => `(tactic|
-    first
-    | apply MultiPStep.locality_left₀ $h
-    | apply MultiPStep.locality_left₁ $h
-    | apply MultiPStep.locality_left₂ $h
-    | apply MultiPStep.locality_left₃ $h
-    | apply MultiPStep.locality_left₀_finite_left $h
-    | apply MultiPStep.locality_left₁_finite_left $h
-    | apply MultiPStep.locality_left₂_finite $h
-    | apply MultiPStep.locality_left₃_finite $h
-  )
+| `(tactic| locality $h) => `(tactic| locality; exact $h)
 | `(tactic| locality!) => `(tactic| locality; decide)
 
 section Example
@@ -823,13 +975,14 @@ with partial states.
 Note that in its current form, the proof is very verbose.
 Having tactics to avoid such verbosity will be needed.
 -/
-example: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2)) {2}> {}) :=
+lemma shiftRuleLeft: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2)) {2}> {}) :=
 by induction n with
 | zero => {
   simp
 }
 | succ n IH => {
-  have htmp := calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
+  conv in n + 1 => rw [Nat.add_comm]
+  calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
     _ = ({} {2}> ([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2))) := by simp; rfl
     _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by locality!
     _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)]) {2}> {}) := by locality IH
@@ -838,11 +991,24 @@ by induction n with
       symm
       exact List.replicate_succ' n 1
     }
+}
 
-  simp at htmp
+lemma shiftRuleRight: (List.replicate n (1: Symbol 2) <{4} {}) p-[tmpMach]{n}-> ({} <{4} (List.replicate n (1: Symbol 2))) :=
+by induction n with
+| zero => {
   simp
-  rw [Nat.add_comm n] at *
-  exact htmp
+}
+| succ n IH => {
+  conv in n + 1 => rw [Nat.add_comm]
+  calc (List.replicate (n+1) (1: Symbol 2) <{4} {})
+    _ = (([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2)) <{4} {}) := by simp; rfl
+    _ p-[tmpMach]{1}-> ((List.replicate n (1: Symbol 2)) <{4} [(1: Symbol 2)]) := by locality!
+    _ p-[tmpMach]{n}-> ({} <{4} (List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)])) := by locality IH
+    _ = ({} <{4} (List.replicate (n+1) (1: Symbol 2))) := by {
+      simp [-PartialHTape.append_lists]
+      symm
+      exact List.replicate_succ' n 1
+    }
 }
 
 end Example
