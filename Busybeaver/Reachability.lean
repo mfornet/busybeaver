@@ -91,6 +91,40 @@ notation A " -["M"]->* " B => Machine.EvStep M A B
 
 namespace Machine.Multistep
 
+instance decidable: Decidable (A -[M]{n}-> B) :=
+by induction n generalizing A with
+| zero => {
+  apply decidable_of_iff (A = B)
+  constructor <;> {
+    intro hAB
+    cases hAB
+    constructor
+  }
+}
+| succ n IH => {
+  cases hMA: M.step A with
+  | none => {
+    apply isFalse
+    intro hAB
+    cases hAB
+    simp_all
+  }
+  | some C => {
+    cases @IH C with
+    | isFalse hCB => {
+      apply isFalse
+      intro hAB
+      apply hCB
+      cases hAB
+      simp_all
+    }
+    | isTrue hCB => {
+      apply isTrue
+      exact succ hMA hCB
+    }
+  }
+}
+
 def trans (hA: A -[M]{n}-> B) (hB: B -[M]{n'}-> C): A -[M]{n + n'}-> C := by induction hA with
 | refl => {
   simp
