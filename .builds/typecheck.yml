@@ -1,0 +1,18 @@
+image: nixos/latest
+repositories:
+  nixpkgs: https://nixos.org/channels/nixpkgs-unstable
+packages:
+  - nixpkgs.elan
+sources:
+  - https://git.sr.ht/~vigoux/busybeaver
+tasks:
+  - setup: |
+      cd busybeaver
+      elan default $(cat lean-toolchain)
+      elan show
+  - getcache: |
+      cd busybeaver
+      lake exe cache get
+  - build: |
+      cd busybeaver
+      lake build
