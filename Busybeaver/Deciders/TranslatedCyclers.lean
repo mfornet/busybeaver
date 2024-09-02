@@ -413,20 +413,34 @@ by {
 
 end TReach
 
-def detect_front_loop (L: List (Tick l s)): Option { L': List (Tick l s) // L' ++ L' <+: L ∧ ∃q, (q, ⊥) ∈ L' } :=
-  let rec loopy (left: List (Tick l s)) (right: List (Tick l s)) (hL: L = left ++ right): Option { P: List (Tick l s) × List
-  (Tick l s) // L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ ∃q, (q, ⊥) ∈ P.1 } :=
-    if hl: left <+: right ∧ ∃q, (q, ⊥) ∈ left then
-      .some ⟨(left, right), ⟨hL, hl⟩⟩
+def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick l s) // L' ++ L' <+: ((q, ⊥) :: L) ∧ (q, ⊥) ∈ L' } :=
+  let rec loopy (left: List (Tick l s)) (right: List (Tick l s))(hq: (q, ⊥) ∈ left) (hL: (q, ⊥) :: L
+  = left ++ right): Option { P: List (Tick l s) × List (Tick l s) // (q, ⊥) :: L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ (q, ⊥) ∈ P.1 } :=
+    if hlr: left.length > right.length then
+      .none -- This avoids searching too far
+    else if hl: left <+: right then
+      .some ⟨(left, right), ⟨hL, hl, hq⟩⟩
     else match right with
-    | [] => .none
+    | [] => by { -- Contradiction by the first if
+      exfalso
+      simp at hlr
+      apply absurd hlr
+      exact List.ne_nil_of_mem hq
+    }
     | head :: tail => loopy (left.concat head) tail (by {
+      simp
+      left
+      exact hq
+    }) (by {
       rw [hL]
       simp
     })
-  loopy [] L (by simp) |>.map (λ ⟨(left, right), issum, ispref, ex⟩ ↦ ⟨left, by {
-    simp_all
-    sorry
+  loopy [(q, ⊥)] L (by simp) (by simp) |>.map (λ ⟨(left, right), issum, ispref⟩ ↦ ⟨left, by {
+    constructor
+    · simp_all
+      rw [List.prefix_append_right_inj left]
+      exact ispref.1
+    · exact ispref.2
   }⟩)
 
 def translatedCyclerDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
@@ -435,26 +449,30 @@ def translatedCyclerDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
     match n with
     | .zero => .unknown ()
     | .succ n => do
-      let ⟨(cfg, tick), prf⟩ ← TReach.Machine.stepT M ⟨current, hC⟩
-      let nh := tick :: history
+      let ⟨(cfg, q, b), prf⟩ ← TReach.Machine.stepT M ⟨current, hC⟩
+      let nh := (q, b) :: history
       have hprf : default t-[M:nh.reverse]->> cfg := by {
         simp at prf
         simp [nh]
         exact prf
       }
-      match detect_front_loop nh with
-      | some Lh => .loops_prf (by {
-          obtain ⟨L, hL, q, hq⟩ := Lh
-          have hL': L.reverse ++ L.reverse <:+ nh.reverse := by {
-            conv_lhs =>
-              rw [← List.reverse_append]
-            rw [List.reverse_suffix]
-            exact hL
-          }
-          apply TReach.twice_suffix_loop hprf hL' (q:=q)
-          simp
-          exact hq
-        })
-      | none => loop n nh cfg hprf
+      if hb: b = ⊥ then
+        match detect_front_loop q history with
+        | some Lh => .loops_prf (by {
+            obtain ⟨L, hL, hq⟩ := Lh
+            have hL': L.reverse ++ L.reverse <:+ nh.reverse := by {
+              conv_lhs =>
+                rw [← List.reverse_append]
+              rw [List.reverse_suffix]
+              simp [nh, hb]
+              exact hL
+            }
+            apply TReach.twice_suffix_loop hprf hL' (q:=q)
+            simp
+            exact hq
+          })
+        | none => loop n nh cfg hprf
+      else
+        loop n nh cfg hprf
 
   loop bound [] default (TReach.MultiTStep.refl default)
