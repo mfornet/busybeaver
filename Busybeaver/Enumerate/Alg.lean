@@ -445,6 +445,35 @@ by {
   exact update_with.is_child hM
 }
 
+lemma undec_is_child (hM: M' ∈ (BBCompute decider M).undec): M ≤c M' :=
+by induction M using BBCompute.induct decider with
+| case1 M Mloops Mdec => {
+  unfold BBCompute at hM
+  simp [Mdec] at hM
+}
+| case4 M _ Mdec => {
+  unfold BBCompute at hM
+  simp [Mdec] at hM
+  cases hM
+  exact is_child.refl
+}
+| case3 M n C Clast Mdec h => {
+  unfold BBCompute at hM
+  simp [Mdec, h] at hM
+}
+| case2 M n C Clast Mdec Mntrans IH => {
+  unfold BBCompute at hM
+  simp [Mdec, Mntrans] at hM
+  obtain ⟨Mc, hMc, hMc'⟩ := hM
+  specialize IH ⟨Mc, hMc⟩
+  simp at IH
+  specialize IH hMc'
+  simp [Machine.LastState] at Clast
+  calc
+    is_child M' Mc := IH
+    is_child Mc M := next_machines.is_child Clast.1 hMc
+}
+
 lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M'):
     (M'.LastState C) ∨ (∃Mc ∈ next_machines M C.state C.tape.head, ∃Mh, (Mh ~m M') ∧ Mc ≤c Mh) :=
 by match hM'C: M' C.state C.tape.head with
