@@ -16,6 +16,23 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
   justify the machine enumeration algorithm, and especially
 - [Deciders](./Busybeaver/Deciders/) contains the code of deciders. They are designed as proof-carrying functions.
 
+# Broad TODOs
+
+The project attempts to reconstruct the proofs of busybeaver
+computations. Here are a bunch of ongoing/todo work. They are sorted
+in a random order, and agglomerated by broad categories:
+
+- Formal-only work
+    1. Setup the definitions to reason about individual TMs
+    2. Finish the proof of the TNF enumeration algorithm
+- Implementation-only work
+    1. Find a way to have more parallel evaluation when enumerating TMs
+    2. Enhance logging of the main executable
+- Mixed work
+    1. More deciders !
+    2. Write (and prove) a TNF-1RB enumeration algorithm
+    3. Allow for caching on disk (seems tricky, might involve developing _certificates_ of non-termination) ?
+
 # Acknowledgment
 
 I am heavily inspired by the following Coq formalisation of the problem: [busycoq](https://github.com/meithecatte/busycoq).
