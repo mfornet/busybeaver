@@ -81,6 +81,15 @@ lemma single (h: A -[M]-> B): A -[M]{1}-> B := by {
   exact refl
 }
 
+lemma single' (h: A -[M]{1}-> B): A -[M]-> B :=
+  by {
+    cases h with
+    | @succ _ C _ _ hAC hCB => {
+      cases hCB
+      exact hAC
+    }
+  }
+
 lemma tail (h: A -[M]{n}-> B) (h': B -[M]-> C): A -[M]{n + 1}-> C :=
   by calc A
     _ -[M]{n}-> B := h

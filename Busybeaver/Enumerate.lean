@@ -29,7 +29,257 @@ lemma refl: equi_halts M M c c :=
     rfl
   }
 
+lemma trans (h₁: equi_halts M₁ M₂ c₁ c₂) (h₂: equi_halts M₂ M₃ c₂ c₃): equi_halts M₁ M₃ c₁ c₃ :=
+  by {
+    unfold equi_halts at *
+    exact Iff.trans h₁ h₂
+  }
+
+lemma comm (h: equi_halts M₁ M₂ c₁ c₂): equi_halts M₂ M₁ c₂ c₁ :=
+  by {
+    unfold equi_halts at *
+    exact h.symm
+  }
+
+lemma mono (hM: A -[M]{n}-> B) (hE: equi_halts M M' B C): equi_halts M M' A C :=
+  by {
+    obtain ⟨hEqMM', hEqM'M⟩ := hE
+    constructor
+    · intro hMA
+      apply hEqMM'
+      exact halts.tail hM hMA
+    · intro hM'C
+      have hMB := hEqM'M hM'C
+      exact halts.mono hM hMB
+  }
+
+lemma tail (hM: A -[M]{n}-> B) (hE: equi_halts M M' A C): equi_halts M M' B C :=
+  by {
+    obtain ⟨hEqMM', hEqM'M⟩ := hE
+    constructor
+    · intro hMB
+      apply hEqMM'
+      exact halts.mono hM hMB
+    · intro hM'C
+      exact halts.tail hM  (hEqM'M hM'C)
+  }
+
 end equi_halts
+
+section Perm
+
+@[simp]
+private def swap (q q': Label l) (lab: Label l): Label l :=
+  if lab = q then q' else if lab = q' then q else lab
+
+@[simp]
+lemma swap_swap: swap q q' (swap q' q lab) = lab :=
+  by {
+    by_cases hq: q = q' <;> {
+      simp
+      repeat split <;> simp_all
+    }
+  }
+
+@[simp]
+lemma swap_left: swap q q' q = q' := by simp
+
+private def stmt_perm (S: Stmt l s) (q q': Label l): Stmt l s := match S with
+| .halt => .halt
+| .next sym dir nlab => .next sym dir (swap q q' nlab)
+
+def perm (M: Machine l s) (q q': Label l): Machine l s :=
+  λ lab sym ↦ stmt_perm (if lab = q then M q' sym else if lab = q' then M q sym else M lab sym) q q'
+
+lemma perm.single (h: A -[M]-> B): ⟨q', A.tape⟩ -[M.perm A.state q']-> ⟨swap A.state q' B.state, B.tape⟩ :=
+  by {
+    unfold Machine.step at h
+    split at h
+    · contradiction
+    rename_i sym dir lab' hlab
+    cases h
+    simp
+    simp [Machine.step, perm, stmt_perm]
+    split
+    · rename_i heq
+      split at heq
+      · rename_i heq'
+        split at heq'
+        · rename_i hAq'
+          simp [hAq', hlab] at heq'
+        · simp [hlab] at heq'
+      · rename_i heq'
+        split at heq' <;> contradiction
+    · rename_i heq'
+      split at heq'
+      · contradiction
+      cases heq'
+      rename_i heq'
+      split at heq'
+      · rename_i hAq'
+        simp only [hAq', hlab] at heq'
+        cases heq'
+        simp
+      · simp only [hlab] at heq'
+        cases heq'
+        simp
+  }
+
+lemma perm.simu (h: A -[M]{n}-> B): ⟨swap q q' A.state, A.tape⟩ -[M.perm q q']{n}-> ⟨swap q q' B.state, B.tape⟩ :=
+  by induction n generalizing B with
+  | zero => {
+    cases h
+    simp
+    exact .refl
+  }
+  | succ n IH => {
+    obtain ⟨C, hAC, hCB⟩ := h.split
+    obtain hqp := IH hAC
+    have hMCB := hCB.single'
+
+    have hMCBs : M C.state C.tape.head ≠ .halt := by {
+      intro h
+      simp [Machine.step, h] at hMCB
+    }
+
+    calc ⟨swap q q' A.state, A.tape⟩
+      _ -[M.perm q q']{n}-> ⟨_, C.tape⟩ := hqp
+      _ -[M.perm q q']{1}-> ⟨_, B.tape⟩ := by {
+        apply Multistep.single
+        simp [Machine.step, perm, stmt_perm]
+        split
+        · rename_i heq
+          split at heq <;> {
+            rename_i heq'
+            repeat split at heq' <;> simp_all
+          }
+        · simp [Machine.step] at hMCB
+          rename_i heq
+          split at hMCB
+          · contradiction
+          cases hMCB
+          split at heq <;> {
+            rename_i heq'
+            repeat split at heq' <;> simp_all
+          }
+    }
+  }
+
+lemma perm.simu' (h: A-[M.perm q q']{n}-> B): ⟨swap q' q A.state, A.tape⟩ -[M]{n}-> ⟨swap q' q B.state, B.tape⟩ :=
+  by induction n generalizing B with
+  | zero => {
+    cases h
+    simp
+    exact .refl
+  }
+  | succ n IH => {
+    obtain ⟨C, hAC, hCB⟩ := h.split
+
+    obtain hqp := IH hAC
+    have hMCB := hCB.single'
+
+    have hMCBs : (M.perm q q') C.state C.tape.head ≠ .halt := by {
+      intro h
+      simp [Machine.step, h] at hMCB
+    }
+
+    calc ⟨swap q' q A.state, A.tape⟩
+      _ -[M]{n}-> ⟨_, C.tape⟩ := hqp
+      _ -[M]{1}-> ⟨_, B.tape⟩ := by {
+        apply Multistep.single
+        simp [Machine.step] at hMCB
+        split at hMCB
+        · contradiction
+        cases hMCB
+        rename_i hMCB
+        simp [perm, stmt_perm] at hMCB
+        split at hMCB
+        · contradiction
+        cases hMCB
+
+        rename_i heq
+        split at heq
+        · simp [Machine.step]
+          split
+          · rename_i heq'
+            simp_all
+          · rename_i heq'
+            split at heq' <;> repeat split <;> simp_all
+        · simp [Machine.step]
+          split
+          · rename_i heq'
+            split at heq' <;> simp_all
+          · rename_i heq'
+            split at heq
+            · simp_all [perm, stmt_perm]
+              repeat split <;> simp_all
+            · simp_all [perm, stmt_perm]
+              repeat split <;> simp_all
+              · by_cases hqq': q = q'
+                · simp_all
+                · split <;> simp_all
+              · split <;> simp_all
+    }
+  }
+
+lemma perm.last (h: M.LastState C): (M.perm q q').LastState ⟨swap q q' C.state, C.tape⟩ :=
+  by {
+    simp_all [Machine.LastState]
+    apply Machine.step.none at h
+    simp [Machine.step, perm, stmt_perm]
+    split
+    · rename_i heq
+      split at heq
+      · cases heq
+        rename_i heq
+        repeat split at heq <;> simp_all
+      · cases heq
+    · rename_i heq
+      split at heq
+      · cases heq
+      · cases heq
+        rename_i heq
+        repeat split at heq <;> simp_all
+  }
+
+lemma perm.last' (h: (M.perm q q').LastState C): M.LastState ⟨swap q' q C.state, C.tape⟩ :=
+  by {
+    simp_all [Machine.LastState]
+    apply Machine.step.none at h
+    simp_all [Machine.step, perm, stmt_perm]
+    split at h
+    · rename_i heq
+      split at heq <;> split <;> {
+        rename_i heq'
+        split at heq' <;> simp_all
+      }
+    · cases h
+  }
+
+lemma perm.equiv: equi_halts M (M.perm q q') ⟨q, T⟩ ⟨q', T⟩ :=
+  by {
+    constructor
+    · intro ⟨n, C, hCf, hCr⟩
+      exists n
+      exists ⟨swap q q' C.state, C.tape⟩
+      constructor
+      · exact perm.last hCf
+      · conv =>
+          pattern Config.mk q' T
+          rw [← show swap q q' q = q' by simp]
+        exact perm.simu hCr
+    · intro ⟨n, C, hCf, hCr⟩
+      exists n
+      exists ⟨swap q' q C.state, C.tape⟩
+      constructor
+      · exact perm.last' hCf
+      · conv =>
+          pattern Config.mk q T
+          rw [← show swap q' q q' = q by simp]
+        exact perm.simu' hCr
+  }
+
+end Perm
 
 namespace ZVisits
 
@@ -106,6 +356,46 @@ lemma bound (h: M.ZVisits q L): L.length < Fintype.card (Label l) :=
       exact not_in h
   }
 
+section ZeroTape
+/-
+Lemmas about the default tape, writing to it, and moving it
+-/
+
+@[simp]
+lemma default_write_default: (Turing.Tape.write (Γ:=Symbol s) default default) = default :=
+  by {
+    suffices hCons: Turing.ListBlank.cons (Γ:=Symbol s) default default = default by {
+      simp_all [Turing.Tape.write, hCons, default]
+    }
+
+    apply Turing.ListBlank.ext
+    intro i
+    induction i <;> {
+      simp
+      rfl
+    }
+  }
+
+@[simp]
+lemma default_move: (Turing.Tape.move (Γ:=Symbol s) dir default) = default :=
+  by {
+    suffices hCons: Turing.ListBlank.cons (Γ:=Symbol s) default default = default by {
+      cases dir <;> {
+        simp_all [Turing.Tape.move, hCons, default]
+        trivial
+      }
+    }
+
+    apply Turing.ListBlank.ext
+    intro i
+    induction i <;> {
+      simp
+      rfl
+    }
+  }
+
+end ZeroTape
+
 lemma from_halts (hM: M.halts { state := q, tape := default }): ∃L, M.ZVisits q L :=
   by {
     let ⟨n, cfin, hcFin, hcR⟩ := hM
@@ -146,68 +436,9 @@ lemma from_halts (hM: M.halts { state := q, tape := default }): ∃L, M.ZVisits 
       · have hq : ⟨q, default⟩ -[M]-> nxt := by simp_all [Machine.step]
         exact Machine.halts.tail (.single hq) hM
 
-      suffices hD: (Turing.Tape.write (Γ:=Symbol s) default default |>.move dir) = default by {
-        simp only [h_sym, hD] at step
-        cases step
-        rfl
-      }
-
-      suffices hCons: Turing.ListBlank.cons (Γ:=Symbol s) default default = default by {
-        cases dir <;> {
-          simp_all [Turing.Tape.move, Turing.Tape.write, hCons, default]
-          trivial
-        }
-      }
-
-      apply Turing.ListBlank.ext
-      intro i
-      induction i <;> {
-        simp
-        rfl
-      }
+      rw [h_sym, default_write_default, default_move] at step
+      simp_all
     }
-    -- cases hcR with
-    -- | refl => {
-    -- }
-    -- | @succ _ nxt _ n stp hn => {
-    --   simp [Machine.step] at stp
-    --   simp [default] at hnlab
-    --   simp at *
-    --   by_cases h_sym: sym = default
-    --   swap
-    --   · exists []
-    --     apply Machine.ZVisits.symNZ
-    --     · exact hnlab
-    --     · exact h_sym
-
-    --   suffices hL: ∃ L, M.ZVisits nlab L by {
-    --     obtain ⟨L, hL⟩ := hL
-    --     exists nlab :: L
-    --     constructor
-    --     · simp_all
-    --       trivial
-    --     · exact hL
-    --   }
-
-    --   apply from_halts
-    --   apply halts.tail
-
-
-    --     -- apply from_halts
-    --     -- apply halts.tail
-    --     -- · apply Machine.Multistep.single (A:=?A) (by {
-    --     --     simp [Machine.step]
-    --     --   })
-    --     --   simp [Machine.step]
-    --     --   have hD:  := by {
-    --     --     unfold Turing.Tape.write
-    --     --     unfold Turing.Tape.move
-    --     --     intro L
-    --     --     sorry
-    --     --   }
-    --     -- · exact hM
-    --   }
-    -- }
   }
 
 /--
@@ -215,96 +446,124 @@ If a machine visits a certain list of states without writing non-zero, then we c
 - It directly writes non-zero
 - It is equi-halting with the original TM
 -/
-lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), ∃ q', M'.ZVisits q' [] ∧ equi_halts M M' ⟨q, default⟩ ⟨q', default⟩ :=
+lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_halts M M' ⟨q, default⟩ ⟨q, default⟩ :=
   by induction hM with
+  /-
+  The first two cases are not interesting
+
+  M directly writes non-zero, so it is already in the good form
+  -/
   | @halts q' hq' => {
     exists M
-    exists q'
     constructor
     · exact halts hq'
     · exact equi_halts.refl
   }
   | symNZ q sym dir labh hlab v => {
     exists M
-    exists q
     constructor
     · exact symNZ _ _ _ _ hlab v
     · exact equi_halts.refl
   }
   | symZ q dir nlab labt hq v IH => {
-    obtain ⟨M', q', hV, hEq⟩ := IH
+    obtain ⟨M', hV, hEq⟩ := IH
     by_cases hql: q = nlab
     /-
       First case: the original machine trivially loops forever, writing 0s
     -/
     · simp_all
       exists M'
-      exists q'
 
     /-
       Second case: q and nlab are different states
 
-      The new machine is the _swap_ of states nlab and q' in M'
+      We know (by induction):
+
+      {q, default} -[M]{1}-> {nlab, default} -[M]->  ...
+                                                      ^
+                                                      | equi_halts
+                                                      v
+                             {nlab, default} -[M']-> ...
+
+      The idea is then relatively simple: _swap_ states q and nlab in M' (call this TM Mtrans).
+      We thus get:
+      {q, default} -[M]{1}-> {nlab, default} -[M]->  ...
+                                                      ^
+                                                      | equi_halts
+                                                      v
+      {q, default} -[Mtrans]->                       ...
     -/
-    let Mtrans: Machine l s := λ lab ↦ if lab = nlab then M' q else if lab = q then M' nlab else M' lab
+    exists M'.perm nlab q
 
-    have hMtrans : equi_halts M' Mtrans ⟨q', default⟩ ⟨nlab, default⟩ := by {
-      constructor
-      · intro ⟨n, C, hCf, hCr⟩
-        exists n
-        exists C
-        cases hCr with
-        | refl => {
-          constructor
-          · simp [Machine.LastState] at *
-            apply Machine.step.none at hCf
-            simp at hCf
-            simp [Machine.step, Mtrans, hql]
-            split
-            · rfl
-            simp_all
-
-        }
-
+    /-
+    Equi halting is actually pretty simple,
+    We just have to "allign" M and M' first, and then M' and Mtrans are equihalting by
+    construction (see [perm.equiv])
+    -/
+    have hMq : ⟨q, default⟩ -[M]-> ⟨nlab, default⟩ := by {
+      simp [Machine.step]
+      split
+      · rename_i heq
+        simp [default] at heq hq
+        rw [hq] at heq
+        cases heq
+      · rename_i heq
+        simp [default] at heq hq
+        rw [hq] at heq
+        cases heq
+        simp
+        apply default_move
     }
-    exists Mtrans
-    obtain ⟨hEqMM', hEqM'M⟩ := hEq
+
+    have hMEqM'q : equi_halts M M' ⟨q, default⟩ ⟨nlab, default⟩ := by {
+      apply equi_halts.mono
+      · exact Multistep.single hMq
+      · exact hEq
+    }
+
+    constructor
+    swap
+    · apply equi_halts.trans hMEqM'q
+      exact perm.equiv
+
+    /-
+    Now we need to prove that Mtrans does not write any 0 on the first state
+    This is a consequence of the construction of Mtrans with regard to M'
+    -/
     cases hV with
-    | halts hnlab' => {
-      constructor
-      · apply ZVisits.halts
-        simp [hql]
-        trivial
-      constructor
-      · intro ⟨n, C, hC⟩
+    | halts hV => {
+      /-
+      M' halts directly: Mtrans halts directly too
+      -/
+      apply ZVisits.halts
+      simp [perm, stmt_perm] at *
+      split <;> {
+        rename_i heq
+        split at heq <;> simp_all
+      }
     }
-    -- constructor
-    -- · cases hV with
-    --   | halts => {
-    --     apply ZVisits.halts
-    --     simp [hql]
-    --     trivial
-    --   }
-    --   | symNZ _ sym' dir' labh' hM' sym'ne => {
-    --     apply ZVisits.symNZ
-    --     · simp [hql]
-    --       exact hM'
-    --     · exact sym'ne
-    --   }
-    --   constructor
-    --   · intro hMh
+    | symNZ _ sym dir labh symnxt symne => {
+      /-
+      M' writes a non-zero symbol
 
-    --     -- specialize hEqMM' hMh
+      Here we have to be a little smarter because Mtrans and M' will have
+      different output states the new state of Mtrans being the translated state of M'
+      -/
+      apply ZVisits.symNZ _ sym dir (swap nlab q labh)
+      · simp [perm, stmt_perm] at *
+        split
+        · rename_i heq
+          split at heq <;> simp_all
+        · rename_i heq
+          split at heq
+          simp_all
+          rw [symnxt] at heq
+          cases heq
+          simp_all
+      · exact symne
+    }
   }
 
 end ZVisits
-
-
--- def ZVisits (M: Machine l s) (q: Label l): List (Label l) := match M q default with
--- | .halt => []
--- | .next sym dir q' => if sym = default then [] else q' :: (M.ZVisits q')
--- termination_by M.ZVisitsP q
--- decreasing_by {
--- }
 
 end Machine
