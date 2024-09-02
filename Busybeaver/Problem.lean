@@ -505,10 +505,7 @@ by {
   intro S hS
   simp [possible_statements] at hS
   obtain ⟨sym, state, dir, hS⟩ := hS
-  exists sym
-  exists state
-  exists dir
-  exact hS.2.symm
+  use sym, state, dir, hS.2.symm
 }
 
 private def update_with (M: Machine l s) (lab: Label l) (sym: Symbol s) (S: Stmt l s): Machine l s :=
@@ -524,7 +521,7 @@ by {
     simp_all
     split at htrans <;> simp_all
   · rw [Finset.not_subset]
-    exists (lab, sym)
+    use! lab, sym
     simp
     exact h
 }
@@ -648,10 +645,7 @@ by {
     rw [← h]
     exact hM
   · right
-    exists lab'
-    exists sym
-    exists sym'
-    exists dir
+    use lab', sym, sym', dir
     specialize h lab' sym
     simp [hM] at h
     exact h.symm
@@ -669,10 +663,7 @@ by {
     rw [← h]
     exact hM
   · right
-    exists lab
-    exists sym'
-    exists dir
-    exists lab'
+    use lab, sym', dir, lab'
     specialize h lab sym'
     simp [hM] at h
     exact h.symm
@@ -705,8 +696,7 @@ by induction hM' with
   rcases h.parent_step hAB with hAB | hAB
   swap
   · left
-    exists 0
-    exists A
+    use 0, A
     exact ⟨hAB, Multistep.refl⟩
 
   rcases IH with hBh | hBC'
@@ -722,8 +712,7 @@ by {
   intro ⟨n, C, hCl, hCr⟩
   apply hM
   simp [Machine.LastState] at hCl
-  exists n
-  exists C
+  use n, C
   constructor
   · simp [Machine.LastState]
     have hC := h C.state C.tape.head
@@ -792,8 +781,7 @@ by {
   suffices ∃t ∈ M.halting_trans, t ∉ M'.halting_trans by {
     simp [Machine.halting_trans] at this
     obtain ⟨sym, lab, hl, hne⟩ := this
-    exists sym
-    exists lab
+    use sym, lab
     simp
     constructor
     · exact hl
