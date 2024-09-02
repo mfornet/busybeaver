@@ -1182,15 +1182,45 @@ def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 
 lemma correct_1RB (h: (BBCompute decider (m1RB l s)).undec = ∅): (BBCompute decider (m1RB l s)).val = Busybeaver' l s
 (terminating_children (m1RB l s)) :=
 by {
-  apply correct h
-  · simp [used_symbols]
+  apply correct h <;> {
+    simp [used_symbols, used_states]
     left
     exists 0
     simp [m1RB]
-  · simp [used_states]
+  }
+}
+
+def m0RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 0 .right 1 else .halt
+
+lemma correct_0RB (h: (BBCompute decider (m0RB l s)).undec = ∅):
+  (BBCompute decider (m0RB l s)).val = Busybeaver' l s (terminating_children (m0RB l s)) :=
+by {
+  apply correct h <;> {
+    simp [used_symbols, used_states]
     left
-    exists 0
-    simp [m1RB]
+    use 0
+    simp [m0RB]
+  }
+}
+
+lemma only_0RB_1RB: Busybeaver l s = Busybeaver' l s (terminating_children (m0RB l s) ∪ terminating_children (m1RB l s)) :=
+by {
+  rw [only_right]
+  apply Busybeaver'.biject_fold
+  · sorry
+  · sorry
+}
+
+theorem correct_complete (h: (BBResult.join (BBCompute decider (m0RB l s)) (BBCompute decider (m1RB l s))).undec = ∅):
+  Busybeaver l s = (BBResult.join (BBCompute decider (m0RB l s)) (BBCompute decider (m1RB l s))).val :=
+by {
+  simp [BBResult.join, only_0RB_1RB]
+  simp [BBResult.join, Finset.union_eq_empty] at h
+  congr
+  · symm
+    exact correct_0RB h.1
+  · symm
+    exact correct_1RB h.2
 }
 
 /- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
