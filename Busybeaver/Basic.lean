@@ -147,6 +147,9 @@ def Machine.LastState (M: Machine l s) (σ: Config l s): Bool := M.step σ |>.is
 
 def Machine.halting_trans (M: Machine l s) := (Finset.univ (α:=Label l × Symbol s)).filter (λ pair ↦ M pair.1 pair.2 = .halt)
 
+lemma Machine.halting_trans.mem_iff {M: Machine l s}: (lab, sym) ∈ M.halting_trans ↔ M lab sym = .halt :=
+by simp [Machine.halting_trans]
+
 def Machine.n_halting_trans (M: Machine l s) := M.halting_trans.card
 
 

@@ -5,6 +5,7 @@ import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic
 import Busybeaver.Enumerate.Symmetry
+import Busybeaver.Enumerate.Quotient
 
 namespace TM
 
@@ -433,7 +434,7 @@ them using the decider. It blocks the unwrapping at undecided TMs
 -/
 def BBCompute (decider: (M': Machine l s) → HaltM M' Unit) (M: Machine l s): BBResult l s :=
 match decider M with
-| .loops_prf _ => { val := 0, undec := {} } -- If this one loops, then the children also loop
+| .loops_prf _ => { val := 0, undec := {} } -- If this one loops, then the descendents also loop
 | .halts_prf n C hC =>
   Finset.fold BBResult.join { val := n, undec := {} } (λ M ↦ BBCompute decider M.val) $
   (next_machines' M C.state C.tape.head (by {
@@ -446,18 +447,212 @@ termination_by M.n_halting_trans
 
 namespace BBCompute
 
+/--
+Holds if the transitions of M are a superset of the transitions of M'
+-/
 def is_child (M M': Machine l s): Prop :=
   ∀ lab sym, M' lab sym = .halt ∨ M' lab sym = M lab sym
-notation M "<c" M' => is_child M' M
 
-def is_descendant {l s: ℕ} := Relation.TransGen (is_child (l:=l) (s:=s))
-notation M "<d" M' => is_descendant M' M
+notation M' " ≤c " M => is_child M M'
 
-instance is_descendent.trans: IsTrans (Machine l s) is_descendant := by {
-  unfold is_descendant
+instance is_child.decidable: DecidableRel (α:=Machine l s) is_child :=
+by {
+  intro M M'
+  simp [is_child]
+  refine @Fintype.decidableForallFintype _ _ ?_ _
+  intro lab
+  refine @Fintype.decidableForallFintype _ _ ?_ _
+  intro sym
+  simp
   apply inferInstance
 }
 
+lemma is_child.refl: M ≤c M :=
+by {
+  intro lab sym
+  right
+  rfl
+}
+
+lemma is_child.step (h: M ≤c M') (hM: A -[M]-> B): A -[M']-> B :=
+by {
+  obtain ⟨sym, dir, hdef, hB⟩ := Machine.step.some_rev hM
+  apply Machine.step.some' (sym:=A.tape.head) (sym':=sym) (dir:=dir)
+  · have hMM := h A.state A.tape.head
+    rcases hMM with hMM | hMM
+    · rw [hdef] at hMM
+      cases hMM
+    · rw [hdef] at hMM
+      exact hMM.symm
+  · rfl
+  · exact hB
+}
+
+lemma is_child.parent_step (h: M ≤c M') (hM': A -[M']-> B): (A -[M]-> B) ∨ M.LastState A :=
+by {
+  obtain ⟨sym, dir, hdef, hB⟩ := Machine.step.some_rev hM'
+  rcases h A.state A.tape.head with hAs | hAs
+  · right
+    simp [Machine.LastState]
+    exact hAs
+  · left
+    rw [hdef] at hAs
+    exact Machine.step.some' hAs rfl hB
+}
+
+lemma is_child.multistep (h: M ≤c M') (hM: A -[M]{n}-> B): A -[M']{n}-> B :=
+by induction hM with
+| refl => exact .refl
+| @succ A B C n' hAB _ IH => exact Multistep.succ (is_child.step h hAB) IH
+
+lemma is_child.parent_multistep (h: M ≤c M') (hM': A -[M']{n}-> B): M.halts A ∨ (A -[M]{n}-> B) :=
+by induction hM' with
+| refl => {
+  right
+  exact .refl
+}
+| @succ A B C n hAB _ IH => {
+  rcases h.parent_step hAB with hAB | hAB
+  swap
+  · left
+    exists 0
+    exists A
+    exact ⟨hAB, Multistep.refl⟩
+
+  rcases IH with hBh | hBC'
+  · left
+    apply hBh.mono (n:=1)
+    exact Multistep.single hAB
+  · right
+    exact Multistep.succ hAB hBC'
+}
+
+lemma is_child.halt_of_halt_parent (h: M ≤c M') (hM: ¬M.halts default): ¬M'.halts default :=
+by {
+  intro ⟨n, C, hCl, hCr⟩
+  apply hM
+  simp [Machine.LastState] at hCl
+  exists n
+  exists C
+  constructor
+  · simp [Machine.LastState]
+    have hC := h C.state C.tape.head
+    simp [hCl] at hC
+    exact hC
+  · rcases h.parent_multistep hCr
+    · contradiction
+    · trivial
+}
+
+lemma update_with.is_child (hUpd: M sym lab = .halt): M ≤c (update_with M sym lab (.next sym' dir lab')) :=
+by {
+  intro nlab nsym
+  simp [update_with]
+  split <;> simp [*] at *
+}
+
+lemma next_machines.is_child (hMn: Mn ∈ next_machines' M sym lab hM): M ≤c Mn.val :=
+by {
+  obtain ⟨Mn, _⟩ := Mn
+  simp [*] at *
+  simp [next_machines'] at hMn
+  obtain ⟨sym', dir, lab', _, hdMn⟩ := hMn
+  rw [← hdMn]
+  exact update_with.is_child hM
+}
+
+lemma is_child.halt_trans_sub (h: M ≤c M'): M'.halting_trans ⊆ M.halting_trans :=
+by {
+  intro ⟨sym, lab⟩ hS
+  simp [Machine.halting_trans] at *
+  cases h sym lab <;> simp_all only
+}
+
+lemma is_child.ne_halt_trans_ssub (h: M ≤c M') (h': M ≠ M'): M'.halting_trans ⊂ M.halting_trans :=
+by {
+  apply ssubset_of_subset_not_subset
+  · exact halt_trans_sub h
+  intro hM
+  apply h'
+  funext lab sym
+  rcases h lab sym with hsl | hsl
+  swap
+  · exact hsl
+  have hls' : ⟨lab, sym⟩ ∈ M.halting_trans := by {
+    simp [Machine.halting_trans]
+    exact hsl
+  }
+  specialize hM hls'
+  simp [Machine.halting_trans] at hM
+  simp_all only
+}
+
+lemma is_child.ne_exists_halt_trans (h: M ≤c M') (h': M ≠ M'):
+  ∃sym lab sym' dir lab', M sym lab = .halt ∧ M' sym lab = .next sym' dir lab' :=
+by {
+  suffices ∃t ∈ M.halting_trans, t ∉ M'.halting_trans by {
+    simp [Machine.halting_trans] at this
+    obtain ⟨sym, lab, hl, hne⟩ := this
+    exists sym
+    exists lab
+    simp
+    constructor
+    · exact hl
+    cases hM' : M' sym lab with
+    | halt => contradiction
+    | next sym' dir lab' => {
+      exists sym'
+      exists dir
+      exists lab'
+    }
+  }
+  apply Finset.exists_of_ssubset
+  exact is_child.ne_halt_trans_ssub h h'
+}
+
+lemma is_child.exists_next_machines (h: M ≤c M') (hM: M lab sym = .halt) (hM': M' lab sym = .next sym' dir lab'): ∃Mn ∈ next_machines' M lab sym hM, M' ~m Mn.val :=
+by {
+  have HMM' : M' = update_with M lab sym (.next sym' dir lab') := by {
+    funext lb sm
+    simp [update_with]
+    split
+    · simp_all
+    /- rename_i hsmlb -/
+    sorry
+  }
+  sorry
+}
+
+noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
+  Finset.univ.filter (λ M' ↦ M ≤c M'.M)
+
+theorem correct (h: BBCompute decider M = { val := n, undec := {}}): Busybeaver' l s (terminating_children M) = n :=
+by induction M using BBCompute.induct decider with
+| case1 M' nonhalt h' => {
+  -- The machine did not halt, we can cut here
+  simp [BBCompute, h'] at h
+  rw [← h]
+  suffices terminating_children M' = {} by simp [this]
+  rw [← Finset.not_nonempty_iff_eq_empty]
+  intro hM
+  obtain ⟨⟨nMm,nMn, nMterm⟩, hnMm⟩ := hM.exists_mem
+  simp [terminating_children] at hnMm
+  have nMnothalts := hnMm.halt_of_halt_parent nonhalt
+  exact absurd ⟨nMn, nMterm⟩ nMnothalts
+}
+| case3 M a dec => simp [BBCompute, dec] at h -- Contradictory, BBCompute returns {}
+| case2 M n lastC => {
+  sorry
+}
+
+/- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
+/- by { -/
+/-   unfold is_descendant DecidableRel -/
+/-   intro A B -/
+/-   induction A ≤d B -/
+/- } -/
+/- def descendants (M: Machine l s): Finset (Machine l s) := -/
+/-   Finset.univ (α:=Machine l s) |>.filter (λ M' ↦ M ≤d M') -/
 /-
 theorem correct (h: BBCompute decider M = { val := n, undec := {}}): Busybeaver' l s M.children = n := by {
   trivial
