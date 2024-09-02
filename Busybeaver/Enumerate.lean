@@ -396,6 +396,62 @@ lemma default_move: (Turing.Tape.move (Γ:=Symbol s) dir default) = default :=
 
 end ZeroTape
 
+instance decidable: Decidable (M.ZVisits q L) := by {
+  induction L generalizing q with
+  | nil => {
+    cases hM: M q default with
+    | halt => {
+      apply isTrue
+      exact halts hM
+    }
+    | next sym dir nlab => {
+      by_cases hsym: sym ≠ default
+      · apply isTrue
+        exact symNZ q sym dir nlab hM hsym
+      · apply isFalse
+        intro hM'
+        cases hM' <;> simp_all
+    }
+  }
+  | cons he ta IH => {
+    cases hM: M q default with
+    | halt => {
+      apply isFalse
+      intro hM'
+      cases hM'
+      simp_all
+    }
+    | next sym dir nlab => {
+      by_cases hhe : he ≠ nlab
+      · apply isFalse
+        intro hM'
+        cases hM'
+        simp_all
+      simp_all
+      by_cases hsym: sym ≠ default
+      · apply isFalse
+        intro hM'
+        cases hM'
+        simp_all
+      simp_all
+      cases @IH nlab with
+      | isTrue hM' => {
+        apply isTrue
+        constructor
+        · exact hM
+        · exact hM'
+      }
+      | isFalse hM' => {
+        apply isFalse
+        intro hM''
+        apply hM'
+        cases hM''
+        trivial
+      }
+    }
+  }
+}
+
 lemma from_halts (hM: M.halts { state := q, tape := default }): ∃L, M.ZVisits q L :=
   by {
     let ⟨n, cfin, hcFin, hcR⟩ := hM
@@ -564,7 +620,10 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
     }
   }
 
-lemma decide (M: Machine l s) (q: Label l): ∃L, M.ZVisits q L := sorry
+lemma decide (M: Machine l s) (q: Label l): ∃L, M.ZVisits q L :=
+  by {
+    sorry
+  }
 
 /--
 It is sufficient to only consider machines with empty ZVisits.
@@ -589,8 +648,8 @@ theorem only_nz (decider: ∀(M': Machine l s), (M'.ZVisits q []) → M'.halts �
     unfold equi_halts at hM'h
     rw [hM'h]
     exact hM'n
-    }
   }
+}
 
 end ZVisits
 
