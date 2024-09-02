@@ -826,7 +826,8 @@ by induction M using BBCompute.induct decider with
     have hMnz: M.n_halting_trans = 0 := by {
       apply Nat.eq_zero_of_le_zero
       apply Nat.le_of_lt_succ
-      simp only [← Nat.one_eq_succ_zero]
+      conv_rhs =>
+        simp
       exact Nat.lt_of_le_of_ne hntrans hMne
     }
     apply n_halting_trans.eq_zero_nonhalts hMnz
