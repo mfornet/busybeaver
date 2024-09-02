@@ -196,3 +196,23 @@ lemma one_transition (hMt: M.halts_in n default) (hM: M.n_halting_trans = 1): te
 by {
   sorry
 }
+
+/-
+If two TMs have different next statements, their terminating_children are disjoint.
+-/
+lemma disjoint_of_different_transition
+  (hMM': M lab sym ≠ M' lab sym)
+  (hM: M lab sym ≠ .halt)
+  (hM': M' lab sym ≠ .halt): Disjoint (terminating_children M) (terminating_children M') :=
+by {
+  rw [Finset.disjoint_iff_inter_eq_empty, Finset.eq_empty_iff_forall_not_mem]
+  intro M₀ hM₀
+  simp [terminating_children] at hM₀
+  obtain ⟨hM₀, hM₀'⟩ := hM₀
+  specialize hM₀ lab sym
+  specialize hM₀' lab sym
+  simp [hM] at hM₀
+  simp [hM'] at hM₀'
+  apply hMM'
+  rw [hM₀, hM₀']
+}
