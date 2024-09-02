@@ -14,6 +14,9 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
 - [ClosedSet.lean](./Busybeaver/ClosedSet.lean) defines a tool to prove non-halting based on [Closed Sets](https://wiki.bbchallenge.org/wiki/Closed_Set)
 - [Enumerate](./Busybeaver/Enumerate/) contains everything related to
   justify the machine enumeration algorithm, and especially
+  [Alg.lean](./Busybeaver/Enumerate/Alg.lean) contains a
+  [TNF](https://wiki.bbchallenge.org/wiki/Tree_Normal_Form)
+  enumeration algorithm along with formal proofs.
 - [Deciders](./Busybeaver/Deciders/) contains the code of deciders. They are designed as proof-carrying functions.
 
 # Broad TODOs
@@ -24,7 +27,8 @@ in a random order, and agglomerated by broad categories:
 
 - Formal-only work
     1. Setup the definitions to reason about individual TMs
-    2. Finish the proof of the TNF enumeration algorithm
+    2. Finish the proof of the TNF enumeration algorithm (NB: some
+       lemmas may be wrong and need to tweaked to finish the proof)
 - Implementation-only work
     1. Find a way to have more parallel evaluation when enumerating TMs
     2. Enhance logging of the main executable
