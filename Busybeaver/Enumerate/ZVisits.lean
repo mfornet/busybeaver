@@ -1,7 +1,7 @@
 /-
-How to enumerate turing machines.
+This file is concerned with the starting "0 states" of a machine, i.e. those that write zeros on the initial tape.
 
-Note that we take heavy inspiration of busycoq here.
+Definitions are inspired by busycoq.
 -/
 
 import Mathlib.Tactic
@@ -334,7 +334,10 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
     constructor
     swap
     · apply equi_halts.trans hMEqM'q
-      exact perm.equiv
+      conv =>
+        pattern Config.mk q default
+        rw [show q = swap nlab q nlab by simp]
+      exact perm.isTransformation.equi_halts
 
     /-
     Now we need to prove that Mtrans does not write any 0 on the first state
@@ -346,11 +349,8 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
       M' halts directly: Mtrans halts directly too
       -/
       apply ZVisits.halts
-      simp [perm, stmt_perm] at *
-      split <;> {
-        rename_i heq
-        split at heq <;> simp_all
-      }
+      simp [perm] at *
+      split <;> simp_all
     }
     | symNZ _ sym dir labh symnxt symne => {
       /-
@@ -360,16 +360,8 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
       different output states the new state of Mtrans being the translated state of M'
       -/
       apply ZVisits.symNZ _ sym dir (swap nlab q labh)
-      · simp [perm, stmt_perm] at *
-        split
-        · rename_i heq
-          split at heq <;> simp_all
-        · rename_i heq
-          split at heq
-          simp_all
-          rw [symnxt] at heq
-          cases heq
-          simp_all
+      · simp [perm] at *
+        split <;> simp_all
       · exact symne
     }
   }
@@ -515,21 +507,23 @@ _The_ theorem of interest.
 This is formalized as: assume there is an algorithm that decides for TMs
 with empty ZVisits, then we can use this algorithm to decide for all TMs
 -/
-theorem only_nz (decider: ∀(M': Machine l s), (M'.ZVisits q []) → M'.halts ⟨q, default⟩ ∨ ¬(M'.halts ⟨q, default⟩)): M.halts ⟨q, default⟩ ∨ ¬(M.halts ⟨q, default⟩) := by {
+theorem only_nz (decider: ∀(M': Machine l s), (∃ sym dir nlab, M' q default = .next sym dir nlab ∧ sym ≠ default) → M'.halts ⟨q, default⟩ ∨ ¬(M'.halts ⟨q, default⟩)): M.halts ⟨q, default⟩ ∨ ¬(M.halts ⟨q, default⟩) := by {
   rcases decide M q with ⟨L, hL⟩ | term
   · obtain ⟨M', hM'z, hM'h⟩ := hL.equi
-    cases decider M' hM'z with
-    | inl hM' => {
+    rw [equi_halts.decider hM'h]
+    cases hM'z with
+    | halts hM' => {
       left
-      unfold equi_halts at hM'h
-      rw [hM'h]
+      exists 0
+      apply halts_in.from_last
+      simp [LastState]
       exact hM'
     }
-    | inr hM'n => {
-      right
-      unfold equi_halts at hM'h
-      rw [hM'h]
-      exact hM'n
+    | symNZ _ sym dir nlab symnxt symne => {
+      apply decider
+      exists sym
+      exists dir
+      exists nlab
     }
   · right
     exact term
