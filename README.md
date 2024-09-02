@@ -28,6 +28,9 @@ in a random order, and agglomerated by broad categories:
 - Implementation-only work
     1. Find a way to have more parallel evaluation when enumerating TMs
     2. Enhance logging of the main executable
+    3. Accelerate BBResult merging: for now we use the tragically slow
+       `Finset.union`, we could actually use `Finset.disjUnion` to
+       reduce union to list concatenation.
 - Mixed work
     1. More deciders !
     2. Write (and prove) a TNF-1RB enumeration algorithm
