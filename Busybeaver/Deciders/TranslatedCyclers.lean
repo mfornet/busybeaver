@@ -77,11 +77,11 @@ variable {M: Machine l s}
 
 notation A " t-[" M ":" T "]-> " B => step_tick M A = Option.some (B, T)
 
-inductive MultiTStep (M: Machine l s): TickingConfig l s → TickingConfig l s → List (Tick l s) → Prop
-| refl C : MultiTStep M C C []
-| step A B C t L : (A t-[M:t]-> B) → MultiTStep M B C L → MultiTStep M A C (t :: L)
+inductive MultiTStep (M: Machine l s): List (Tick l s) → TickingConfig l s → TickingConfig l s → Prop
+| refl C : MultiTStep M [] C C
+| step A B C t L : (A t-[M:t]-> B) → MultiTStep M L B C → MultiTStep M (t :: L) A C
 
-notation A " t-[" M ":" L "]->> " B => MultiTStep M A B L
+notation A " t-[" M ":" L "]->> " B => MultiTStep M L A B
 
 lemma single_step {A B: TickingConfig l s} (h: A t-[M : t]-> B): A.toConfig -[M]-> B.toConfig :=
 by {
@@ -132,18 +132,17 @@ by {
     · exact MultiTStep.refl B
 }
 
-lemma MultiTStep.tail {M: Machine l s} (hAB: A t-[M:L]->> B) (hBC: B t-[M:t]-> C): A t-[M:L.concat t]->> C := 
-by induction hAB with
-| refl A => {
-  simp
-  exact hBC
-}
-| step A B C' t' L hAB _ IH => {
-  simp
-  apply MultiTStep.step A B C t' (L ++ [t]) hAB
-  specialize  IH hBC
-  simp at IH
-  exact IH
+instance MultiTStep.trans: Trans (MultiTStep M L) (MultiTStep M L') (MultiTStep M (L ++ L')) :=
+by {
+  constructor
+  intro A B C hAB hBC
+  induction hAB with
+  | refl A => simp [hBC]
+  | step A B C' t L'' hAB _ IH => {
+    specialize IH hBC
+    simp
+    apply MultiTStep.step A B C t (L'' ++ L') hAB IH
+  }
 }
 
 /-
@@ -153,7 +152,7 @@ termination.
 -/
 def Machine.stepT
   (M: TM.Machine l s) (σ: {s // default t-[M : L]->> s}):
-  HaltM M {s': (TickingConfig l s × Tick l s) // default t-[M : L.concat s'.2]->> s'.1} :=
+  HaltM M {s': (TickingConfig l s × Tick l s) // default t-[M : L ++ [s'.2]]->> s'.1} :=
   match hi: step_tick M σ.val with
   | .none => .halts_prf L.length σ.val.toConfig (by {
     simp at hi
@@ -162,5 +161,10 @@ def Machine.stepT
       exact hi
     · exact σ.property.to_multistep
   })
-  | .some nxt => .unknown ⟨nxt, MultiTStep.tail σ.property hi⟩
+  | .some (s, t) => .unknown ⟨(s, t), calc default
+      _ t-[M:L]->> σ.val := σ.property
+      _ t-[M:[t]]->> s := by {
+        simp
+        exact hi
+      } ⟩
 
