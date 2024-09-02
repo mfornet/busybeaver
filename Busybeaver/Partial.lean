@@ -22,9 +22,9 @@ variable {Γ} [Inhabited Γ]
 
 namespace PartialHTape
 
-def is_infinite: PartialHTape Γ → Prop
-| finite _ => False
-| infinite _ => True
+def is_infinite: PartialHTape Γ → Bool
+| finite _ => false
+| infinite _ => true
 
 /-
 Coercion and lifting operations on partial half tapes for convenience.
@@ -59,7 +59,7 @@ by {
   }
 }
 
-instance: CanLift (PartialHTape Γ) (Turing.ListBlank Γ) (↑) PartialHTape.is_infinite where
+instance: CanLift (PartialHTape Γ) (Turing.ListBlank Γ) (↑) (λ T ↦ PartialHTape.is_infinite T) where
   prf T hT := by {
     use T.to_blank hT
     simp
@@ -73,7 +73,7 @@ def nonempty: PartialHTape Γ → Prop
 | .finite L => L ≠ []
 | .infinite _ => True
 
-def is_infinite.nonempty {T: PartialHTape Γ} (hT: T.is_infinite): T.nonempty :=
+def is_infinite.nonempty {T: PartialHTape Γ} (hT: T.is_infinite = true): T.nonempty :=
 by {
   cases T
   · simp at hT
@@ -100,7 +100,7 @@ by cases T with
 }
 | infinite L => simp [nonempty]
 
-lemma nonempty.head?_eq_some_heqd {T: PartialHTape Γ} (h: T.nonempty): T.head? = some (T.head h) :=
+lemma nonempty.head?_eq_some_head {T: PartialHTape Γ} (h: T.nonempty): T.head? = some (T.head h) :=
 by cases T with simp [head?, head]
 | finite L => exact List.head?_eq_head h
 
@@ -108,10 +108,12 @@ def cons (A: Γ) (L: PartialHTape Γ): PartialHTape Γ := match L with
 | .finite L => A :: L
 | .infinite L => Turing.ListBlank.cons A L
 
+@[simp]
 lemma cons.nonempty {L: PartialHTape Γ}: (PartialHTape.cons A L).nonempty :=
   by cases L <;> simp [cons, PartialHTape.nonempty]
 
-def cons.infinite_iff {L: PartialHTape Γ}: (PartialHTape.cons A L).is_infinite ↔ L.is_infinite :=
+@[simp]
+def cons.infinite_iff {L: PartialHTape Γ}: (PartialHTape.cons A L).is_infinite = L.is_infinite :=
   by cases L <;> simp [cons]
 
 @[simp]
@@ -129,6 +131,10 @@ def cons.tail {L: PartialHTape Γ}: (cons A L).tail = L :=
 @[simp]
 lemma cons_head_tail {L: PartialHTape Γ} (hT: L.nonempty): cons (L.head hT) L.tail = L :=
   by cases L <;> simp [head, tail, cons]
+
+@[simp]
+def tail.infinite {L: PartialHTape Γ}: L.tail.is_infinite = L.is_infinite :=
+by cases L <;> simp [tail]
 
 @[simp]
 instance: EmptyCollection (PartialHTape Γ) := ⟨.finite []⟩
@@ -177,20 +183,47 @@ def directize (T: Turing.Tape Γ) (dir: Turing.Dir := .right): {T : PartialTape 
 | .left => ⟨{ dir := .left, left := Turing.ListBlank.cons T.head T.left, right := T.right }, rfl⟩
 | .right => ⟨{ dir := .right, left := T.left, right := Turing.ListBlank.cons T.head T.right }, rfl⟩
 
-def is_infinite (T: PartialTape Γ): Prop := T.left.is_infinite ∧ T.right.is_infinite
+inductive Finiteness where
+| finite
+| half
+| infinite
+
+def finiteness (T: PartialTape Γ): Finiteness :=
+  match T.left.is_infinite, T.right.is_infinite with
+  | true, true => .infinite
+  | false, false => .finite
+  | false, true | true, false => .half
+
+def is_infinite (T: PartialTape Γ): Prop := T.finiteness = .infinite
+
+@[simp]
+lemma finiteness.eq_finite {T: PartialTape Γ}: (T.finiteness = .finite) ↔ (¬T.left.is_infinite ∧ ¬T.right.is_infinite) :=
+by {
+  simp [finiteness]
+  split <;> simp_all
+}
+
+@[simp]
+lemma finiteness.eq_infinite {T: PartialTape Γ}: (T.finiteness = .infinite) ↔ (T.left.is_infinite ∧ T.right.is_infinite) :=
+by {
+  simp [finiteness]
+  split <;> simp_all
+}
 
 def is_infinite.left {T: PartialTape Γ} (hT: T.is_infinite): T.left.is_infinite := by {
   unfold is_infinite at hT
-  exact hT.left
+  simp [finiteness] at hT
+  split at hT <;> simp_all
 }
 
 def is_infinite.right {T: PartialTape Γ} (hT: T.is_infinite): T.right.is_infinite := by {
   unfold is_infinite at hT
-  exact hT.right
+  simp [finiteness] at hT
+  split at hT <;> simp_all
 }
 
 lemma directize.infinite {T: Turing.Tape Γ} {dir: Turing.Dir}: (directize T dir).val.is_infinite :=
-  by cases dir <;> simp [directize, is_infinite]
+  by cases dir <;> simp [directize, finiteness, is_infinite]
 
 def undirectize (T: PartialTape Γ) (hT: T.is_infinite): Turing.Tape Γ :=
   let left: Turing.ListBlank Γ := T.left.to_blank hT.left
@@ -229,9 +262,35 @@ def pointed (T: PartialTape Γ): PartialHTape Γ := match T.dir with
 | .left => T.left
 | .right => T.right
 
+def well_formed (T: PartialTape Γ): Prop := T.pointed.nonempty
+
+
+def infinite.well_formed {T: PartialTape Γ} (hT: T.is_infinite): T.well_formed :=
+by {
+  cases hT': T.dir <;> {
+    simp [PartialTape.well_formed, pointed, hT']
+    first
+    | exact PartialHTape.is_infinite.nonempty hT.left
+    | exact PartialHTape.is_infinite.nonempty hT.right
+  }
+}
+
+lemma directize.well_formed {T: Turing.Tape Γ} {dir: Turing.Dir}: (directize T dir).val.well_formed :=
+by {
+  apply infinite.well_formed
+  exact infinite
+}
+
 def head? (T: PartialTape Γ): Option Γ := T.pointed.head?
 
-def head (T: PartialTape Γ) (hT: T.pointed.nonempty): Γ := T.pointed.head hT
+def head (T: PartialTape Γ) (hT: T.well_formed): Γ := T.pointed.head hT
+
+lemma head?.wf_eq_some_head {T: PartialTape Γ} (hT: T.well_formed): T.head? = some (T.head hT) :=
+by {
+  simp [head?, head]
+  simp [well_formed] at hT
+  exact PartialHTape.nonempty.head?_eq_some_head hT
+}
 
 def move? (T: PartialTape Γ) (dir: Turing.Dir): Option (PartialTape Γ) :=
   match T.dir, dir with
@@ -243,31 +302,62 @@ def move? (T: PartialTape Γ) (dir: Turing.Dir): Option (PartialTape Γ) :=
     | .none => .none
     | .some he => .some { dir := .left, left := T.left.tail, right := PartialHTape.cons he T.right }
 
-def move (T: PartialTape Γ) (hT: T.is_infinite) (dir: Turing.Dir): PartialTape Γ :=
+def move (T: PartialTape Γ) (hT: T.well_formed) (dir: Turing.Dir): PartialTape Γ :=
   match T.dir, dir with
   | .left, .right | .right, .left => {T with dir := dir}
-  | .right, .right => { dir := .right, left := PartialHTape.cons (T.right.head hT.right.nonempty) T.left, right := T.right.tail }
-  | .left, .left => { dir := .left, left := T.left.tail, right := PartialHTape.cons (T.left.head hT.left.nonempty) T.right }
+  | .right, .right => { dir := .right, left := PartialHTape.cons (T.head hT) T.left, right := T.right.tail }
+  | .left, .left => { dir := .left, left := T.left.tail, right := PartialHTape.cons (T.head hT) T.right }
 
 /--
 This is mainly a sanity check: moving an Turing.Tape hidden as a PartialTape is the same as moving
 the original tape.
 -/
 lemma move.directize {dir dir': Turing.Dir} {T: Turing.Tape Γ}:
-  (PartialTape.directize T dir').val.move directize.infinite dir = (PartialTape.directize (T.move dir) dir).val :=
+  (PartialTape.directize T dir').val.move directize.well_formed dir = (PartialTape.directize (T.move dir) dir).val :=
 by {
  match dir', dir with
  | .left, .right | .right, .left => {
   simp [PartialTape.directize, PartialTape.move, Turing.Tape.move]
  }
  | .right, .right | .left, .left => {
-  simp [PartialTape.directize, PartialTape.move, Turing.Tape.move, PartialHTape.head, PartialHTape.cons, PartialHTape.tail]
+  simp [PartialTape.directize, PartialTape.move, Turing.Tape.move, PartialTape.head, PartialTape.pointed, PartialHTape.head, PartialHTape.cons, PartialHTape.tail]
  }
+}
+
+lemma move?.well_formed_eq_move {dir: Turing.Dir} {T: PartialTape Γ} (hT: T.well_formed): T.move? dir = some (T.move hT dir) :=
+by {
+  simp [move?]
+  split <;> {
+    simp [move, *]
+    try {
+      rename_i heq
+      simp [well_formed, pointed, heq] at hT
+      rw [PartialHTape.nonempty.head?_eq_some_head hT]
+      simp [PartialTape.head, pointed, heq]
+    }
+  }
+}
+
+@[simp]
+def move.infinite {T: PartialTape Γ} {hT: T.well_formed} {dir: Turing.Dir}: (T.move hT dir).finiteness = T.finiteness :=
+by {
+  simp [move]
+  split <;> simp [finiteness]
 }
 
 def write (T: PartialTape Γ) (sym: Γ): PartialTape Γ := match T.dir with
 | .left => { T with left := PartialHTape.cons sym T.left.tail }
 | .right => { T with right := PartialHTape.cons sym T.right.tail }
+
+lemma write.well_formed {T: PartialTape Γ} (hT: T.well_formed): (T.write sym).well_formed :=
+by {
+  simp [PartialTape.write]
+  split <;> {
+    rename_i heq
+    simp [PartialTape.well_formed, pointed, heq] at hT
+    simp [PartialTape.well_formed, pointed, heq]
+  }
+}
 
 lemma write.directize {T: Turing.Tape Γ}:
   (PartialTape.directize T dir').val.write sym = (PartialTape.directize (T.write sym) dir').val :=
@@ -278,6 +368,20 @@ by {
   }
 }
 
+@[simp]
+lemma write.dir {T: PartialTape Γ}: (T.write sym).dir = T.dir :=
+by {
+  simp [PartialTape.write]
+  split <;> rfl
+}
+
+@[simp]
+lemma write.infinite {T: PartialTape Γ}: (T.write sym).finiteness = T.finiteness :=
+by {
+  simp [write]
+  split <;> simp [finiteness]
+}
+
 end PartialTape
 
 structure PartialConfig (l s) where
@@ -285,29 +389,11 @@ structure PartialConfig (l s) where
   tape: PartialTape (Symbol s)
 deriving DecidableEq
 
+section Delab
+
 notation L " {" C ";" D "} " R => PartialConfig.mk C (PartialTape.mk D L R)
 notation L " <{" C "} " R => PartialConfig.mk C (PartialTape.mk Turing.Dir.left L R)
 notation L " {" C "}> " R => PartialConfig.mk C (PartialTape.mk Turing.Dir.right L R)
-
-namespace Machine
-
-variable {M: Machine l s}
-
-def pstep (M: Machine l s) (C: PartialConfig l s): Option (PartialConfig l s) := do
-  let Chead ← C.tape.head?
-  match M C.state Chead with
-  | .halt => .none
-  | .next sym' dir lab' => .some { state := lab', tape := (← (C.tape.write sym').move? dir) }
-
-notation A " p-["M"]-> " B => Machine.pstep M A = Option.some B
-
-inductive MultiPStep (M: Machine l s): ℕ → PartialConfig l s → PartialConfig l s → Prop where
-| refl (C: PartialConfig l s): MultiPStep M 0 C C
-| step A B C n: (A p-[M]-> B) → MultiPStep M n B C → MultiPStep M n.succ A C
-
-notation A " p-[" M "]{" n "}-> " B => MultiPStep M n A B
-
-section Delab
 
 open Lean PrettyPrinter Delaborator SubExpr
 
@@ -319,6 +405,106 @@ def PartialConfig.unexp : Unexpander
 | _ => throw ()
 
 end Delab
+
+lemma PartialConfig.expand_well_formed {q: Label l} {dir: Turing.Dir} {L R: List (Symbol s)} {T T': PartialHTape (Symbol s)}
+  (h: (L {q;dir} R : PartialConfig l s).tape.well_formed): ((L ++ T) {q;dir} (R ++ T')).tape.well_formed := sorry
+
+namespace Machine
+
+variable {M: Machine l s}
+
+def pstep? (M: Machine l s) (C: PartialConfig l s): Option (PartialConfig l s) := do
+  let Chead ← C.tape.head?
+  match M C.state Chead with
+  | .halt => .none
+  | .next sym' dir lab' => .some { state := lab', tape := (← (C.tape.write sym').move? dir) }
+
+def pstep (M: Machine l s) (C: PartialConfig l s) (hC: C.tape.well_formed): Option (PartialConfig l s) :=
+  match M C.state (C.tape.head hC) with
+  | .halt => .none
+  | .next sym' dir lab' => .some { state := lab', tape := (C.tape.write sym').move (PartialTape.write.well_formed hC) dir}
+
+notation A " p-["M"]-> " B => Machine.pstep? M A = Option.some B
+
+lemma pstep.well_formed (_: M.pstep A hA = B): A.tape.well_formed := hA
+
+lemma pstep?.well_formed (h: A p-[M]-> B): A.tape.well_formed :=
+by {
+  simp [pstep?, Option.bind, PartialTape.head?, PartialTape.pointed] at h
+  split at h
+  · cases h
+  rename_i heq
+  split at heq <;> {
+    rename_i heq'
+    simp [PartialTape.well_formed, PartialTape.pointed, heq']
+    exact PartialHTape.nonempty.of_some_head heq
+  }
+}
+
+lemma pstep?.to_pstep (h: A p-[M]-> B) (hAw: A.tape.well_formed): M.pstep A hAw = some B :=
+by {
+  simp [pstep?, Option.bind] at h
+  split at h
+  · cases h
+  rename_i sym heq
+  simp [pstep]
+
+  simp [
+    PartialTape.head?,
+  ] at heq
+  simp [
+    PartialHTape.nonempty.head?_eq_some_head (T:=A.tape.pointed) (PartialHTape.nonempty.of_some_head heq)
+  ] at heq
+  simp [PartialTape.head, heq]
+
+  simp at h
+  split at h
+  · cases h
+  simp
+  split at h
+  · cases h
+  rename_i heq'
+  simp at h
+
+  rw [
+    PartialTape.move?.well_formed_eq_move (PartialTape.write.well_formed  hAw)
+  ] at heq'
+  simp at heq'
+  rw [← heq'] at h
+  exact h
+}
+
+lemma pstep?.none_wf_pstep (h: M.pstep? A = none) (hAw: A.tape.well_formed): M.pstep A hAw = none :=
+by {
+  simp [pstep?] at h
+  specialize h _ (PartialTape.head?.wf_eq_some_head hAw)
+  split at h
+  · rename_i heq
+    simp [pstep, heq]
+  simp at h
+  rename_i heq
+  simp [pstep, heq]
+  apply h
+  exact PartialTape.move?.well_formed_eq_move (PartialTape.write.well_formed hAw)
+}
+
+lemma pstep?.to_pstep' {A: PartialConfig l s} (hAw: A.tape.well_formed): M.pstep? A = M.pstep A hAw :=
+by {
+  cases heq: M.pstep? A
+  · symm
+    exact pstep?.none_wf_pstep heq hAw
+  · symm
+    exact to_pstep heq hAw
+}
+
+lemma pstep?.simp {A: PartialConfig l s} (hAw: A.tape.well_formed): (A p-[M]-> B) ↔ (M.pstep A hAw = some B) :=
+  by rw [pstep?.to_pstep' hAw]
+
+inductive MultiPStep (M: Machine l s): ℕ → PartialConfig l s → PartialConfig l s → Prop where
+| refl (C: PartialConfig l s): MultiPStep M 0 C C
+| step A B C n: (A p-[M]-> B) → MultiPStep M n B C → MultiPStep M n.succ A C
+
+notation A " p-[" M "]{" n "}-> " B => MultiPStep M n A B
 
 def MultiPStep.refl' (hAB: A = B): A p-[M]{0}-> B :=
 by {
@@ -358,31 +544,45 @@ lemma MultiPStep.single: (A p-[M]{1}-> B) ↔ (A p-[M]-> B):= by {
     · exact .refl B
 }
 
-lemma step.pointed_valid (h: A p-[M]-> B): A.tape.pointed.nonempty :=
+lemma pstep?.pointed_valid (h: A p-[M]-> B): A.tape.pointed.nonempty :=
 by {
-  simp [pstep, Option.bind] at h
+  simp [pstep?, Option.bind] at h
   split at h
   · cases h
   rename_i heq
   exact PartialHTape.nonempty.of_some_head heq
 }
 
-lemma step.finiteness_left
-  (h: A p-[M]-> B):
-    A.tape.left.is_infinite ↔ B.tape.left.is_infinite := sorry
+@[simp]
+lemma pstep?.all_empty_none: M.pstep? (([]: List (Symbol s)) {q;dir} ([]: List (Symbol s))) = none :=
+by {
+  simp [pstep?]
+  intro a ha
+  simp [PartialTape.head?, PartialTape.pointed] at ha
+  split at ha <;> simp [PartialHTape.head?] at ha
+}
 
-lemma step.finiteness_right
-  (h: A p-[M]-> B):
-    A.tape.right.is_infinite ↔ B.tape.right.is_infinite := sorry
-
-lemma step.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: (L {q;dir} R) p-[M]-> (L' {q';dir'} R')):
-  ((L ++ T) {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} R' ++ T') :=
+lemma pstep.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+  {hwf: (L {q;dir} R: PartialConfig l s).tape.well_formed}
+  {hewf: ((L ++ T) {q;dir} (R ++ T'): PartialConfig l s).tape.well_formed}
+  (h: M.pstep (L {q;dir} R: PartialConfig l s) hwf = some (L' {q';dir'} R': PartialConfig l s)):
+    M.pstep ((L ++ T) {q;dir} (R ++ T')) hewf = some ((L' ++ T) {q';dir'} (R' ++ T')) :=
 by {
   sorry
 }
 
-lemma step.locality' {L R L' R': List (Symbol s)} {T T' Tl Tr Tl' Tr': PartialHTape (Symbol s)}
+lemma pstep?.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+  (h: (L {q;dir} R) p-[M]-> (L' {q';dir'} R')):
+  ((L ++ T) {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} R' ++ T') :=
+by {
+  have origwf := pstep?.well_formed h
+  rw [pstep?.simp origwf] at h
+  have extwf: ((L ++ T) {q;dir} (R ++ T')).tape.well_formed := PartialConfig.expand_well_formed origwf
+  rw [pstep?.simp extwf]
+  exact pstep.locality h
+}
+
+lemma pstep?.locality' {L R L' R': List (Symbol s)} {T T' Tl Tr Tl' Tr': PartialHTape (Symbol s)}
   (h: (L {q;dir} R) p-[M]-> (L' {q';dir'} R'))
   (hTl: Tl = L ++ T)
   (hTr: Tr = R ++ T')
@@ -395,15 +595,35 @@ by {
   exact locality h
 }
 
-lemma step.locality_left₀ {R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+lemma pstep?.locality_left₀ {R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
   (h: ({} {q;dir} R) p-[M]-> (L' {q';dir'} R')):
   (T {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} R' ++ T') :=
-  by apply step.locality' h (T:=T) (T':=T') <;> try simp
+  by apply pstep?.locality' h (T:=T) (T':=T') <;> try simp
 
-lemma step.locality_left₁ {R L': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+lemma pstep?.locality_left₁ {R L': List (Symbol s)} {T T': PartialHTape (Symbol s)}
   (h: ({} {q;dir} R) p-[M]-> (L' {q';dir'} {})):
   (T {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} T') :=
-  by apply step.locality' h (T:=T) (T':=T') <;> try simp
+  by apply pstep?.locality' h (T:=T) (T':=T') <;> try simp
+
+lemma pstep.finiteness {hwf: A.tape.well_formed} (h: M.pstep A hwf = some B):
+  A.tape.finiteness = B.tape.finiteness :=
+by {
+  simp [pstep] at h
+  split at h
+  · cases h
+  injection h with h
+  rw [← h]
+  simp
+}
+
+lemma pstep?.finiteness
+  (h: A p-[M]-> B):
+  A.tape.finiteness = B.tape.finiteness :=
+by {
+  have origwf := pstep?.well_formed h
+  rw [pstep?.simp origwf] at h
+  exact pstep.finiteness h
+}
 
 /--
 A "locality" lemma for transitions on partial configurations.
@@ -425,18 +645,14 @@ by induction n generalizing L R L' R' q q' dir dir' with
 | succ n IH => {
   cases h
   rename_i I hI hIn
+  have hIf: I.tape.finiteness = .finite := by {
+    have htmp := pstep?.finiteness hI
+    rw [← htmp]
+    simp [PartialTape.finiteness]
+  }
   obtain ⟨q'', dir'', L'', R''⟩ := I
-  have hL'': ¬L''.is_infinite := by {
-    have hI' := step.finiteness_left hI
-    simp at hI'
-    exact hI'
-  }
-
-  have hR'': ¬R''.is_infinite := by {
-    have hI' := step.finiteness_right hI
-    simp at hI'
-    exact hI'
-  }
+  simp at hIf
+  obtain ⟨hL'', hR''⟩ := hIf
 
   cases L''
   swap
@@ -447,7 +663,7 @@ by induction n generalizing L R L' R' q q' dir dir' with
   · simp at hR''
   rename_i Ri
 
-  apply MultiPStep.step _ _ _ _ (step.locality hI) (IH hIn)
+  apply MultiPStep.step _ _ _ _ (pstep?.locality hI) (IH hIn)
 }
 
 lemma MultiPStep.locality' {L R L' R': List (Symbol s)} {T T' Tl Tr Tl' Tr': PartialHTape (Symbol s)}
@@ -519,7 +735,7 @@ by induction n with
     }
     _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by {
       simp only [MultiPStep.single]
-      exact step.locality_left₁ onestep
+      exact pstep?.locality_left₁ onestep
     }
     _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ PartialHTape.finite [(1: Symbol 2)]) {2}> {}) := by {
       exact MultiPStep.locality_left₂ IH
