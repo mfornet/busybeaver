@@ -4,13 +4,15 @@ import Busybeaver.Problem
 import Busybeaver.Deciders.LooperDec
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.NoHaltState
+import Busybeaver.Deciders.TranslatedCyclers
 import Busybeaver.Enumerate.Alg
 
 open TM
 abbrev TM22 := Machine 1 1
 
 def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
-  (looperDec 1000 M)
+  (translatedCyclerDecider 100 M)
+  (looperDec 100 M)
 
 instance [ToString α]: ToString (HaltM M α) where
   toString := λ r ↦ s!"{repr M} " ++ match r with

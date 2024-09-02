@@ -313,21 +313,20 @@ we can push that cycle once more, keeping the same transcript
 
 This is the key step in proving non-termination of translated cyclers.
 -/
-lemma ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
+lemma ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
 by {
-  obtain ⟨q, hq⟩ := hRecord
   induction L generalizing A B C with
-  | nil => simp at hq
+  | nil => simp at hRecord
   | cons head tail IH => {
-    simp at hq
-    rcases hq with hq | hq
+    simp at hRecord
+    rcases hRecord with hq | hq
     · cases hq
       sorry
     · sorry
   }
 }
 
-lemma ticking_extends_many (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
+lemma ticking_extends_many (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: (q, ⊥) ∈ L):
   ∃D, B t-[M:List.repeat L n]->> D :=
 by induction n generalizing A B C with
 | zero => {
@@ -348,7 +347,7 @@ by induction n generalizing A B C with
 /--
 If a machine follows the transcript pattern of a translated cycler, then it loops.
 -/
-lemma ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
+lemma ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: (q, ⊥) ∈ L):
   ¬M.halts A :=
 by {
   /- SKETCH
@@ -369,9 +368,7 @@ by {
 
   intro ⟨n, E, hEl, hEr⟩
 
-  obtain ⟨q, hq⟩ := hRecord
-
-  have hLlen: 0 < L.length := List.length_pos_of_mem hq
+  have hLlen: 0 < L.length := List.length_pos_of_mem hRecord
 
   have hLrep: n < (List.repeat L (n / L.length + 1)).length := by {
     simp
@@ -379,7 +376,7 @@ by {
     exact Nat.lt_div_mul_add hLlen
   }
 
-  obtain ⟨E', hE'⟩ := ticking_extends_many hAB hBC ⟨q, hq⟩ (n:= n / L.length)
+  obtain ⟨E', hE'⟩ := ticking_extends_many hAB hBC hRecord (n:= n / L.length)
   have hAE' := calc A
     _ t-[M:L]->> B := hAB
     _ t-[M:List.repeat L (n / L.length)]->> E' := hE'
@@ -396,3 +393,68 @@ by {
   simp [nstep]
   exact Nat.zero_lt_sub_of_lt hLrep
 }
+
+lemma twice_loop (h: A t-[M:L ++ L]->> B) (hRecord: (q, ⊥) ∈ L): ¬(M.halts A) :=
+by {
+  obtain ⟨C, hAC, hCB⟩ := h.split
+  exact ticking_loops hAC hCB hRecord
+}
+
+lemma twice_suffix_loop (h: A t-[M:L]->> B) (hL': L' ++ L' <:+ L) (hRecord: (q, ⊥) ∈ L'): ¬(M.halts A) :=
+by {
+  rw [List.suffix_iff_eq_append] at hL'
+  rw [← hL'] at h
+
+  obtain ⟨C, hAC, hCB⟩ := h.split
+  have hCnothalts := twice_loop hCB hRecord
+  have hAC' := hAC.to_multistep
+  exact Machine.halts.skip hAC' hCnothalts
+}
+
+end TReach
+
+def detect_front_loop (L: List (Tick l s)): Option { L': List (Tick l s) // L' ++ L' <+: L ∧ ∃q, (q, ⊥) ∈ L' } :=
+  let rec loopy (left: List (Tick l s)) (right: List (Tick l s)) (hL: L = left ++ right): Option { P: List (Tick l s) × List
+  (Tick l s) // L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ ∃q, (q, ⊥) ∈ P.1 } :=
+    if hl: left <+: right ∧ ∃q, (q, ⊥) ∈ left then
+      .some ⟨(left, right), ⟨hL, hl⟩⟩
+    else match right with
+    | [] => .none
+    | head :: tail => loopy (left.concat head) tail (by {
+      rw [hL]
+      simp
+    })
+  loopy [] L (by simp) |>.map (λ ⟨(left, right), issum, ispref, ex⟩ ↦ ⟨left, by {
+    simp_all
+    sorry
+  }⟩)
+
+def translatedCyclerDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
+  let rec loop (n: ℕ) (history: List (Tick l s))
+    (current: TickingConfig l s) (hC: default t-[M: history.reverse]->> current): HaltM M Unit :=
+    match n with
+    | .zero => .unknown ()
+    | .succ n => do
+      let ⟨(cfg, tick), prf⟩ ← TReach.Machine.stepT M ⟨current, hC⟩
+      let nh := tick :: history
+      have hprf : default t-[M:nh.reverse]->> cfg := by {
+        simp at prf
+        simp [nh]
+        exact prf
+      }
+      match detect_front_loop nh with
+      | some Lh => .loops_prf (by {
+          obtain ⟨L, hL, q, hq⟩ := Lh
+          have hL': L.reverse ++ L.reverse <:+ nh.reverse := by {
+            conv_lhs =>
+              rw [← List.reverse_append]
+            rw [List.reverse_suffix]
+            exact hL
+          }
+          apply TReach.twice_suffix_loop hprf hL' (q:=q)
+          simp
+          exact hq
+        })
+      | none => loop n nh cfg hprf
+
+  loop bound [] default (TReach.MultiTStep.refl default)
