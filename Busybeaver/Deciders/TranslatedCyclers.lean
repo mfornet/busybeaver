@@ -420,8 +420,9 @@ by induction L with
 }
 
 def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick l s) // L' ++ L' <+: ((q, ⊥) :: L) ∧ (q, ⊥) ∈ L' } :=
-  let rec loopy (left: List (Tick l s)) (right: List (Tick l s))(hq: (q, ⊥) ∈ left) (hL: (q, ⊥) :: L
-  = left ++ right): Option { P: List (Tick l s) × List (Tick l s) // (q, ⊥) :: L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ (q, ⊥) ∈ P.1 } :=
+  let rec loopy (left: List (Tick l s)) (right: List (Tick l s))
+    (hq: (q, ⊥) ∈ left) (hL: (q, ⊥) :: L = left ++ right):
+      Option { P: List (Tick l s) × List (Tick l s) // (q, ⊥) :: L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ (q, ⊥) ∈ P.1 } :=
     if hlr: left.length > right.length then
       .none -- This avoids searching too far
     else if hl: left <+: right then
