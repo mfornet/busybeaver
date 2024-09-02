@@ -353,6 +353,74 @@ end Symmetry
 
 namespace Busybeaver
 
+/--
+The busybeaver number with only one state is 1.
+
+The numbers are slightly off because of the definitions of the various components.
+-/
+theorem one_state: Busybeaver 0 s = 0 :=
+by {
+  simp [only_right]
+  apply Nat.eq_zero_of_le_zero
+  apply Nat.le_of_lt_add_one
+  apply Busybeaver'.upper_bound_of_lt
+  swap
+  · simp
+
+  intro ⟨M, n, term⟩ hM
+  simp [GoingTo] at *
+  obtain ⟨sym, nlab, hnlab⟩ := hM
+
+  have heqnlab: nlab = default := Fin.fin_one_eq_zero _
+  simp [*] at *
+
+  by_contra hn
+
+  suffices ¬M.halts default by {
+    apply this
+    exists n
+  }
+
+  push_neg at hn
+  obtain ⟨k, hk⟩ := Nat.exists_eq_succ_of_ne_zero hn
+  simp_all
+  obtain ⟨C, _, hCr⟩ := term
+  cases hCr
+  rename_i B Bstep hBC
+
+  /-
+  Proof sketch: machine is able to step once (from default to B) then it loops forever because of CTL
+  -/
+  suffices ClosedSet M (λ C ↦ C.state = default ∧ C.tape.head = default ∧ C.tape.right = default) default from this.nonHalting
+
+  constructor
+  · simp
+    intro A' hAs hAt hAr
+    cases hM : M.step A'
+    · simp_all -- This is a contradiction
+    rename_i A''
+    exists A''
+    constructor
+    · obtain ⟨sym, dir, hA', hA''⟩ := Machine.step.some_rev hM
+      have hA''s : A''.state = 0 := Fin.fin_one_eq_zero _
+      simp [hAs, hAt, hA''s] at hA'
+      rw [hnlab] at hA'
+      cases hA'
+      obtain ⟨A'h, A'l, A'r⟩ := A'
+      simp_all
+      simp [Turing.Tape.write, Turing.Tape.move]
+      trivial
+    · apply Machine.Progress.from_multistep (n:=0)
+      simp
+      exact Machine.Multistep.single hM
+  · simp
+    exists default
+    constructor
+    swap
+    · exact Machine.EvStep.refl
+    simp [default]
+}
+
 structure BBResult (l s: ℕ) where
   val : ℕ
   undec : Finset (Machine l s)
@@ -1228,73 +1296,6 @@ end BBCompute
 /-
 namespace TM
 
-/--
-The busybeaver number with only one state is 1.
-
-The numbers are slightly off because of the definitions of the various components.
--/
-theorem Busybeaver.one_state: Busybeaver 0 s = 0 :=
-by {
-  simp [only_right]
-  apply Nat.eq_zero_of_le_zero
-  apply Nat.le_of_lt_add_one
-  apply Busybeaver'.upper_bound_of_lt
-  swap
-  · simp
-
-  intro ⟨M, n, term⟩ hM
-  simp [GoingTo] at *
-  obtain ⟨sym, nlab, hnlab⟩ := hM
-
-  have heqnlab: nlab = default := Fin.fin_one_eq_zero _
-  simp [*] at *
-
-  by_contra hn
-
-  suffices ¬M.halts default by {
-    apply this
-    exists n
-  }
-
-  push_neg at hn
-  obtain ⟨k, hk⟩ := Nat.exists_eq_succ_of_ne_zero hn
-  simp_all
-  obtain ⟨C, _, hCr⟩ := term
-  cases hCr
-  rename_i B Bstep hBC
-
-  /-
-  Proof sketch: machine is able to step once (from default to B) then it loops forever because of CTL
-  -/
-  suffices ClosedSet M (λ C ↦ C.state = default ∧ C.tape.head = default ∧ C.tape.right = default) default from this.nonHalting
-
-  constructor
-  · simp
-    intro A' hAs hAt hAr
-    cases hM : M.step A'
-    · simp_all -- This is a contradiction
-    rename_i A''
-    exists A''
-    constructor
-    · obtain ⟨sym, dir, hA', hA''⟩ := Machine.step.some_rev hM
-      have hA''s : A''.state = 0 := Fin.fin_one_eq_zero _
-      simp [hAs, hAt, hA''s] at hA'
-      rw [hnlab] at hA'
-      cases hA'
-      obtain ⟨A'h, A'l, A'r⟩ := A'
-      simp_all
-      simp [Turing.Tape.write, Turing.Tape.move]
-      trivial
-    · apply Machine.Progress.from_multistep (n:=0)
-      simp
-      exact Machine.Multistep.single hM
-  · simp
-    exists default
-    constructor
-    swap
-    · exact Machine.EvStep.refl
-    simp [default]
-}
 
 end TM
 -/
