@@ -326,10 +326,18 @@ by {
   }
 }
 
-lemma MultiPStep.single (h: A p-[M]-> B): A p-[M]{1}-> B := by {
-  apply MultiPStep.step A B B
-  · exact h
-  · exact .refl B
+@[simp]
+lemma MultiPStep.single: (A p-[M]{1}-> B) ↔ (A p-[M]-> B):= by {
+  constructor
+  · intro h
+    cases h
+    rename_i B' hAB' hBB'
+    cases hBB'
+    exact hAB'
+  · intro h
+    apply MultiPStep.step A B B
+    · exact h
+    · exact .refl B
 }
 
 lemma step.pointed_valid (h: A p-[M]-> B): A.tape.pointed.nonempty :=
@@ -434,11 +442,18 @@ def tmpMach: Machine 4 2
 | 3, 1 => .next 1 .right 0
 | 4, 0 => .next 1 .right 3
 | 4, 1 => .next 1 .left 4
-| _, _ => sorry
+| _, _ => unreachable!
 
 lemma onestep: ({} {2}> [(1: Symbol 2)]) p-[tmpMach]-> ([(1: Symbol 2)] {2}> {}) :=
-by decide
+  by decide
 
+/-
+Example of using the locality principle and decidable equality to perform actual computations
+with partial states.
+
+Note that in its current form, the proof is very verbose.
+Having tactics to avoid such verbosity will be needed.
+-/
 example: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2)) {2}> {}) :=
 by induction n with
 | zero => {
@@ -454,10 +469,8 @@ by induction n with
       rfl
     }
     _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by {
-      have htmp := step.locality onestep (T:=PartialHTape.finite []) (T':=(List.replicate n (1: Symbol 2)))
-      simp at htmp
-      simp
-      exact MultiPStep.single htmp
+      simp only [MultiPStep.single]
+      exact step.locality onestep (T:=PartialHTape.finite []) (T':=(List.replicate n (1: Symbol 2)))
     }
     _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)]) {2}> {}) := by {
       have htmp := MultiPStep.locality IH (T:=[(1:Symbol 2)]) (T':={})
