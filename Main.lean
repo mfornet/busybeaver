@@ -27,11 +27,16 @@ def log_decs (M: Machine l s): HaltM M Unit := do
   res
 
 def compute (l s: ℕ): Busybeaver.BBResult l s :=
-  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute allDecs (Busybeaver.BBCompute.m0RB l s)))
-  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute allDecs (Busybeaver.BBCompute.m1RB l s)))
+  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m0RB l s)))
+  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m1RB l s)))
   Busybeaver.BBResult.join res0.get res1.get
 
 axiom task_correct {α: Type} {f: Unit → α}: (Task.spawn f |>.get) = f ()
+
+unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
+  IO.FS.withFile path IO.FS.Mode.write (λ file ↦ do
+    for M in Quot.unquot set do
+      file.putStrLn s!"{repr M}")
 
 set_option compiler.extract_closed false
 unsafe def main (args: List String): IO Unit := do
@@ -59,7 +64,7 @@ unsafe def main (args: List String): IO Unit := do
           }
           IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
         else
-          IO.println s!"Undec: {repr comp.undec}"
+          save_to_file "out.txt" comp.undec
           IO.println s!"#Undec: {Multiset.card comp.undec}"
           IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
       IO.println s!"In: {(← IO.monoMsNow) - start}ms"
