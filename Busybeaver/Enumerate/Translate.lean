@@ -16,9 +16,7 @@ We begin by defining translations on tapes
 
 def translator (S S': Symbol s) (hS: default ≠ S) (hS': default ≠ S'): Turing.PointedMap (Symbol s) (Symbol s) := {
   f := swap S S',
-  map_pt' := by {
-    exact swap.ne hS hS'
-  }
+  map_pt' := swap.ne hS hS'
 }
 
 def translate (T: Turing.Tape (Symbol s)) (S S': Symbol s) (hS: default ≠ S) (hS': default ≠ S'): Turing.Tape (Symbol s) :=
