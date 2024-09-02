@@ -184,6 +184,12 @@ compute the Busybeaver' function
 lemma eq_of_all_eq (hSn: S.Nonempty) (hSa: ∀ M ∈ S, M.n = n) : Busybeaver' l s S = n :=
 by induction hSn using Finset.Nonempty.cons_induction <;> simp_all
 
+lemma fold_max_eq_fold_union {S: Finset (Finset (Terminating l s))}: Finset.fold Max.max 0 (Busybeaver' l
+s) S = Busybeaver' l s (Finset.fold Union.union ∅ id S) :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => simp [IH]
+
 end Busybeaver'
 
 noncomputable def Busybeaver (l s: ℕ) := Busybeaver' l s Finset.univ
@@ -679,19 +685,6 @@ by {
   exact is_child.ne_halt_trans_ssub h h'
 }
 
-/- lemma is_child.exists_next_machines (h: M ≤c M') (hM: M lab sym = .halt) (hM': M' lab sym = .next sym' dir lab'): ∃Mn ∈ next_machines' M lab sym hM, M' ~m Mn.val := -/
-/- by { -/
-/-   have HMM' : M' = update_with M lab sym (.next sym' dir lab') := by { -/
-/-     funext lb sm -/
-/-     simp [update_with] -/
-/-     split -/
-/-     · simp_all -/
-/-     /- rename_i hsmlb -/ -/
-/-     sorry -/
-/-   } -/
-/-   sorry -/
-/- } -/
-
 noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
   Finset.univ.filter (λ M' ↦ M ≤c M'.M)
 
@@ -766,16 +759,57 @@ by induction M using BBCompute.induct decider with
   }
   rw [hSameM]
 
-  have hLeft:
-    Finset.fold Max.max nh (λ M' ↦ (BBCompute decider M'.val).val) (next_machines' M C.state C.tape.head Clast.1) =
-    Finset.fold Max.max nh (λ M' ↦ Busybeaver' l s (terminating_children M'.val)) (next_machines' M C.state C.tape.head Clast.1) := by {
-    sorry
+  /-
+  Here starts a calculatory part of the proof where we simplify the goal
+  to be only about the child machines.
+  -/
+  calc Finset.fold Max.max nh (λ M' ↦ (BBCompute decider M'.val).val) (next_machines' M C.state C.tape.head Clast.1)
+    _ = Finset.fold Max.max nh (λ M' ↦ Busybeaver' l s (terminating_children M'.val)) (next_machines' M C.state C.tape.head Clast.1) := by {
+    apply Finset.fold_congr
+    intro M' hM'
+    apply IH
+    exact h _ hM'
   }
+    _  = Finset.fold Max.max nh (Busybeaver' l s) (
+      (next_machines' M C.state C.tape.head Clast.1).image (λ M' ↦ terminating_children M'.val)
+    ) := by simp [Finset.fold_image_idem]
+    _ = Max.max nh (Finset.fold Max.max 0 (Busybeaver' l s) (
+      (next_machines' M C.state C.tape.head Clast.1).image (λ M' ↦ terminating_children M'.val)
+    )) := by {
+    suffices ∀ {α: Type} [DecidableEq α] (S: Finset α) (f: α → ℕ) (n: ℕ), Finset.fold Max.max n f S = Max.max n (Finset.fold Max.max 0 f S) from this _ _ nh
+    intro _ _ S f n
+    induction S using Finset.induction with
+    | empty => simp
+    | @insert A S hA IH => {
+      simp [IH]
+      conv =>
+        rhs
+        rw [Nat.max_comm, Nat.max_assoc]
+        rhs
+        rw [Nat.max_comm]
+    }
+  }
+  congr 1
 
-  rw [hLeft]
-  sorry
-  /- suffices Busybeaver' l s (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) -/
-  /-   =  -/
+  rw [Busybeaver'.fold_max_eq_fold_union]
+
+  /-
+  We need to prove that the two sets considered are "equivalent" when seen from the Busybeaver'
+  point of view.
+  -/
+
+  apply Busybeaver'.biject_fold
+  · sorry
+  · /-
+    The tricky bit of the proof.
+
+    Any child machine with a non-halting transition at C is equivalent to a next_machine':
+    - if the transition uses already used states/symbols, then it is itself a child of a
+      next_machine'
+    - otherwise, "normalize" the machine into a machine using the successor of the sates/symbols
+      this one is a next_machine'
+    -/
+    sorry
 }
 
 /- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
