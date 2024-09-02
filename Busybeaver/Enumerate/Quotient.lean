@@ -59,6 +59,32 @@ by induction h with
 }
 | trans M₁ M₂ M₃ _ _ IH₁ Ih₂ => exact equi_halts.trans IH₁ Ih₂
 
+lemma same_halt_time {l s} {M M': Machine l s} (h: M ~m M') (hM: M.halts_in n default): M'.halts_in n default :=
+by induction h with
+| refl M => trivial
+| states L L' M M' hL hL' hM' => {
+  cases hM'
+  apply perm.isTransformation.same_halt_time₁ hM
+  symm at hL hL'
+  simp [default] at *
+  symm
+  exact swap.ne hL hL'
+}
+| symbols S S' M M' hS hS' hM' => {
+  cases hM'
+  symm at hS hS'
+  apply (translated.transformation hS hS').same_halt_time₁ hM
+  suffices (default: Turing.Tape (Symbol s)).translate S S' hS hS' = default by {
+    rw [
+      show (default: Config l s).tape = default by rfl,
+      this
+    ]
+    rfl
+  }
+  simp [Turing.Tape.translate]
+}
+| trans M₁ _ _ _ _ IH₁ IH₂ => exact IH₂ $ IH₁ hM
+
 instance setoid: Setoid (Machine l s) where
   r := Isomorph
   iseqv := {

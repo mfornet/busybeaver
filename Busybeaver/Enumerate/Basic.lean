@@ -124,6 +124,12 @@ by {
     exact Creach
 }
 
+lemma same_halt_time₁ [inst: Transformation fC fM] (h: M.halts_in n A) (hC: C = fC A): (fM M).halts_in n C :=
+by {
+  rw [hC]
+  exact same_halt_time h
+}
+
 lemma equi_halts [inst: Transformation fC fM]: (M, q) =H (fM M, fC q) :=
 by {
   unfold equi_halts

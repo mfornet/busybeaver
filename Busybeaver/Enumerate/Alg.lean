@@ -5,6 +5,8 @@ import Busybeaver.Enumerate.Basic
 import Busybeaver.Enumerate.Symmetry
 import Busybeaver.Enumerate.Translate
 import Busybeaver.Enumerate.Perm
+import Busybeaver.Enumerate.Quotient
+import Busybeaver.Deciders.NoHaltState
 
 namespace TM.Busybeaver
 open TM.Machine
@@ -233,25 +235,21 @@ by {
 }
 
 private def next_machines (M: Machine l s) (lab: Label l) (sym: Symbol s): Finset (Machine l s) :=
-  possible_statements M |>.image (update_with M lab sym)
+  usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image
+    λ ⟨S, D, L⟩ ↦ update_with M lab sym (.next S D L)
 
 @[simp]
-private lemma halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
+private lemma next_machines.halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
   ∀ M' ∈ next_machines M lab sym, M'.n_halting_trans = M.n_halting_trans - 1 :=
 by {
   intro M' hM'
   simp [next_machines] at hM'
-  obtain ⟨S, hSS, hSM'⟩ := hM'
-  rw [← hSM']
-  obtain ⟨sym', dir, lab', hS⟩ := possible_statements.all_next S hSS
-  apply update_with.le_halt_trans' h hS
+  obtain ⟨S, D, L, _, hM⟩ := hM'
+  rw [← hM]
+  exact update_with.le_halt_trans h
 }
 
-private def next_machines' (M: Machine l s) (lab: Label l) (sym: Symbol s) (hS: M lab sym = .halt):
-Finset { M': Machine l s // M'.n_halting_trans = M.n_halting_trans - 1} :=
-  usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image (λ ⟨sym', dir, lab'⟩ ↦
-  ⟨update_with M lab sym (.next sym' dir lab'), update_with.le_halt_trans hS⟩)
-
+set_option linter.unusedVariables false in
 /--
 TNF enumeration function.
 
@@ -262,17 +260,22 @@ def BBCompute (decider: (M': Machine l s) → HaltM M' Unit) (M: Machine l s): B
 match decider M with
 | .loops_prf _ => { val := 0, undec := {} } -- If this one loops, then the descendents also loop
 | .halts_prf n C hC =>
-  if M.n_halting_trans > 1 then
-    Finset.fold BBResult.join { val := n, undec := {} } (λ M ↦ BBCompute decider M.val) $
-    (next_machines' M C.state C.tape.head (by {
-      obtain ⟨hC, _⟩ := hC
-      simp [Machine.LastState] at hC
-      exact hC
-    }))
+  if hMn: M.n_halting_trans > 1 then
+    Finset.fold BBResult.join { val := n, undec := {} } (λ M' ↦ BBCompute decider M'.val) $
+    (next_machines M C.state C.tape.head).attach
   else
     { val := n, undec := {}}
 | .unknown _ => { val := 0, undec := {M} } -- This machine is undecided, no need to go further
 termination_by M.n_halting_trans
+decreasing_by {
+  obtain ⟨M', hM'⟩ := M'
+  obtain ⟨hCl, _⟩ := hC
+  simp [Machine.LastState] at hCl
+  have hMM' := next_machines.halttrans_le hCl M' hM'
+  simp_wf
+  rw [hMM']
+  exact Nat.sub_one_lt_of_lt hMn
+}
 
 namespace BBCompute
 
@@ -433,329 +436,25 @@ by {
   split <;> simp [*] at *
 }
 
-lemma next_machines.is_child (hMn: Mn ∈ next_machines' M sym lab hM): M ≤c Mn.val :=
+lemma next_machines.is_child (hM: M sym lab = .halt) (hMn: Mn ∈ next_machines M sym lab): M ≤c Mn :=
 by {
-  obtain ⟨Mn, _⟩ := Mn
-  simp [*] at *
-  simp [next_machines'] at hMn
-  obtain ⟨sym', dir, lab', _, hdMn⟩ := hMn
-  rw [← hdMn]
+  simp [next_machines] at hMn
+  obtain ⟨S, D, L, _, hMn⟩ := hMn
+  rw [← hMn]
   exact update_with.is_child hM
 }
 
-lemma is_child.halt_trans_sub (h: M ≤c M'): M'.halting_trans ⊆ M.halting_trans :=
-by {
-  intro ⟨sym, lab⟩ hS
-  simp [Machine.halting_trans] at *
-  cases h sym lab <;> simp_all only
+lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M'):
+    (M'.LastState C) ∨ (∃Mc ∈ next_machines M C.state C.tape.head, ∃Mh, (Mh ~m M') ∧ Mc ≤c Mh) :=
+by match hM'C: M' C.state C.tape.head with
+| .halt => {
+  left
+  simp [Machine.LastState]
+  exact hM'C
 }
-
-lemma is_child.ne_halt_trans_ssub (h: M ≤c M') (h': M ≠ M'): M'.halting_trans ⊂ M.halting_trans :=
-by {
-  apply ssubset_of_subset_not_subset
-  · exact halt_trans_sub h
-  intro hM
-  apply h'
-  funext lab sym
-  rcases h lab sym with hsl | hsl
-  swap
-  · exact hsl
-  have hls' : ⟨lab, sym⟩ ∈ M.halting_trans := by {
-    simp [Machine.halting_trans]
-    exact hsl
-  }
-  specialize hM hls'
-  simp [Machine.halting_trans] at hM
-  simp_all only
-}
-
-lemma next_machines'.is_child (h: M' ∈ next_machines' M lab sym hM): M ≤c M' :=
-by {
-  simp [next_machines'] at h
-  obtain ⟨sym', dir, lab', _, hM'⟩ := h
-  cases hM'
-  simp
-  exact update_with.is_child hM
-}
-
-lemma is_child.ne_exists_halt_trans (h: M ≤c M') (h': M ≠ M'):
-  ∃sym lab sym' dir lab', M sym lab = .halt ∧ M' sym lab = .next sym' dir lab' :=
-by {
-  suffices ∃t ∈ M.halting_trans, t ∉ M'.halting_trans by {
-    simp [Machine.halting_trans] at this
-    obtain ⟨sym, lab, hl, hne⟩ := this
-    use sym, lab
-    simp
-    constructor
-    · exact hl
-    cases hM' : M' sym lab with
-    | halt => contradiction
-    | next sym' dir lab' => {
-      exists sym'
-      exists dir
-      exists lab'
-    }
-  }
-  apply Finset.exists_of_ssubset
-  exact is_child.ne_halt_trans_ssub h h'
-}
-
-lemma is_child.perm_unused_states {M M': Machine l s} (h: M ≤c M') (hq: q ∉ TM.Busybeaver.used_states M) (hq': q' ∉ TM.Busybeaver.used_states M): M ≤c M'.perm q q' :=
-by {
-  intro lab sym
-  simp [TM.Busybeaver.used_states] at hq hq'
-  obtain ⟨hq₁, hq₂⟩ := hq
-  obtain ⟨hq'₁, hq'₂⟩ := hq'
-  by_cases hlq: lab = q
-  · left
-    rw [hlq]
-    exact hq₁ sym
-  by_cases hlq': lab = q'
-  · left
-    rw [hlq']
-    exact hq'₁ sym
-
-  rcases h lab sym with h' | h'
-  · left
-    exact h'
-  right
-  simp [Machine.perm, Machine.swap.ne hlq hlq']
-  split
-  · simp_all
-  simp_all
-  rename_i nlab _
-  suffices nlab ≠ q ∧ nlab ≠ q' by {
-    simp [Machine.swap.ne this.1 this.2]
-  }
-  constructor
-  · intro hnq
-    apply hq₂
-    rw [hnq] at h'
-    exact h'
-  · intro hnq'
-    apply hq'₂
-    rw [hnq'] at h'
-    exact h'
-}
-
-lemma is_child.translate_unused_symbols {M M': Machine l s}
-  (h: M ≤c M')
-  (hs: S ∉ TM.Busybeaver.used_symbols M)
-  (hs': S' ∉ TM.Busybeaver.used_symbols M): M ≤c M'.translated S S' :=
-by {
-  intro lab sym
-  rcases h lab sym with h' | h'
-  · left
-    exact h'
-
-  simp [TM.Busybeaver.used_symbols] at hs hs'
-  obtain ⟨hs₁, hs₂⟩ := hs
-  obtain ⟨hs'₁, hs'₂⟩ := hs'
-
-  by_cases hsS: sym = S
-  · left
-    rw [hsS]
-    exact hs₁ lab
-
-  by_cases hsS': sym = S'
-  · left
-    rw [hsS']
-    exact hs'₁ lab
-
-  simp [Machine.translated, Machine.swap.ne hsS hsS']
-  split
-  · left
-    simp_all
-  simp_all
-  rename_i sym' _ _ _
-  suffices sym' ≠ S ∧ sym' ≠ S' by {
-    simp [Machine.swap.ne this.1 this.2]
-  }
-  constructor
-  · intro hsymS
-    rw [hsymS] at h'
-    apply hs₂
-    exact h'
-  · intro hsymS'
-    rw [hsymS'] at h'
-    apply hs'₂
-    exact h'
-}
-
-noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
-  Finset.univ.filter (λ M' ↦ M ≤c M'.M)
-
-/--
-The BBCompute function is correct when called on a machine that uses the default symbol and state.
-
-Some explanations about the hypotheses:
-- h: there are no undecided machines
-- hsym/hlab: the initial machine uses the default symbol/state (it defines a transition for the empty tape
--/
-theorem correct
-  (h: (BBCompute decider M).undec = ∅)
-  (hsym: default ∈ used_symbols M)
-  (hlab: default ∈ used_states M):
-
-  (BBCompute decider M).val = Busybeaver' l s (terminating_children M) :=
-
-by induction M using BBCompute.induct decider with
-| case1 M' nonhalt h' => {
-  -- The machine loops, thus the children also loop
-  unfold BBCompute
-  simp [h']
-  suffices terminating_children M' = {} by simp [this]
-  rw [← Finset.not_nonempty_iff_eq_empty]
-  intro hM
-  obtain ⟨⟨nMm,nMn, nMterm⟩, hnMm⟩ := hM.exists_mem
-  simp [terminating_children] at hnMm
-  have nMnothalts := hnMm.halt_of_halt_parent nonhalt
-  exact absurd ⟨nMn, nMterm⟩ nMnothalts
-}
-| case4 M a dec => simp [BBCompute, dec] at h -- The machine is unknown, contradictory because undec = {}
-| case3 M nh C Clast h' hntrans => { -- The machine halts but cannot be expanded this because is does not have enough states
-  unfold BBCompute at *
-  simp [h', hntrans] at h
-  simp [h', hntrans]
+| .next sym dir lab => {
   sorry
-}
-| case2 M nh C Clast h' hntrans IH => { -- The machine halts in nh steps, in Clast the last state
-  /-
-  Proof sketch (thanks to @mei on discord)
-
-  Each terminating child of M fits in either cases:
-  - It has the same halting transition for configuration C -> halting time is the same
-  - It has another transition from C -> halting time is one of ones of the next_machines's
-  -/
-  unfold BBCompute
-  simp [h']
-
-  -- Simplify hypotheses
-  unfold BBCompute at h
-  simp only [h', hntrans, ite_true, BBResult.join.fold_union, Finset.fold_union_empty] at h
-
-  simp [Machine.LastState] at Clast
-
-  /-
-  A "simplified" version of the induction hypothesis.
-  -/
-  have hMn: ∀ Mn ∈ (next_machines' M C.state C.tape.head Clast.1), (BBCompute decider Mn).val = Busybeaver' l s (terminating_children Mn) := by {
-    intro Mn Hmn
-    have hMchild := next_machines'.is_child Hmn
-    apply IH Mn
-    · exact h Mn Hmn
-    · exact hMchild.used_symbols_mono hsym
-    · exact hMchild.used_states_mono hlab
-  }
-
-  /-
-  This is the case disjunction mentionned above.
-  -/
-  have hTerm: terminating_children M =
-    (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) := by {
-    apply Finset.ext
-    intro M
-    cases hM: M.M C.state C.tape.head <;> simp_all
-  }
-  rw [hTerm]
-  simp
-
-  /-
-  First case, the child machine has the same halting transition as M, that is, it halts.
-  In this case in terminates in the same number of steps as M
-  -/
-  have hSameM : Busybeaver' l s ((terminating_children M).filter (λ M ↦ M.M C.state C.tape.head =
-  .halt)) = nh := by {
-    apply Busybeaver'.eq_of_all_eq
-    · exists ⟨M, nh, by {
-        exists C
-      }⟩
-      simp
-      constructor
-      swap
-      · exact Clast.1
-      simp [terminating_children]
-    · intro ⟨M', n', M'term⟩ hM'
-      simp at hM'
-      simp
-      apply M'term.deterministic
-      exists C
-      constructor
-      · simp [LastState]
-        exact hM'.2
-      · simp [terminating_children] at hM'
-        exact hM'.1.multistep Clast.2
-  }
-  rw [hSameM]
-  simp [hntrans]
-
-  /-
-  Here starts a calculatory part of the proof where we simplify the goal
-  to be only about the child machines.
-  -/
-  calc Finset.fold Max.max nh (λ M' ↦ (BBCompute decider M'.val).val) (next_machines' M C.state C.tape.head Clast.1)
-    _ = Finset.fold Max.max nh (λ M' ↦ Busybeaver' l s (terminating_children M'.val)) (next_machines' M C.state C.tape.head Clast.1) := by {
-    apply Finset.fold_congr
-    intro M' hM'
-    exact hMn M' hM'
-  }
-    _  = Finset.fold Max.max nh (Busybeaver' l s) (
-      (next_machines' M C.state C.tape.head Clast.1).image (λ M' ↦ terminating_children M'.val)
-    ) := by simp [Finset.fold_image_idem]
-    _ = Max.max nh (Finset.fold Max.max 0 (Busybeaver' l s) (
-      (next_machines' M C.state C.tape.head Clast.1).image (λ M' ↦ terminating_children M'.val)
-    )) := by {
-    suffices ∀ {α: Type} [DecidableEq α] (S: Finset α) (f: α → ℕ) (n: ℕ), Finset.fold Max.max n f S = Max.max n (Finset.fold Max.max 0 f S) from this _ _ nh
-    intro _ _ S f n
-    induction S using Finset.induction with
-    | empty => simp
-    | @insert A S hA IH => {
-      simp [IH]
-      conv =>
-        rhs
-        rw [Nat.max_comm, Nat.max_assoc]
-        rhs
-        rw [Nat.max_comm]
-    }
-  }
-  congr 1
-
-  rw [Busybeaver'.fold_max_eq_fold_union]
-
-  /-
-  We begin the second case mentionned above. We need to prove that the next_machines' of M are
-  actually enough to consider to compute the busybeaver for all the other child machines.
-  -/
-
-  /-
-  Before embarquing in this, lets proove some properties about C
-  -/
-  have hCs: C.state ∈ used_states M := used_states.mono_default hlab Clast.2
-  have hCt: C.tape.head ∈ used_symbols M := used_symbols.mono_default hsym Clast.2
-
-  apply Busybeaver'.biject_fold
-  · intro M' hM'
-    exists M'
-    simp
-    simp only [Finset.mem_fold_union, Finset.mem_image, id] at hM'
-    obtain ⟨childs, hchilds, hM'childs⟩ := hM'
-    obtain ⟨nextM, hnextM, hchilds⟩ := hchilds
-    cases hchilds
-    simp [terminating_children] at hM'childs
-    constructor
-    · simp [terminating_children]
-      calc
-        is_child M'.M nextM.val := hM'childs
-        is_child nextM.val M := next_machines'.is_child hnextM
-    · simp [next_machines'] at hnextM
-      obtain ⟨sym', dir, lab', hs, hdef⟩ := hnextM
-      cases hdef
-      simp at hM'childs
-      specialize hM'childs C.state C.tape.head
-      simp [update_with] at hM'childs
-      rw [← hM'childs]
-      simp
-  · /-
+    /-
     The tricky bit of the proof.
 
     Any child machine with a non-halting transition at C is equivalent to a next_machine':
@@ -765,10 +464,8 @@ by induction M using BBCompute.induct decider with
       this one is a next_machine'
 
     This in turns creates 4 subcases, each of which need to be handled independently.
-    -/
     intro M' hM'
     simp [terminating_children] at hM'
-    simp only [Finset.mem_fold_union, Finset.mem_image]
     cases hM's: M'.M C.state C.tape.head
     · simp [hM's] at hM'
     rename_i sym dir lab
@@ -885,6 +582,397 @@ by induction M using BBCompute.induct decider with
         · exact hM'perm lab' sym'
     · sorry
     · sorry
+    -/
+}
+
+
+lemma is_child.halt_trans_sub (h: M ≤c M'): M'.halting_trans ⊆ M.halting_trans :=
+by {
+  intro ⟨sym, lab⟩ hS
+  simp [Machine.halting_trans] at *
+  cases h sym lab <;> simp_all only
+}
+
+lemma is_child.ne_halt_trans_ssub (h: M ≤c M') (h': M ≠ M'): M'.halting_trans ⊂ M.halting_trans :=
+by {
+  apply ssubset_of_subset_not_subset
+  · exact halt_trans_sub h
+  intro hM
+  apply h'
+  funext lab sym
+  rcases h lab sym with hsl | hsl
+  swap
+  · exact hsl
+  have hls' : ⟨lab, sym⟩ ∈ M.halting_trans := by {
+    simp [Machine.halting_trans]
+    exact hsl
+  }
+  specialize hM hls'
+  simp [Machine.halting_trans] at hM
+  simp_all only
+}
+
+lemma is_child.ne_exists_halt_trans (h: M ≤c M') (h': M ≠ M'):
+  ∃sym lab sym' dir lab', M sym lab = .halt ∧ M' sym lab = .next sym' dir lab' :=
+by {
+  suffices ∃t ∈ M.halting_trans, t ∉ M'.halting_trans by {
+    simp [Machine.halting_trans] at this
+    obtain ⟨sym, lab, hl, hne⟩ := this
+    use sym, lab
+    simp
+    constructor
+    · exact hl
+    cases hM' : M' sym lab with
+    | halt => contradiction
+    | next sym' dir lab' => {
+      exists sym'
+      exists dir
+      exists lab'
+    }
+  }
+  apply Finset.exists_of_ssubset
+  exact is_child.ne_halt_trans_ssub h h'
+}
+
+lemma is_child.perm_unused_states {M M': Machine l s} (h: M ≤c M') (hq: q ∉ TM.Busybeaver.used_states M) (hq': q' ∉ TM.Busybeaver.used_states M): M ≤c M'.perm q q' :=
+by {
+  intro lab sym
+  simp [TM.Busybeaver.used_states] at hq hq'
+  obtain ⟨hq₁, hq₂⟩ := hq
+  obtain ⟨hq'₁, hq'₂⟩ := hq'
+  by_cases hlq: lab = q
+  · left
+    rw [hlq]
+    exact hq₁ sym
+  by_cases hlq': lab = q'
+  · left
+    rw [hlq']
+    exact hq'₁ sym
+
+  rcases h lab sym with h' | h'
+  · left
+    exact h'
+  right
+  simp [Machine.perm, Machine.swap.ne hlq hlq']
+  split
+  · simp_all
+  simp_all
+  rename_i nlab _
+  suffices nlab ≠ q ∧ nlab ≠ q' by {
+    simp [Machine.swap.ne this.1 this.2]
+  }
+  constructor
+  · intro hnq
+    apply hq₂
+    rw [hnq] at h'
+    exact h'
+  · intro hnq'
+    apply hq'₂
+    rw [hnq'] at h'
+    exact h'
+}
+
+lemma is_child.translate_unused_symbols {M M': Machine l s}
+  (h: M ≤c M')
+  (hs: S ∉ TM.Busybeaver.used_symbols M)
+  (hs': S' ∉ TM.Busybeaver.used_symbols M): M ≤c M'.translated S S' :=
+by {
+  intro lab sym
+  rcases h lab sym with h' | h'
+  · left
+    exact h'
+
+  simp [TM.Busybeaver.used_symbols] at hs hs'
+  obtain ⟨hs₁, hs₂⟩ := hs
+  obtain ⟨hs'₁, hs'₂⟩ := hs'
+
+  by_cases hsS: sym = S
+  · left
+    rw [hsS]
+    exact hs₁ lab
+
+  by_cases hsS': sym = S'
+  · left
+    rw [hsS']
+    exact hs'₁ lab
+
+  simp [Machine.translated, Machine.swap.ne hsS hsS']
+  split
+  · left
+    simp_all
+  simp_all
+  rename_i sym' _ _ _
+  suffices sym' ≠ S ∧ sym' ≠ S' by {
+    simp [Machine.swap.ne this.1 this.2]
+  }
+  constructor
+  · intro hsymS
+    rw [hsymS] at h'
+    apply hs₂
+    exact h'
+  · intro hsymS'
+    rw [hsymS'] at h'
+    apply hs'₂
+    exact h'
+}
+
+lemma Finset.fold_attach {S: Finset α} [DecidableEq α] [Std.Commutative op] [Std.Associative op]:
+  Finset.fold op B (f ∘ Subtype.val) S.attach = Finset.fold op B f S :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S hA IH => {
+  conv_rhs => rw [Finset.fold_insert hA]
+  conv_lhs =>
+    simp
+    rw [Finset.fold_insert (by {
+      simp
+      exact hA
+    })]
+  congr 1
+  simp at IH
+  simp [IH]
+}
+
+noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
+  Finset.univ.filter (λ M' ↦ M ≤c M'.M)
+
+lemma n_halting_trans.eq_zero_nonhalts (hM: M.n_halting_trans = 0): ¬M.halts default := by {
+  simp [Machine.n_halting_trans, halting_trans, Finset.filter_eq_empty_iff] at hM
+  exact Machine.halts_of_no_halt hM
+}
+
+lemma terminating_children.zero_transitions (hM: M.n_halting_trans = 0): terminating_children M = ∅ :=
+by {
+  apply Finset.eq_empty_of_forall_not_mem
+  intro M' hM'
+  simp [terminating_children] at hM'
+  have hMnohalts := n_halting_trans.eq_zero_nonhalts hM
+  simp [init] at hMnohalts
+  apply hM'.halt_of_halt_parent hMnohalts
+  use M'.n
+  exact M'.terminates
+}
+
+lemma terminating_children.one_transition (hMt: M.halts_in n default) (hM: M.n_halting_trans = 1): terminating_children M = {⟨M, n, hMt⟩} :=
+by {
+  sorry
+}
+
+/--
+The BBCompute function is correct when called on a machine that uses the default symbol and state.
+
+Some explanations about the hypotheses:
+- h: there are no undecided machines
+- hsym/hlab: the initial machine uses the default symbol/state (it defines a transition for the empty tape
+-/
+theorem correct
+  (h: (BBCompute decider M).undec = ∅)
+  (hsym: default ∈ used_symbols M)
+  (hlab: default ∈ used_states M):
+
+  (BBCompute decider M).val = Busybeaver' l s (terminating_children M) :=
+
+by induction M using BBCompute.induct decider with
+| case1 M' nonhalt h' => {
+  -- The machine loops, thus the children also loop
+  unfold BBCompute
+  simp [h']
+  suffices terminating_children M' = {} by simp [this]
+  rw [← Finset.not_nonempty_iff_eq_empty]
+  intro hM
+  obtain ⟨⟨nMm,nMn, nMterm⟩, hnMm⟩ := hM.exists_mem
+  simp [terminating_children] at hnMm
+  have nMnothalts := hnMm.halt_of_halt_parent nonhalt
+  exact absurd ⟨nMn, nMterm⟩ nMnothalts
+}
+| case4 M a dec => simp [BBCompute, dec] at h -- The machine is unknown, contradictory because undec = {}
+| case3 M nh C Clast h' hntrans => { -- The machine halts but cannot be expanded
+  unfold BBCompute at *
+  simp [h', hntrans] at h
+  simp [h', hntrans]
+  simp at hntrans
+  have hMn : M.n_halting_trans = 1 := by {
+    by_contra hMne
+    have hMnz: M.n_halting_trans = 0 := by {
+      apply Nat.eq_zero_of_le_zero
+      apply Nat.le_of_lt_succ
+      simp only [← Nat.one_eq_succ_zero]
+      exact Nat.lt_of_le_of_ne hntrans hMne
+    }
+    apply n_halting_trans.eq_zero_nonhalts hMnz
+    use nh, C
+  }
+
+  simp [
+    terminating_children.one_transition (by {
+      use C
+    }) hMn
+  ]
+}
+| case2 M nh C Clast h' hntrans IH => { -- The machine halts in nh steps, in Clast the last state
+  /-
+  Proof sketch (thanks to @mei on discord)
+
+  Each terminating child of M fits in either cases:
+  - It has the same halting transition for configuration C -> halting time is the same
+  - It has another transition from C -> halting time is one of ones of the next_machines's
+  -/
+  unfold BBCompute
+  simp [h']
+
+  -- Simplify hypotheses
+  unfold BBCompute at h
+  simp [h', hntrans] at h
+
+  simp [Machine.LastState] at Clast
+
+  /-
+  A "simplified" version of the induction hypothesis.
+  -/
+  have hMn: ∀ Mn ∈ (next_machines M C.state C.tape.head), (BBCompute decider Mn).val = Busybeaver' l s (terminating_children Mn) :=
+  by {
+    intro Mn Hmn
+    have hMchild := next_machines.is_child Clast.1 Hmn
+    apply IH ⟨Mn, Hmn⟩
+    · exact h Mn Hmn
+    · exact is_child.used_symbols_mono hMchild hsym
+    · exact is_child.used_states_mono hMchild hlab
+  }
+
+  /-
+  This is the case disjunction mentionned above.
+  -/
+  have hTerm: terminating_children M =
+    (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) := by {
+    apply Finset.ext
+    intro M
+    cases hM: M.M C.state C.tape.head <;> simp_all
+  }
+  rw [hTerm]
+  simp
+
+  /-
+  First case, the child machine has the same halting transition as M, that is, it halts.
+  In this case in terminates in the same number of steps as M
+  -/
+  have hSameM : Busybeaver' l s ((terminating_children M).filter (λ M ↦ M.M C.state C.tape.head =
+  .halt)) = nh := by {
+    apply Busybeaver'.eq_of_all_eq
+    · exists ⟨M, nh, by {
+        exists C
+      }⟩
+      simp
+      constructor
+      swap
+      · exact Clast.1
+      simp [terminating_children]
+    · intro ⟨M', n', M'term⟩ hM'
+      simp at hM'
+      simp
+      apply M'term.deterministic
+      exists C
+      constructor
+      · simp [LastState]
+        exact hM'.2
+      · simp [terminating_children] at hM'
+        exact hM'.1.multistep Clast.2
+  }
+  rw [hSameM]
+  simp [hntrans]
+
+  /-
+  Here starts a calculatory part of the proof where we simplify the goal
+  to be only about the child machines.
+  -/
+  calc Finset.fold Max.max nh (λ M' ↦ (BBCompute decider M'.val).val) (next_machines M C.state C.tape.head).attach
+    _ = Finset.fold Max.max nh (λ M' ↦ (BBCompute decider M').val) (next_machines M C.state
+    C.tape.head) := by {
+      rw [
+        show (λ M' ↦ (BBCompute decider M'.val).val) = (λ M' ↦ (BBCompute decider M').val) ∘ Subtype.val by {
+          funext M
+          simp
+        }
+      ]
+      exact Finset.fold_attach
+    }
+    _ = Finset.fold Max.max nh (λ M' ↦ Busybeaver' l s (terminating_children M')) (next_machines M C.state C.tape.head) := by {
+      apply Finset.fold_congr
+      intro M' hM'
+      exact hMn M' hM'
+    }
+    _  = Finset.fold Max.max nh (Busybeaver' l s) (
+      (next_machines M C.state C.tape.head).image terminating_children
+    ) := by simp [Finset.fold_image_idem]
+    _ = Max.max nh (Finset.fold Max.max 0 (Busybeaver' l s) (
+      (next_machines M C.state C.tape.head).image terminating_children
+    )) := by {
+    suffices ∀ {α: Type} [DecidableEq α] (S: Finset α) (f: α → ℕ) (n: ℕ), Finset.fold Max.max n f S = Max.max n (Finset.fold Max.max 0 f S) from this _ _ nh
+    intro _ _ S f n
+    induction S using Finset.induction with
+    | empty => simp
+    | @insert A S hA IH => {
+      simp [IH]
+      conv =>
+        rhs
+        rw [Nat.max_comm, Nat.max_assoc]
+        rhs
+        rw [Nat.max_comm]
+    }
+  }
+  congr 1
+
+  rw [Busybeaver'.fold_max_eq_fold_union]
+  /-
+  We begin the second case mentionned above. We need to prove that the next_machines' of M are
+  actually enough to consider to compute the busybeaver for all the other child machines.
+  -/
+
+  /-
+  Before embarquing in this, lets proove some properties about C
+  -/
+  have hCs: C.state ∈ used_states M := used_states.mono_default hlab Clast.2
+  have hCt: C.tape.head ∈ used_symbols M := used_symbols.mono_default hsym Clast.2
+
+  apply Busybeaver'.biject_fold
+  · intro M' hM'
+    exists M'
+    simp [Finset.mem_fold_union, Finset.mem_image, id] at hM'
+    simp
+    obtain ⟨childs, hchilds, hM'childs⟩ := hM'
+    simp [terminating_children] at hM'childs
+    constructor
+    · simp [terminating_children]
+      calc
+        is_child M'.M childs := hM'childs
+        is_child childs M := next_machines.is_child Clast.1 hchilds
+    · simp [next_machines] at hchilds
+      obtain ⟨S, D, L, _, hchilds⟩ := hchilds
+      specialize hM'childs C.state C.tape.head
+      rw [← hchilds] at hM'childs
+      simp [update_with] at hM'childs
+      rw [← hM'childs]
+      simp
+  · intro M' hM'
+    simp [terminating_children] at hM'
+    obtain hMM' := next_machines.terminates_children (by {
+      simp [Machine.LastState]
+      exact Clast.1
+    }) Clast.2 hM'.1
+    rcases hMM' with hMM' | ⟨Mc, hMc, Mh, hMhh, hMhc⟩
+    · simp [Machine.LastState] at hMM'
+      exact absurd hMM' hM'.2
+
+    simp [Finset.mem_fold_union, Finset.mem_image, id, terminating_children]
+    lift Mh to {T: Terminating l s // T.n = M'.n}
+    · exact hMhh.symm.same_halt_time M'.terminates
+
+    obtain ⟨Mh, hMhn⟩ := Mh
+    simp at hMhh hMhc
+    use Mh
+    constructor
+    swap
+    · exact hMhn.symm
+    use Mc
 }
 
 def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 1 .right 1 else .halt

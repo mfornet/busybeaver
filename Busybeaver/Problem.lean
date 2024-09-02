@@ -15,6 +15,12 @@ structure Terminating (l s: ℕ) where
   terminates: M.halts_in n default
 deriving DecidableEq
 
+instance Machine.canLiftTerminating: CanLift (Machine l s) {T : Terminating l s // T.n = n } (λ M ↦ M.val.M) (λ M ↦ M.halts_in n default) where
+  prf M hM := by {
+    simp
+    use ⟨M, n, hM⟩
+  }
+
 noncomputable instance Terminating.fintype: Fintype (Terminating l s) := by {
   apply Fintype.ofInjective Terminating.M
   intro ⟨AM, An, At⟩ ⟨BM, Bn, Bt⟩ hABM
