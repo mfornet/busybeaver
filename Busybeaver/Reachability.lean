@@ -415,6 +415,11 @@ lemma no_multistep (hM: M.LastState A): ¬(A -[M]{n + 1}-> C) := by {
   cases hAB
 }
 
+lemma no_multistep' (hM: M.LastState A) (hn: 0 < n): ¬(A -[M]{n}-> C) := by {
+  rw [← Nat.sub_one_add_one_eq_of_pos hn]
+  exact no_multistep hM
+}
+
 lemma no_progress (hM: M.LastState A): ¬(A -[M]->+ B) := by {
   intro hAC
   obtain ⟨n, hn⟩ := hAC.to_multistep

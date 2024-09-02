@@ -145,6 +145,26 @@ by {
   }
 }
 
+instance MultiTStep.split (h: A t-[M: L ++ L']->> B): ∃C, (A t-[M:L]->> C) ∧ C t-[M:L']->> B :=
+by induction L generalizing A with
+| nil => {
+  use A
+  simp at h
+  constructor
+  · exact .refl A
+  · exact h
+}
+| cons head tail IH => {
+  cases h
+  rename_i C hAC hCB
+  simp at hCB
+  obtain ⟨C', hC'⟩ := IH hCB
+  use C'
+  constructor
+  · exact MultiTStep.step A C C' head tail hAC hC'.1
+  · exact hC'.2
+}
+
 /-
 The very convenient step-or-prove-termination function that greatly simplifies writing deciders that
 step through an execution: if the machine stops at some point the decider also stops, proving
@@ -168,3 +188,96 @@ def Machine.stepT
         exact hi
       } ⟩
 
+def List.repeat (L: List α): ℕ → List α
+| 0 => []
+| n + 1 => L ++ (List.repeat L n)
+
+@[simp]
+lemma List.repeat.zero: List.repeat L 0 = [] := rfl
+
+@[simp]
+lemma List.repeat.succ: List.repeat L (n + 1) = L ++ (List.repeat L n) := rfl
+
+lemma List.repeat.concat_comm: List.repeat L n ++ L = L ++ List.repeat L n :=
+by induction n with
+| zero => simp
+| succ n IH => simp [IH]
+
+@[simp]
+lemma List.repeat.length: (List.repeat L n).length = n * L.length :=
+by induction n with
+| zero => simp
+| succ n IH => {
+  simp
+  rw [Nat.add_one_mul, IH, Nat.add_comm]
+}
+
+@[simp]
+lemma List.repeat.add: List.repeat L (n + k) = List.repeat L n ++ List.repeat L k :=
+by induction k with
+| zero => simp
+| succ k IH => {
+  simp
+  rw [← Nat.add_assoc, succ, ← concat_comm, IH]
+  simp
+  exact concat_comm
+}
+
+def ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
+by {
+  obtain ⟨q, hq⟩ := hRecord
+  rw [List.mem_iff_append] at hq
+  obtain ⟨S, T, hST⟩ := hq
+  sorry
+}
+
+def ticking_extends_many (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
+  ∃D, B t-[M:List.repeat L n]->> D :=
+by induction n generalizing A B C with
+| zero => {
+  simp
+  use B
+  exact .refl B
+}
+| succ n IH => {
+  simp
+  obtain ⟨D, hCD⟩ := ticking_extends hAB hBC hRecord
+  obtain ⟨E, hE⟩ := IH hBC hCD
+  use E
+  calc B
+    _ t-[M:L]->> C := hBC
+    _ t-[M:List.repeat L n]->> E := hE
+}
+
+def ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
+  ¬M.halts A.toConfig :=
+by {
+  intro ⟨n, E, hEl, hEr⟩
+
+  obtain ⟨q, hq⟩ := hRecord
+
+  have hLlen: 0 < L.length := List.length_pos_of_mem hq
+
+  have hLrep: n < (List.repeat L (n / L.length + 1)).length := by {
+    simp
+    rw [Nat.add_comm]
+    exact Nat.lt_div_mul_add hLlen
+  }
+
+  obtain ⟨E', hE'⟩ := ticking_extends_many hAB hBC ⟨q, hq⟩ (n:= n / L.length)
+  have hAE' := calc A
+    _ t-[M:L]->> B := hAB
+    _ t-[M:List.repeat L (n / L.length)]->> E' := hE'
+
+  simp at hLrep
+
+  have hAE'ms := hAE'.to_multistep
+  simp at hAE'ms
+
+  let nstep := L.length + n / L.length * L.length - n
+  have hEE': E -[M]{nstep}-> E'.toConfig := Machine.Multistep.split_le  hAE'ms hEr (Nat.le_of_lt hLrep)
+
+  refine Machine.halts_in.no_multistep' hEl (C:=E'.toConfig) (n:=nstep) ?_ hEE'
+  simp [nstep]
+  exact Nat.zero_lt_sub_of_lt hLrep
+}
