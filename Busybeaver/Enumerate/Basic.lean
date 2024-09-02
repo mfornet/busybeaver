@@ -113,6 +113,16 @@ by {
   }
 }
 
+lemma same_halt_time [inst: Transformation fC fM] (h: M.halts_in n A): (fM M).halts_in n (fC A) :=
+by {
+  obtain ⟨C, CLast, Creach⟩ := h
+  exists fC C
+  constructor
+  · exact last CLast
+  · rw [← bisimu]
+    exact Creach
+}
+
 lemma equi_halts [inst: Transformation fC fM]: (M, q) =H (fM M, fC q) :=
 by {
   unfold equi_halts
@@ -137,19 +147,3 @@ by {
 }
 
 end Transformation
--- namespace simu
-
--- variable {f: Config l s → Config l s} {g: Machine l s → Machine l s}
-
--- private lemma zstep (h: A -[M]{0}-> B): A = B := by {
---   cases h
---   rfl
--- }
-
-
--- lemma equi_halts (hf: Function.Involutive f) (hg: Function.Involutive g)
---   (h: ∀{M A B}, (A -[M]-> B) → ((f A) -[g M]-> (f B))):
---   equi_halts M (g M) q (f q) :=
--- by {
-
--- }

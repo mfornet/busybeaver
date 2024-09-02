@@ -14,6 +14,9 @@ def Turing.Dir.other: Turing.Dir → Turing.Dir
 | .left => .right
 | .right => .left
 
+lemma Turing.Dir.eq_left_or_eq_right {d: Turing.Dir}: d = .left ∨ d = .right :=
+by cases d <;> trivial
+
 @[simp]
 lemma Turing.Dir.other.symmetric {d: Turing.Dir}: d.other.other = d :=
 by cases d <;> simp [other]
@@ -60,6 +63,10 @@ by {
     simp [h]
 }
 
+@[simp]
+lemma default: Turing.Tape.reverse (Γ:=Γ) default = default :=
+  by rfl
+
 end Turing.Tape.reverse
 
 namespace TM.Machine
@@ -100,6 +107,9 @@ by {
   simp [config_reverse]
 }
 
+lemma config_reverse.default: config_reverse (l:=l) (s:=s) default = default :=
+by rfl
+
 lemma single (h: A -[M]-> B): config_reverse A -[M.symm]-> config_reverse B :=
 by {
   obtain ⟨sym, dir, hAB, hBtape⟩ := Machine.step.some_rev h
@@ -110,13 +120,13 @@ by {
     exact hBtape
 }
 
-instance: @Transformation l s config_reverse symm where
+instance transformation: @Transformation l s config_reverse symm where
   fCinv := config_rev.inv
   fMinv := symm.involutive
 
   simulate := single
 
-lemma equiv: equi_halts M M.symm ⟨q, default⟩ ⟨q, default⟩ :=
+lemma equiv: (M, ⟨q, default⟩) =H (M.symm, ⟨q, default⟩) :=
 by {
   suffices config_reverse ⟨q, default⟩ = ⟨q, default⟩ by {
     conv =>
@@ -127,6 +137,9 @@ by {
   simp [config_reverse, default]
   rfl
 }
+
+lemma same_runtime (hM: M.halts_in n C): M.symm.halts_in n (config_reverse C) :=
+  Transformation.same_halt_time hM
 
 end symm
 
@@ -152,3 +165,5 @@ by cases dir with
     simp [symm, symnxt, Turing.Dir.other]
   · exact symne
 }
+
+end Machine

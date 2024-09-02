@@ -144,6 +144,12 @@ def Machine.eval (M: Machine l s) (bound: ℕ) (orig: Config l s): Option (Confi
 
 def Machine.LastState (M: Machine l s) (σ: Config l s): Bool := M.step σ |>.isNone
 
+
+def Machine.halting_trans (M: Machine l s) := (Finset.univ (α:=Label l × Symbol s)).filter (λ pair ↦ M pair.1 pair.2 = .halt)
+
+def Machine.n_halting_trans (M: Machine l s) := M.halting_trans.card
+
+
 def init: Config l s := default
 
 end TM

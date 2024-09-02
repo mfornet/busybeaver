@@ -1,6 +1,8 @@
 import Busybeaver.Basic
+import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic
 
 namespace TM.Machine
-
-def halting_states (M: Machine l s) := (Finset.univ (α:=Label l × Symbol s)).filter (λ pair ↦ M pair.1 pair.2 = .halt)
+/--/
+/--/
+/- def decide_children (M: Machine l s) (decider: (M': Machine l s) → HaltM M' default): -/

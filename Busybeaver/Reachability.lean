@@ -213,6 +213,30 @@ lemma to_evstep (h: A -[M]{n}-> B): A -[M]->* B :=
     exact .step hAB IH
   }
 
+lemma get_prefix (h: A -[M]{n}-> B) (hk: k ≤ n): ∃C, A -[M]{k}-> C :=
+by induction h generalizing k with
+| @refl C => {
+  exists C
+  simp_all
+  exact .refl
+}
+| @succ A B _ n hAB _ IH => {
+  rcases Nat.eq_zero_or_eq_sub_one_add_one (n:=k) with hk' | hk'
+  · simp_all
+    exists A
+    exact .refl
+
+  rw [add_comm] at hk'
+  simp [*, -hk'] at hk
+  apply Nat.sub_le_of_le_add at hk
+  obtain ⟨C, hC⟩ := IH hk
+  exists C
+  rw [hk']
+  calc A
+    _ -[M]{1}-> B := Multistep.single hAB
+    _ -[M]{k - 1}-> C := hC
+}
+
 end Machine.Multistep
 
 namespace Machine.Progress
@@ -405,6 +429,12 @@ lemma deterministic (hMk: M.halts_in k A) (hMn: M.halts_in n A): k = n :=
       exact within hMk hn
   }
 
+lemma split (hM: M.halts_in n A) (hn: k ≤ n): ∃B, A -[M]{k}-> B :=
+by {
+  obtain ⟨C, _, hC⟩ := hM
+  exact hC.get_prefix hn
+}
+
 end Machine.halts_in
 
 namespace Machine.halts
@@ -450,7 +480,7 @@ Monad for computations that prove (non-)termination of machine M
 -/
 inductive HaltM {l s: ℕ} (M: TM.Machine l s) (α: Type u)
 | unknown: α → HaltM M α
-| halts_prf n : M.halts_in n init → HaltM M α
+| halts_prf n C : M.LastState C ∧ (default -[M]{n}-> C) → HaltM M α
 | loops_prf : ¬(M.halts init) → HaltM M α
 deriving Repr
 
@@ -461,7 +491,7 @@ instance (M: TM.Machine l s): Monad (HaltM M) where
   pure := .unknown
   bind := λ m f ↦ match m with
     | .unknown v => f v
-    | .halts_prf n p => .halts_prf n p
+    | .halts_prf n C p => .halts_prf n C p
     | .loops_prf p => .loops_prf p
 
 def decided: HaltM M α → Bool
@@ -473,15 +503,14 @@ end HaltM
 def Machine.stepH
   (M: TM.Machine l s) (σ: {s // init -[M]{k}-> s}): HaltM M {s' // init -[M]{k + 1}-> s'} :=
   match hi: M.step σ.val with
-  | .none => .halts_prf k (by {
-    obtain ⟨s, hs⟩ := σ
-    exists s
+  | .none => .halts_prf k σ.val (by {
     constructor
     · simp_all [Machine.LastState]
-    · exact hs
+    · exact σ.prop
   })
   | .some nxt => .unknown ⟨nxt, by {
     obtain ⟨s, hs⟩ := σ
     simp_all
     exact Machine.Multistep.tail hs hi
   }⟩
+
