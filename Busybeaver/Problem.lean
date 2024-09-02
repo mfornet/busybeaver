@@ -512,22 +512,25 @@ private def update_with (M: Machine l s) (lab: Label l) (sym: Symbol s) (S: Stmt
   λ lab' sym' ↦ if lab' = lab ∧ sym' = sym then S else M lab' sym'
 
 private lemma update_with.le_halt_trans {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
-  (update_with M lab sym (.next sym' dir lab')).n_halting_trans < M.n_halting_trans :=
+  (update_with M lab sym (.next sym' dir lab')).n_halting_trans = M.n_halting_trans - 1:=
 by {
-  simp [Machine.n_halting_trans, update_with, halting_trans]
-  apply Finset.card_lt_card
-  apply ssubset_of_subset_not_subset
-  · intro trans htrans
-    simp_all
-    split at htrans <;> simp_all
-  · rw [Finset.not_subset]
-    use! lab, sym
-    simp
+  simp [Machine.n_halting_trans]
+  rw [← Finset.card_erase_of_mem (s:=M.halting_trans) (a:=(lab, sym)) (by {
+    simp [halting_trans]
     exact h
+  })]
+  simp [Machine.n_halting_trans, update_with, halting_trans]
+  congr
+  apply Finset.ext
+  intro ⟨L, S⟩
+  simp
+  split
+  · simp_all
+  · simp_all
 }
 
 private lemma update_with.le_halt_trans' {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt) (hS: S = .next sym' dir lab'):
-  (update_with M lab sym S).n_halting_trans < M.n_halting_trans :=
+  (update_with M lab sym S).n_halting_trans = M.n_halting_trans - 1:=
 by {
   rw [hS]
   exact update_with.le_halt_trans h
@@ -538,7 +541,7 @@ private def next_machines (M: Machine l s) (lab: Label l) (sym: Symbol s): Finse
 
 @[simp]
 private lemma halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
-  ∀ M' ∈ next_machines M lab sym, M'.n_halting_trans < M.n_halting_trans :=
+  ∀ M' ∈ next_machines M lab sym, M'.n_halting_trans = M.n_halting_trans - 1 :=
 by {
   intro M' hM'
   simp [next_machines] at hM'
@@ -548,7 +551,8 @@ by {
   apply update_with.le_halt_trans' h hS
 }
 
-private def next_machines' (M: Machine l s) (lab: Label l) (sym: Symbol s) (hS: M lab sym = .halt): Finset { M': Machine l s // M'.n_halting_trans < M.n_halting_trans} :=
+private def next_machines' (M: Machine l s) (lab: Label l) (sym: Symbol s) (hS: M lab sym = .halt):
+Finset { M': Machine l s // M'.n_halting_trans = M.n_halting_trans - 1} :=
   usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image (λ ⟨sym', dir, lab'⟩ ↦
   ⟨update_with M lab sym (.next sym' dir lab'), update_with.le_halt_trans hS⟩)
 
@@ -562,12 +566,15 @@ def BBCompute (decider: (M': Machine l s) → HaltM M' Unit) (M: Machine l s): B
 match decider M with
 | .loops_prf _ => { val := 0, undec := {} } -- If this one loops, then the descendents also loop
 | .halts_prf n C hC =>
-  Finset.fold BBResult.join { val := n, undec := {} } (λ M ↦ BBCompute decider M.val) $
-  (next_machines' M C.state C.tape.head (by {
-    obtain ⟨hC, _⟩ := hC
-    simp [Machine.LastState] at hC
-    exact hC
-  }))
+  if M.n_halting_trans > 1 then
+    Finset.fold BBResult.join { val := n, undec := {} } (λ M ↦ BBCompute decider M.val) $
+    (next_machines' M C.state C.tape.head (by {
+      obtain ⟨hC, _⟩ := hC
+      simp [Machine.LastState] at hC
+      exact hC
+    }))
+  else
+    { val := n, undec := {}}
 | .unknown _ => { val := 0, undec := {M} } -- This machine is undecided, no need to go further
 termination_by M.n_halting_trans
 
@@ -909,8 +916,14 @@ by induction M using BBCompute.induct decider with
   have nMnothalts := hnMm.halt_of_halt_parent nonhalt
   exact absurd ⟨nMn, nMterm⟩ nMnothalts
 }
-| case3 M a dec => simp [BBCompute, dec] at h -- The machine is unknown, contradictory because undec = {}
-| case2 M nh C Clast h' IH => { -- The machine halts in nh steps, in Clast the last state
+| case4 M a dec => simp [BBCompute, dec] at h -- The machine is unknown, contradictory because undec = {}
+| case3 M nh C Clast h' hntrans => { -- The machine halts but cannot be expanded this because is does not have enough states
+  unfold BBCompute at *
+  simp [h', hntrans] at h
+  simp [h', hntrans]
+  sorry
+}
+| case2 M nh C Clast h' hntrans IH => { -- The machine halts in nh steps, in Clast the last state
   /-
   Proof sketch (thanks to @mei on discord)
 
@@ -923,7 +936,7 @@ by induction M using BBCompute.induct decider with
 
   -- Simplify hypotheses
   unfold BBCompute at h
-  simp only [h', BBResult.join.fold_union, Finset.fold_union_empty] at h
+  simp only [h', hntrans, ite_true, BBResult.join.fold_union, Finset.fold_union_empty] at h
 
   simp [Machine.LastState] at Clast
 
@@ -978,6 +991,7 @@ by induction M using BBCompute.induct decider with
         exact hM'.1.multistep Clast.2
   }
   rw [hSameM]
+  simp [hntrans]
 
   /-
   Here starts a calculatory part of the proof where we simplify the goal
