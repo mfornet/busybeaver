@@ -4,15 +4,17 @@ import Busybeaver.TuringExt
 
 def hello := "world"
 
-abbrev Label (l: ℕ) := Fin l
+abbrev Label (l: ℕ) := Fin (l + 1)
 instance: Fintype (Label l) := inferInstance
 instance: LE (Label l) := inferInstance
 instance: Repr (Label l) := inferInstance
+instance: Inhabited (Label l) := inferInstance
 
-abbrev Symbol (s: ℕ) := Fin s
+abbrev Symbol (s: ℕ) := Fin (s + 1)
 instance: Fintype (Symbol s) := inferInstance
 instance: LE (Symbol s) := inferInstance
 instance: Repr (Symbol s) := inferInstance
+instance: Inhabited (Symbol s) := inferInstance
 
 namespace TM
 
@@ -32,7 +34,7 @@ structure Config (l s: ℕ) [Inhabited $ Symbol s] where
 
 end Defs
 
-instance [Inhabited $ Symbol s]: DecidableEq (Config l s) := by {
+instance: DecidableEq (Config l s) := by {
   unfold DecidableEq
   intro a b
   obtain ⟨sa, ta⟩ := a
@@ -41,7 +43,7 @@ instance [Inhabited $ Symbol s]: DecidableEq (Config l s) := by {
   apply instDecidableAnd
 }
 
-variable {l s: ℕ } [Inhabited $ Label l] [Inhabited $ Symbol s]
+variable {l s: ℕ }
 
 section PrettyPrint
 open Std.Format Lean
@@ -123,6 +125,21 @@ instance Config.inhabited: Inhabited $ Config l s := ⟨⟨default, default⟩�
 def Machine.step (M: Machine l s) (orig: Config l s): Option (Config l s) := match M orig.state orig.tape.head with
 | .halt => none
 | .next sym dir state => some { state, tape := orig.tape.write sym |>.move dir}
+
+namespace Machine.step
+
+variable {M: Machine l s}
+
+@[simp]
+lemma none (h: M.step c = .none): M c.state c.tape.head = .halt :=
+ by {
+  simp [Machine.step] at h
+  split at h
+  · trivial
+  · contradiction
+ }
+
+end Machine.step
 
 def Machine.eval (M: Machine l s) (bound: ℕ) (orig: Config l s): Option (Config l s) := match bound with
 | 0 => orig

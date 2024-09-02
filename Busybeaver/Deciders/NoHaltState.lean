@@ -2,7 +2,7 @@ import Mathlib.Tactic
 import Busybeaver.Basic
 import Busybeaver.Reachability
 
-variable {L S: ℕ} [Inhabited $ Label L] [Inhabited $ Symbol S]
+variable {L S: ℕ}
 
 open TM
 

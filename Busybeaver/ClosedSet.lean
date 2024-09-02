@@ -3,7 +3,7 @@ import Busybeaver.Reachability
 
 open TM
 
-variable {M: Machine L S} [Inhabited $ Symbol S] [Inhabited $ Label L]
+variable {M: Machine L S}
 
 structure ClosedSet (M: Machine L S) (base: Config L S → Prop) (I: Config L S) where
   closed : ∀ (A: { S // base S }), ∃ (B: {S // base S}), A -[M]->+ B

@@ -2,7 +2,7 @@ import Busybeaver.Basic
 
 namespace TM
 
-variable {M: Machine l s} [Inhabited $ Symbol s] [Inhabited $ Label l]
+variable {M: Machine l s}
 
 notation (priority:=high) s₁ "-[" M "]->" s₂ => Machine.step M s₁ = @Option.some (Config _ _) s₂
 
@@ -356,6 +356,13 @@ lemma mono (h: A -[M]{n}-> B) (hM: M.halts B): M.halts A := by {
   exact halts_in.orders hnb h
 }
 
+lemma tail (h: A -[M]{n}-> B) (hM: M.halts A): M.halts B := by {
+  obtain ⟨k, hk⟩ := hM
+  have hkn := halts_in.within hk h
+  have hB := halts_in.preceeds hk h hkn
+  exists k - n
+}
+
 lemma skip (h: A -[M]{n}-> B) (hM: ¬(M.halts B)): ¬(M.halts A) := by {
   intro ⟨nA, hnA⟩
   have hn := halts_in.within hnA h
@@ -377,13 +384,13 @@ section HaltM
 /--
 Monad for computations that prove (non-)termination of machine M
 -/
-inductive HaltM {l s: ℕ} [Inhabited $ Label l] [Inhabited $ Symbol s] (M: TM.Machine l s) (α: Type u)
+inductive HaltM {l s: ℕ} (M: TM.Machine l s) (α: Type u)
 | unknown: α → HaltM M α
 | halts_prf : M.halts init → HaltM M α
 | loops_prf : ¬(M.halts init) → HaltM M α
 deriving Repr
 
-variable {l s: ℕ} [Inhabited $ Label l] [Inhabited $ Symbol s]
+variable {l s: ℕ}
 
 instance (M: TM.Machine l s): Monad (HaltM M) where
   pure := .unknown
@@ -393,7 +400,7 @@ instance (M: TM.Machine l s): Monad (HaltM M) where
     | .loops_prf p => .loops_prf p
 end HaltM
 
-def Machine.stepH  [Inhabited $ Label l] [Inhabited $ Symbol s]
+def Machine.stepH
   (M: TM.Machine l s) (σ: {s // init -[M]{k}-> s}): HaltM M {s' // init -[M]{k + 1}-> s'} :=
   match hi: M.step σ.val with
   | .none => .halts_prf (by {

@@ -13,8 +13,8 @@ actual verifier.
 -- def boundedExplore [Inhabited $ Label l] [Inhabited $ Symbol s] (bound: ℕ): HaltM M Unit := do
 --   let cur: { s // M.Reaches init s } := ⟨init, Machine.Reaches.refl⟩
 --   .unknown ()
-def boundedExplore [Inhabited $ Label l] [Inhabited $ Symbol s] (bound: ℕ) (M: Machine l s): HaltM M Unit :=
-  let rec boundedExploreCore [Inhabited $ Label l] [Inhabited $ Symbol s] (bound: ℕ) {k} (σ: { s // init -[M]{k}-> s }): HaltM M Unit := match bound with
+def boundedExplore (bound: ℕ) (M: Machine l s): HaltM M Unit :=
+  let rec boundedExploreCore (bound: ℕ) {k} (σ: { s // init -[M]{k}-> s }): HaltM M Unit := match bound with
   | 0 => .unknown ()
   | n + 1 => M.stepH σ >>= boundedExploreCore n
   boundedExploreCore bound ⟨init, Machine.Multistep.refl⟩
