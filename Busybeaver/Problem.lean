@@ -126,6 +126,32 @@ by simp
 lemma union_right : Busybeaver' l s S' ≤ Busybeaver' l s (S ∪ S') :=
 by simp
 
+/-
+If S can be "embedded" in S' in terms of termination, then the busybeaver' function on these sets is
+monotonic.
+-/
+lemma fold_into {S S': Finset (Terminating l s)} (h: ∀M ∈ S, ∃M' ∈ S', M.n = M'.n): Busybeaver' l s S ≤ Busybeaver' l s S' :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => {
+  simp at h
+  simp
+  constructor
+  swap
+  · exact IH h.2
+  obtain ⟨M', hM', hM'A⟩ := h.1
+  rw [hM'A]
+  exact Busybeaver'.max hM'
+}
+
+lemma biject_fold {S S': Finset (Terminating l s)} (hS: ∀M ∈ S, ∃M' ∈ S', M.n = M'.n) (hS': ∀M' ∈ S', ∃M ∈ S, M'.n = M.n):
+  Busybeaver' l s S = Busybeaver' l s S' :=
+by {
+  apply Nat.le_antisymm
+  · exact fold_into hS
+  · exact fold_into hS'
+}
+
 lemma mono (hS: S ⊆ S') : Busybeaver' l s S ≤ Busybeaver' l s S' := by {
   conv_rhs =>
     rw [← Finset.sdiff_union_of_subset hS, Finset.union_comm]
@@ -150,6 +176,13 @@ by induction S using Finset.induction with
   obtain ⟨hAn, hIH⟩ := hS
   simp [IH hIH, hAn]
 }
+
+/-
+Tiny lemma to show that is all the machines in a set have the same halting time then it is easy to
+compute the Busybeaver' function
+-/
+lemma eq_of_all_eq (hSn: S.Nonempty) (hSa: ∀ M ∈ S, M.n = n) : Busybeaver' l s S = n :=
+by induction hSn using Finset.Nonempty.cons_induction <;> simp_all
 
 end Busybeaver'
 
@@ -341,6 +374,41 @@ by {
   exact Nat.max_assoc A.val B.val C.val
 }
 
+@[simp]
+def BBResult.join.fold_max [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
+  (Finset.fold BBResult.join B f S).val = Finset.fold Max.max B.val (λ a ↦ f a |>.val) S :=
+by induction S using Finset.induction with
+| empty => simp_all
+| @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
+
+instance Finset.instUnionComm [DecidableEq α]: Std.Commutative (α:=Finset α) Union.union :=
+by {
+  constructor
+  intro a b
+  exact Finset.union_comm _ _
+}
+
+instance Finset.instUnionAssoc [DecidableEq α]: Std.Associative (α:=Finset α) Union.union :=
+by {
+  constructor
+  intro a b c
+  exact Finset.union_assoc _ _ _
+}
+
+@[simp]
+lemma Finset.fold_union_empty [DecidableEq α] [DecidableEq β] {f: α → Finset β} {S: Finset α}:
+  Finset.fold Union.union ∅ f S = ∅ ↔ ∀ a ∈ S, f a = ∅ :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => simp [Finset.union_eq_empty, IH]
+
+@[simp]
+def BBResult.join.fold_union [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
+  (Finset.fold BBResult.join B f S).undec = Finset.fold Union.union B.undec (λ a ↦ (f a).undec) S :=
+by induction S using Finset.induction with
+| empty => simp_all
+| @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
+
 def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match h with
 | .unknown _ => { val := 0, undec := {M}}
 | .halts_prf n _ _ => { val := n, undec := {}}
@@ -467,6 +535,7 @@ by {
   apply inferInstance
 }
 
+@[simp]
 lemma is_child.refl: M ≤c M :=
 by {
   intro lab sym
@@ -610,28 +679,28 @@ by {
   exact is_child.ne_halt_trans_ssub h h'
 }
 
-lemma is_child.exists_next_machines (h: M ≤c M') (hM: M lab sym = .halt) (hM': M' lab sym = .next sym' dir lab'): ∃Mn ∈ next_machines' M lab sym hM, M' ~m Mn.val :=
-by {
-  have HMM' : M' = update_with M lab sym (.next sym' dir lab') := by {
-    funext lb sm
-    simp [update_with]
-    split
-    · simp_all
-    /- rename_i hsmlb -/
-    sorry
-  }
-  sorry
-}
+/- lemma is_child.exists_next_machines (h: M ≤c M') (hM: M lab sym = .halt) (hM': M' lab sym = .next sym' dir lab'): ∃Mn ∈ next_machines' M lab sym hM, M' ~m Mn.val := -/
+/- by { -/
+/-   have HMM' : M' = update_with M lab sym (.next sym' dir lab') := by { -/
+/-     funext lb sm -/
+/-     simp [update_with] -/
+/-     split -/
+/-     · simp_all -/
+/-     /- rename_i hsmlb -/ -/
+/-     sorry -/
+/-   } -/
+/-   sorry -/
+/- } -/
 
 noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
   Finset.univ.filter (λ M' ↦ M ≤c M'.M)
 
-theorem correct (h: BBCompute decider M = { val := n, undec := {}}): Busybeaver' l s (terminating_children M) = n :=
+theorem correct (h: (BBCompute decider M).undec = ∅): (BBCompute decider M).val = Busybeaver' l s (terminating_children M) :=
 by induction M using BBCompute.induct decider with
 | case1 M' nonhalt h' => {
-  -- The machine did not halt, we can cut here
-  simp [BBCompute, h'] at h
-  rw [← h]
+  -- The machine loops, thus the children also loop
+  unfold BBCompute
+  simp [h']
   suffices terminating_children M' = {} by simp [this]
   rw [← Finset.not_nonempty_iff_eq_empty]
   intro hM
@@ -640,9 +709,73 @@ by induction M using BBCompute.induct decider with
   have nMnothalts := hnMm.halt_of_halt_parent nonhalt
   exact absurd ⟨nMn, nMterm⟩ nMnothalts
 }
-| case3 M a dec => simp [BBCompute, dec] at h -- Contradictory, BBCompute returns {}
-| case2 M n lastC => {
+| case3 M a dec => simp [BBCompute, dec] at h -- The machine is unknown, contradictory because undec = {}
+| case2 M nh C Clast h' IH => { -- The machine halts in nh steps, in Clast the last state
+  /-
+  Proof sketch (thanks to @mei on discord)
+
+  Each terminating child of M fits in either cases:
+  - It has the same halting transition for configuration C -> halting time is the same
+  - It has another transition from C -> halting time is one of ones of the next_machines's
+  -/
+  unfold BBCompute
+  simp [h']
+
+  -- Simplify hypotheses
+  unfold BBCompute at h
+  simp only [h', BBResult.join.fold_union, Finset.fold_union_empty] at h
+
+  simp [Machine.LastState] at Clast
+
+  have hMn: ∀ Mn ∈ (next_machines' M C.state C.tape.head Clast.1), (BBCompute decider Mn).val = Busybeaver' l s (terminating_children Mn) := by {
+    intro Mn Hmn
+    apply IH Mn
+    exact h Mn Hmn
+  }
+
+  have hTerm: terminating_children M =
+    (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) := by {
+    apply Finset.ext
+    intro M
+    cases hM: M.M C.state C.tape.head <;> simp_all
+  }
+  rw [hTerm]
+  simp
+
+  have hSameM : Busybeaver' l s ((terminating_children M).filter (λ M ↦ M.M C.state C.tape.head =
+  .halt)) = nh := by {
+    apply Busybeaver'.eq_of_all_eq
+    · exists ⟨M, nh, by {
+        exists C
+      }⟩
+      simp
+      constructor
+      swap
+      · exact Clast.1
+      simp [terminating_children]
+    · intro ⟨M', n', M'term⟩ hM'
+      simp at hM'
+      simp
+      apply M'term.deterministic
+      exists C
+      constructor
+      · simp [LastState]
+        exact hM'.2
+      · simp [terminating_children] at hM'
+        exact hM'.1.multistep Clast.2
+  }
+  rw [hSameM]
+
+  have hLeft:
+    Finset.fold Max.max nh (λ M' ↦ (BBCompute decider M'.val).val) (next_machines' M C.state C.tape.head Clast.1) =
+    Finset.fold Max.max nh (λ M' ↦ Busybeaver' l s (terminating_children M'.val)) (next_machines' M C.state C.tape.head Clast.1) := by {
+    sorry
+  }
+
+  rw [hLeft]
   sorry
+  /- suffices Busybeaver' l s (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) -/
+  /-   =  -/
 }
 
 /- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
