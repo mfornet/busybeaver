@@ -1277,25 +1277,4 @@ by {
     exact correct_1RB h.2
 }
 
-/- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
-/- by { -/
-/-   unfold is_descendant DecidableRel -/
-/-   intro A B -/
-/-   induction A ≤d B -/
-/- } -/
-/- def descendants (M: Machine l s): Finset (Machine l s) := -/
-/-   Finset.univ (α:=Machine l s) |>.filter (λ M' ↦ M ≤d M') -/
-/-
-theorem correct (h: BBCompute decider M = { val := n, undec := {}}): Busybeaver' l s M.children = n := by {
-  trivial
-}
-
--/
-
 end BBCompute
-/-
-namespace TM
-
-
-end TM
--/
