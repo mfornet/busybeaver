@@ -26,8 +26,11 @@ computations. Here are a bunch of ongoing/todo work. They are sorted
 in a random order, and agglomerated by broad categories:
 
 - Formal-only work
-    1. Setup the definitions to reason about individual TMs
-    2. Finish the proof of the TNF enumeration algorithm (NB: some
+    1. Setup definition used for shift-rules and [inductive proofs](https://wiki.bbchallenge.org/wiki/Inductive_Proof_System).
+       A good short term goal can be to prove nontermination for the
+       TM mentionned in the aforementionned page.
+    2. Setup the definitions to reason about individual TMs
+    3. Finish the proof of the TNF enumeration algorithm (NB: some
        lemmas may be wrong and need to tweaked to finish the proof)
 - Implementation-only work
     1. Find a way to have more parallel evaluation when enumerating TMs
