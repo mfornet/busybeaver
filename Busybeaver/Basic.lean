@@ -2,8 +2,6 @@ import Mathlib.Tactic
 import Mathlib.Computability.TuringMachine
 import Busybeaver.TuringExt
 
-def hello := "world"
-
 abbrev Label (l: ℕ) := Fin (l + 1)
 instance: Fintype (Label l) := inferInstance
 instance: LE (Label l) := inferInstance
@@ -67,7 +65,7 @@ instance: Repr Turing.Dir where
 
 instance: Repr (Stmt l s) where
   reprPrec := λ s _ ↦ match s with
-    | .halt => "--H"
+    | .halt => "---"
     | .next s d l => repr s ++ repr d ++ repr l
 
 instance: Repr (Machine l s) := ⟨λ M _ ↦

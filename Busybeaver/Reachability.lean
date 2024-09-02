@@ -380,7 +380,6 @@ lemma skip_evstep (h: A -[M]->* B) (hM: ¬(M.halts B)): ¬(M.halts A) := by {
 
 end Machine.halts
 
-section HaltM
 /--
 Monad for computations that prove (non-)termination of machine M
 -/
@@ -390,6 +389,7 @@ inductive HaltM {l s: ℕ} (M: TM.Machine l s) (α: Type u)
 | loops_prf : ¬(M.halts init) → HaltM M α
 deriving Repr
 
+namespace HaltM
 variable {l s: ℕ}
 
 instance (M: TM.Machine l s): Monad (HaltM M) where
@@ -398,6 +398,11 @@ instance (M: TM.Machine l s): Monad (HaltM M) where
     | .unknown v => f v
     | .halts_prf p => .halts_prf p
     | .loops_prf p => .loops_prf p
+
+def decided: HaltM M α → Bool
+| .unknown _ => False
+| _ => True
+
 end HaltM
 
 def Machine.stepH

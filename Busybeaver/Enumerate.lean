@@ -19,7 +19,17 @@ inductive ZVisits (M: Machine l s): Label l → List (Label l) → Prop
 | symNZ : ∀ q sym dir labh, M q default = .next sym dir labh → sym ≠ default → M.ZVisits q []
 | symZ : ∀ q dir nlab labt, M q default = .next default dir nlab → M.ZVisits nlab labt → M.ZVisits q (nlab :: labt)
 
-def equi_halts (M M': Machine l s) (c: Config l s): Prop := M.halts c ↔ M'.halts c
+def equi_halts (M M': Machine l s) (c₁ c₂: Config l s): Prop := M.halts c₁ ↔ M'.halts c₂
+
+namespace equi_halts
+
+lemma refl: equi_halts M M c c :=
+  by {
+    unfold equi_halts
+    rfl
+  }
+
+end equi_halts
 
 namespace ZVisits
 
@@ -198,6 +208,93 @@ lemma from_halts (hM: M.halts { state := q, tape := default }): ∃L, M.ZVisits 
     --     -- · exact hM
     --   }
     -- }
+  }
+
+/--
+If a machine visits a certain list of states without writing non-zero, then we can build another TM such that:
+- It directly writes non-zero
+- It is equi-halting with the original TM
+-/
+lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), ∃ q', M'.ZVisits q' [] ∧ equi_halts M M' ⟨q, default⟩ ⟨q', default⟩ :=
+  by induction hM with
+  | @halts q' hq' => {
+    exists M
+    exists q'
+    constructor
+    · exact halts hq'
+    · exact equi_halts.refl
+  }
+  | symNZ q sym dir labh hlab v => {
+    exists M
+    exists q
+    constructor
+    · exact symNZ _ _ _ _ hlab v
+    · exact equi_halts.refl
+  }
+  | symZ q dir nlab labt hq v IH => {
+    obtain ⟨M', q', hV, hEq⟩ := IH
+    by_cases hql: q = nlab
+    /-
+      First case: the original machine trivially loops forever, writing 0s
+    -/
+    · simp_all
+      exists M'
+      exists q'
+
+    /-
+      Second case: q and nlab are different states
+
+      The new machine is the _swap_ of states nlab and q' in M'
+    -/
+    let Mtrans: Machine l s := λ lab ↦ if lab = nlab then M' q else if lab = q then M' nlab else M' lab
+
+    have hMtrans : equi_halts M' Mtrans ⟨q', default⟩ ⟨nlab, default⟩ := by {
+      constructor
+      · intro ⟨n, C, hCf, hCr⟩
+        exists n
+        exists C
+        cases hCr with
+        | refl => {
+          constructor
+          · simp [Machine.LastState] at *
+            apply Machine.step.none at hCf
+            simp at hCf
+            simp [Machine.step, Mtrans, hql]
+            split
+            · rfl
+            simp_all
+
+        }
+
+    }
+    exists Mtrans
+    obtain ⟨hEqMM', hEqM'M⟩ := hEq
+    cases hV with
+    | halts hnlab' => {
+      constructor
+      · apply ZVisits.halts
+        simp [hql]
+        trivial
+      constructor
+      · intro ⟨n, C, hC⟩
+    }
+    -- constructor
+    -- · cases hV with
+    --   | halts => {
+    --     apply ZVisits.halts
+    --     simp [hql]
+    --     trivial
+    --   }
+    --   | symNZ _ sym' dir' labh' hM' sym'ne => {
+    --     apply ZVisits.symNZ
+    --     · simp [hql]
+    --       exact hM'
+    --     · exact sym'ne
+    --   }
+    --   constructor
+    --   · intro hMh
+
+    --     -- specialize hEqMM' hMh
   }
 
 end ZVisits
