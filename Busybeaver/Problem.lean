@@ -431,8 +431,63 @@ def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match 
 private def used_states (M: Machine l s): (Finset (Label l)) :=
   Finset.univ (α:=Label l) |>.filter (λ l ↦ (∃sym, M l sym ≠ .halt) ∨ (∃ lab sym sym' dir, M lab sym = .next sym' dir l))
 
+private lemma used_states.mono (h: A.state ∈ used_states M) (hAB: A -[M]{n}-> B): B.state ∈ used_states M :=
+by induction hAB with
+| refl => exact h
+| @succ A B _ _ hAB _ IH => {
+  apply IH
+  obtain ⟨sym, dir, hMA, _⟩ := Machine.step.some_rev hAB
+  simp [used_states]
+  right
+  exists A.state
+  exists A.tape.head
+  exists sym
+  exists dir
+}
+
+private lemma used_states.mono_default (h: default ∈ used_states M) (hAB: default -[M]{n}-> B):
+B.state ∈ used_states M :=
+by {
+  simp [default] at *
+  refine used_states.mono ?_ hAB
+  simp
+  exact h
+}
+
 private def used_symbols (M: Machine l s): Finset (Symbol s) :=
   Finset.univ (α:=Symbol s) |>.filter (λ s ↦ (∃lab, M lab s ≠ .halt) ∨ (∃lab sym dir lab', M lab sym = .next s dir lab'))
+
+private lemma used_symbols.mono (hA: ∀ i, A.tape.nth i ∈ used_symbols M) (hAB: A -[M]{n}-> B): ∀ j, B.tape.nth j ∈ used_symbols M :=
+by induction hAB with
+| refl => exact hA
+| @succ A B _ _ hAB _ IH => {
+  apply IH
+  intro i
+  obtain ⟨sym, dir, _, hBt⟩ := Machine.step.some_rev hAB
+  rw [hBt]
+  cases dir
+  · simp
+    split
+    · simp [used_symbols]
+      right
+      use A.state, A.tape.head, .left, B.state
+    · exact hA (i - 1)
+  · simp
+    split
+    · simp [used_symbols]
+      right
+      use A.state, A.tape.head, .right, B.state
+    · exact hA (i + 1)
+}
+
+private lemma used_symbols.mono_default (h: default ∈ used_symbols M) (hB: default -[M]{n}-> B):
+B.tape.head ∈ used_symbols M := by {
+  simp [default] at *
+  refine used_symbols.mono ?_ hB 0
+  intro j
+  simp [Turing.Tape.nth, Turing.ListBlank.nth]
+  split <;> exact h
+}
 
 private def usable_states (M: Machine l s): Finset (Label l) :=
   used_states M ∪ if hM: (Finset.univ \ used_states M).Nonempty then {(Finset.univ \ (used_states M)).min' hM} else ∅
@@ -974,6 +1029,12 @@ by induction M using BBCompute.induct decider with
   actually enough to consider to compute the busybeaver for all the other child machines.
   -/
 
+  /-
+  Before embarquing in this, lets proove some properties about C
+  -/
+  have hCs: C.state ∈ used_states M := used_states.mono_default hlab Clast.2
+  have hCt: C.tape.head ∈ used_symbols M := used_symbols.mono_default hsym Clast.2
+
   apply Busybeaver'.biject_fold
   · intro M' hM'
     exists M'
@@ -1116,10 +1177,32 @@ by induction M using BBCompute.induct decider with
             cases heq
             simp
           }
-          sorry
-        · sorry
+          constructor
+          · intro hCslab
+            rw [← hCslab] at hlab'
+            exact hlab' hCs
+          · intro hCsnlab
+            rw [← hCsnlab] at hnlab
+            exact hnlab hCs
+        · exact hM'perm lab' sym'
     · sorry
     · sorry
+}
+
+def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 1 .right 1 else .halt
+
+lemma correct_1RB (h: (BBCompute decider (m1RB l s)).undec = ∅): (BBCompute decider (m1RB l s)).val = Busybeaver' l s
+(terminating_children (m1RB l s)) :=
+by {
+  apply correct h
+  · simp [used_symbols]
+    left
+    exists 0
+    simp [m1RB]
+  · simp [used_states]
+    left
+    exists 0
+    simp [m1RB]
 }
 
 /- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
