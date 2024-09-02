@@ -41,7 +41,7 @@ unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
 set_option compiler.extract_closed false
 unsafe def main (args: List String): IO Unit := do
   match args with
-  | [nlabs, nsyms] => {
+  | nlabs :: nsyms :: rest => {
     match nlabs.trim.toNat?, nsyms.trim.toNat? with
     | some nl, some ns => 
       let start ← IO.monoMsNow
@@ -64,9 +64,10 @@ unsafe def main (args: List String): IO Unit := do
           }
           IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
         else
-          save_to_file "out.txt" comp.undec
           IO.println s!"#Undec: {Multiset.card comp.undec}"
           IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
+          if hr: rest ≠ [] then
+            save_to_file (rest.head hr) comp.undec
       IO.println s!"In: {(← IO.monoMsNow) - start}ms"
     | _, _ => IO.println "Invalid arguments, expected integers"
   }
