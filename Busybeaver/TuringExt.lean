@@ -68,6 +68,32 @@ instance instDecidableEq [DecidableEq Γ]: DecidableEq (Turing.ListBlank Γ) := 
   apply inferInstance
 }
 
+lemma cons_nth_zero {T: Turing.ListBlank Γ}: (cons A T).nth 0 = A :=
+by induction T using Turing.ListBlank.induction_on; simp
+
+lemma cons_nth_succ {T: Turing.ListBlank Γ}: (cons A T).nth (i + 1) = T.nth i :=
+by induction T using Turing.ListBlank.induction_on; simp
+
+@[simp]
+lemma append_mk_nth {L: List Γ} {T: Turing.ListBlank Γ}:
+  (L ++ T).nth i = if _ : i < L.length then L[i] else T.nth (i - L.length) :=
+by induction i generalizing L T with
+| zero => cases L <;> simp [instHAppend]
+| succ n IH => {
+  cases L with
+  | nil => simp [instHAppend]
+  | cons head tail => {
+    simp [instHAppend]
+    simp [instHAppend] at IH
+    apply IH
+  }
+}
+
+@[simp]
+lemma default_nth: (default: Turing.ListBlank Γ).nth i = default :=
+  by rfl
+
+
 end Turing.ListBlank
 
 instance Turing.Tape.instDecidableEq {Γ} [Inhabited Γ] [DecidableEq Γ]: DecidableEq (Turing.Tape Γ) := by {

@@ -10,11 +10,13 @@ namespace TM
 inductive PartialHTape (Γ) [Inhabited Γ] where
 | finite : List Γ → PartialHTape Γ
 | infinite : Turing.ListBlank Γ → PartialHTape Γ
+deriving DecidableEq
 
 structure PartialTape (Γ) [Inhabited Γ] where
   dir: Turing.Dir
   left: PartialHTape Γ
   right: PartialHTape Γ
+deriving DecidableEq
 
 variable {Γ} [Inhabited Γ]
 
@@ -89,6 +91,19 @@ def head (T: PartialHTape Γ) (hT: T.nonempty): Γ := match T with
 })
 | .infinite L => L.head
 
+lemma nonempty.of_some_head {T: PartialHTape Γ} (h: T.head? = some g): T.nonempty :=
+by cases T with
+| finite L => {
+  simp [nonempty]
+  cases L with simp [head?] at h
+  | cons head tail => simp
+}
+| infinite L => simp [nonempty]
+
+lemma nonempty.head?_eq_some_heqd {T: PartialHTape Γ} (h: T.nonempty): T.head? = some (T.head h) :=
+by cases T with simp [head?, head]
+| finite L => exact List.head?_eq_head h
+
 def cons (A: Γ) (L: PartialHTape Γ): PartialHTape Γ := match L with
 | .finite L => A :: L
 | .infinite L => Turing.ListBlank.cons A L
@@ -114,6 +129,40 @@ def cons.tail {L: PartialHTape Γ}: (cons A L).tail = L :=
 @[simp]
 lemma cons_head_tail {L: PartialHTape Γ} (hT: L.nonempty): cons (L.head hT) L.tail = L :=
   by cases L <;> simp [head, tail, cons]
+
+@[simp]
+instance: EmptyCollection (PartialHTape Γ) := ⟨.finite []⟩
+
+@[simp]
+def append (L: List Γ): PartialHTape Γ → PartialHTape Γ
+| .finite L' => L ++ L'
+| .infinite L' => L ++ L'
+
+@[simp]
+instance: HAppend (List Γ) (PartialHTape Γ) (PartialHTape Γ) := ⟨append⟩
+
+@[simp]
+lemma append_nil {T: PartialHTape Γ}: ([]: List Γ) ++ T = T :=
+by induction T with simp [instHAppendList, append]
+| infinite L => simp [Turing.ListBlank.instHAppend]
+
+
+def infty: PartialHTape Γ := PartialHTape.infinite (default: Turing.ListBlank Γ)
+
+@[simp]
+lemma infinite_mk_eq_apend {L: List Γ}: PartialHTape.infinite (Turing.ListBlank.mk L) = L ++ (infty (Γ:=Γ)) :=
+by {
+  simp [instHAppendList, append, infty]
+  apply Turing.ListBlank.ext
+  intro n
+  simp
+  split
+  · rename_i heq
+    rw [List.getI_eq_getElem L heq]
+  · apply List.getI_eq_default
+    simp at *
+    trivial
+}
 
 end PartialHTape
 
@@ -229,13 +278,205 @@ end PartialTape
 structure PartialConfig (l s) where
   state: Label l
   tape: PartialTape (Symbol s)
+deriving DecidableEq
+
+notation L " {" C ":" D "} " R => PartialConfig.mk C (PartialTape.mk D L R)
+notation L " <{" C "} " R => PartialConfig.mk C (PartialTape.mk Turing.Dir.left L R)
+notation L " {" C "}> " R => PartialConfig.mk C (PartialTape.mk Turing.Dir.right L R)
 
 namespace Machine
 
 variable {M: Machine l s}
 
-def peval (M: Machine l s) (C: PartialConfig l s): Option (PartialConfig l s) := do
+def pstep (M: Machine l s) (C: PartialConfig l s): Option (PartialConfig l s) := do
   let Chead ← C.tape.head?
   match M C.state Chead with
   | .halt => .none
-  | .next sym' dir lab' => .some { state := lab', tape := (← C.tape.move? dir).write sym' }
+  | .next sym' dir lab' => .some { state := lab', tape := (← (C.tape.write sym').move? dir) }
+
+notation A " p-["M"]-> " B => Machine.pstep M A = Option.some B
+
+inductive MultiPStep (M: Machine l s): ℕ → PartialConfig l s → PartialConfig l s → Prop where
+| refl (C: PartialConfig l s): MultiPStep M 0 C C
+| step A B C n: (A p-[M]-> B) → MultiPStep M n B C → MultiPStep M n.succ A C
+
+notation A " p-[" M "]{" n "}-> " B => MultiPStep M n A B
+
+def MultiPStep.refl' (hAB: A = B): A p-[M]{0}-> B :=
+by {
+  rw [hAB]
+  exact .refl _
+}
+
+instance MultiPStep.instTrans: Trans (MultiPStep M n) (MultiPStep M n') (MultiPStep M (n + n')) :=
+by {
+  constructor
+  intro A B C hAB hBC
+  induction hAB with
+  | refl => {
+    simp
+    exact hBC
+  }
+  | step A B' C' n hAB' _ IH => {
+    specialize IH hBC
+    conv in n.succ + n' =>
+      simp
+      rw [Nat.add_assoc, Nat.add_comm 1, ← Nat.add_assoc, ← Nat.succ_eq_add_one]
+    apply MultiPStep.step A B' C (n + n') hAB' IH
+  }
+}
+
+lemma MultiPStep.single (h: A p-[M]-> B): A p-[M]{1}-> B := by {
+  apply MultiPStep.step A B B
+  · exact h
+  · exact .refl B
+}
+
+lemma step.pointed_valid (h: A p-[M]-> B): A.tape.pointed.nonempty :=
+by {
+  simp [pstep, Option.bind] at h
+  split at h
+  · cases h
+  rename_i heq
+  exact PartialHTape.nonempty.of_some_head heq
+}
+
+/-
+lemma MultiPStep.locality_left_empty {L R L' R': List (Symbol s)} {T: PartialHTape (Symbol s)}
+  (h: ({} {q:dir} R) p-[M]{n}-> (L' {q':dir'} R')):
+  ((L ++ T) {q:dir} R) p-[M]{n}-> ((L' ++ T) {q':dir'} R') :=
+by induction L with
+| nil => {
+  cases T with
+  | finite L => {
+    induction L with
+    | nil => {
+      simp
+      exact h
+    }
+    | cons head tail IH => {
+      
+    }
+  }
+}
+-/
+
+lemma step.finiteness_left
+  (h: A p-[M]-> B):
+    A.tape.left.is_infinite ↔ B.tape.left.is_infinite := sorry
+
+lemma step.finiteness_right
+  (h: A p-[M]-> B):
+    A.tape.right.is_infinite ↔ B.tape.right.is_infinite := sorry
+
+lemma step.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
+  (h: (L {q:dir} R) p-[M]-> (L' {q':dir'} R')):
+  ((L ++ T) {q:dir} R ++ T') p-[M]-> ((L' ++ T) {q':dir'} R' ++ T') :=
+by {
+  sorry
+}
+
+/--
+A "locality" lemma for transitions on partial configurations.
+
+If we can step from a given partial configuration to another, expanding this configuration on either
+sides does not matter.
+
+This is the key lemma to build inductive proofs about TMs, reasonning on incresingly complex
+patterns of partial configurations.
+-/
+lemma MultiPStep.locality {L R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)} {q: Label l} {dir dir': Turing.Dir}
+  (h: (L {q:dir} R) p-[M]{n}-> (L' {q':dir'} R')):
+    ((L ++ T) {q:dir} R ++ T') p-[M]{n}-> ((L' ++ T) {q':dir'} R' ++ T') :=
+by induction n generalizing L R L' R' q q' dir dir' with
+| zero => {
+  cases h
+  exact .refl _
+}
+| succ n IH => {
+  cases h
+  rename_i I hI hIn
+  obtain ⟨q'', dir'', L'', R''⟩ := I
+  have hL'': ¬L''.is_infinite := by {
+    have hI' := step.finiteness_left hI
+    simp at hI'
+    exact hI'
+  }
+
+  have hR'': ¬R''.is_infinite := by {
+    have hI' := step.finiteness_right hI
+    simp at hI'
+    exact hI'
+  }
+
+  cases L''
+  swap
+  · simp at hL''
+  rename_i Li
+  cases R''
+  swap
+  · simp at hR''
+  rename_i Ri
+
+  apply MultiPStep.step _ _ _ _ (step.locality hI) (IH hIn)
+}
+
+section Example
+
+def tmpMach: Machine 4 2
+| 0, 0 => .next 1 .right 1
+| 0, 1 => .next 0 .right 2
+| 1, 0 => .next 0 .left 2
+| 1, 1 => .halt
+| 2, 0 => .next 1 .right 3
+| 2, 1 => .next 1 .right 2
+| 3, 0 => .next 0 .left 4
+| 3, 1 => .next 1 .right 0
+| 4, 0 => .next 1 .right 3
+| 4, 1 => .next 1 .left 4
+| _, _ => sorry
+
+lemma onestep: ({} {2}> [(1: Symbol 2)]) p-[tmpMach]-> ([(1: Symbol 2)] {2}> {}) :=
+by decide
+
+example: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2)) {2}> {}) :=
+by induction n with
+| zero => {
+  simp
+  exact .refl _
+}
+| succ n IH => {
+  have htmp := by {
+  calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
+    _ p-[tmpMach]{0}-> ({} {2}> ([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2))) := by {
+      apply MultiPStep.refl'
+      simp
+      rfl
+    }
+    _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by {
+      have htmp := step.locality onestep (T:=PartialHTape.finite []) (T':=(List.replicate n (1: Symbol 2)))
+      simp at htmp
+      simp
+      exact MultiPStep.single htmp
+    }
+    _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)]) {2}> {}) := by {
+      have htmp := MultiPStep.locality IH (T:=[(1:Symbol 2)]) (T':={})
+      simp at htmp
+      simp
+      exact htmp
+    }
+    _ p-[tmpMach]{0}-> ((List.replicate (n+1) (1: Symbol 2)) {2}> {}) := by {
+      apply MultiPStep.refl'
+      simp
+      symm
+      exact List.replicate_succ' n 1
+    }
+  }
+  simp at htmp
+  simp
+  rw [Nat.add_comm n] at *
+  exact htmp
+}
+
+end Example
+
