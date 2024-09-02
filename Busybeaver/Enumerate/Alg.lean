@@ -49,9 +49,7 @@ by {
   /-
   Proof sketch: machine is able to step once (from default to B) then it loops forever because of CTL
   -/
-  suffices ClosedSet M (λ C ↦ C.state = default ∧ C.tape.head = default ∧ C.tape.right = default) default from this.nonHalting
-
-  constructor
+  closed_set (λ C ↦ C.state = default ∧ C.tape.head = default ∧ C.tape.right = default)
   · simp
     intro A' hAs hAt hAr
     cases hM : M.step A'

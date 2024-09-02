@@ -44,3 +44,7 @@ lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
     exact .refl
   }
 }
+
+/-- Proves non-termination using closed position set reasonning. -/
+macro "closed_set" p:term : tactic =>
+  `(tactic| suffices ClosedSet _ $p _ from this.nonHalting <;> constructor)

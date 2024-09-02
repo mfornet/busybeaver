@@ -26,8 +26,7 @@ def looperDec (bound: ℕ) (M: Machine l s): HaltM M Unit := Id.run do
           obtain ⟨tort, htort⟩ := tort
           obtain ⟨heir, hheir⟩ := heir
           simp_all
-          apply ClosedSet.nonHalting (p:=(· = ntort))
-          constructor
+          closed_set (· = ntort)
           · intro ⟨A, hA⟩
             simp_all
             have hTortNTort := htort.split_add hntort

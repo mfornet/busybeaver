@@ -390,8 +390,7 @@ def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts �
       exact symNZ q' sym dir nlab hM hsym
     by_cases hnlab: nlab ∈ cur
     · right
-      suffices ClosedSet M (λ C ↦ C.state ∈ insert q' cur ∧ C.tape = default) ⟨q', default⟩ from this.nonHalting
-      constructor
+      closed_set (λ C ↦ C.state ∈ insert q' cur ∧ C.tape = default)
       · intro ⟨⟨Cstate, Ctape⟩, hCcur, hCdef⟩
         simp at hCcur
         simp [*]
@@ -424,8 +423,7 @@ def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts �
     by_cases hlabq' : nlab = q'
     · right
       simp [*] at *
-      suffices ClosedSet M (λ C ↦ C.state = q' ∧ C.tape = default) ⟨q', default⟩ from this.nonHalting
-      constructor
+      closed_set (λ C ↦ C.state = q' ∧ C.tape = default)
       · intro ⟨⟨Q's, Q't⟩, hQ's, hQ't⟩
         simp at hQ's hQ't
         cases hQ's
