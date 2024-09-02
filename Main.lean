@@ -41,17 +41,24 @@ def main (args: List String): IO Unit := do
       IO.println "Starting computation"
       let l := nl - 1
       let s := ns - 1
-      let comp := compute l s
-      if hcomp: comp.undec = ∅ then
-        have _: comp.val = Busybeaver l s := by {
-          simp [comp] at *
-          simp [compute, task_correct]
-          exact Eq.symm (Busybeaver.BBCompute.correct_complete hcomp)
+      if hl: l = 0 then
+        have _: Busybeaver l s = 0 := by {
+          rw [hl]
+          exact Busybeaver.one_state
         }
-        IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
+        IO.println s!"Busybeaver(1, {s+1}) = 1"
       else
-        IO.println s!"#Undecided: {comp.undec.card}"
-        IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
+        let comp := compute l s
+        if hcomp: comp.undec = ∅ then
+          have _: comp.val = Busybeaver l s := by {
+            simp [comp] at *
+            simp [compute, task_correct]
+            exact Eq.symm (Busybeaver.BBCompute.correct_complete hcomp)
+          }
+          IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
+        else
+          IO.println s!"#Undecided: {comp.undec.card}"
+          IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
     | _, _ => IO.println "Invalid arguments, expected integers"
   }
   | _ => IO.println "Not enough arguments: beaver {nlabs} {nsyms}"
