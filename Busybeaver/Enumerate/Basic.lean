@@ -6,52 +6,47 @@ namespace TM.Machine
 
 variable {M: Machine l s}
 
-def equi_halts (M M': Machine l s) (c₁ c₂: Config l s): Prop := M.halts c₁ ↔ M'.halts c₂
+-- def equi_halts (M M': Machine l s) (c₁ c₂: Config l s): Prop := M.halts c₁ ↔ M'.halts c₂
+
+def equi_halts (α β: (Machine l s × Config l s)): Prop := α.1.halts α.2 ↔ β.1.halts β.2
+notation α " =H " β => equi_halts α β
 
 namespace equi_halts
 
-lemma refl: equi_halts M M c c :=
+lemma refl: A =H A :=
   by {
     unfold equi_halts
     rfl
   }
 
-lemma trans (h₁: equi_halts M₁ M₂ c₁ c₂) (h₂: equi_halts M₂ M₃ c₂ c₃): equi_halts M₁ M₃ c₁ c₃ :=
+lemma trans (h₁: A =H B) (h₂: B =H C): A =H C :=
   by {
     unfold equi_halts at *
     exact Iff.trans h₁ h₂
   }
 
-lemma comm (h: equi_halts M₁ M₂ c₁ c₂): equi_halts M₂ M₁ c₂ c₁ :=
+instance: IsTrans (Machine l s × Config l s) (· =H ·) where
+  trans := by {
+    intro A B C hA hB
+    exact trans hA hB
+  }
+
+lemma comm (h: A =H B): B =H A :=
   by {
     unfold equi_halts at *
     exact h.symm
   }
 
-lemma mono (hM: A -[M]{n}-> B) (hE: equi_halts M M' B C): equi_halts M M' A C :=
-  by {
-    obtain ⟨hEqMM', hEqM'M⟩ := hE
-    constructor
-    · intro hMA
-      apply hEqMM'
-      exact halts.tail hM hMA
-    · intro hM'C
-      have hMB := hEqM'M hM'C
-      exact halts.mono hM hMB
-  }
+lemma mono (hM: A -[M]{n}-> B): (M, A) =H (M, B) :=
+by {
+  constructor
+  · intro hMA
+    exact halts.tail hM hMA
+  · intro hMB
+    exact halts.mono hM hMB
+}
 
-lemma tail (hM: A -[M]{n}-> B) (hE: equi_halts M M' A C): equi_halts M M' B C :=
-  by {
-    obtain ⟨hEqMM', hEqM'M⟩ := hE
-    constructor
-    · intro hMB
-      apply hEqMM'
-      exact halts.mono hM hMB
-    · intro hM'C
-      exact halts.tail hM  (hEqM'M hM'C)
-  }
-
-lemma decider (hMM': equi_halts M M' C C'): (M.halts C ∨ ¬M.halts C) ↔ (M'.halts C' ∨ ¬M'.halts C') :=
+lemma decider (hMM': (M, C) =H (M', C')): (M.halts C ∨ ¬M.halts C) ↔ (M'.halts C' ∨ ¬M'.halts C') :=
 by {
   simp [equi_halts] at hMM'
   simp_all
@@ -119,7 +114,7 @@ by {
   }
 }
 
-lemma equi_halts [inst: Transformation fC fM]: equi_halts M (fM M) q (fC q) :=
+lemma equi_halts [inst: Transformation fC fM]: (M, q) =H (fM M, fC q) :=
 by {
   unfold equi_halts
   constructor
@@ -132,9 +127,9 @@ by {
     · rw [← bisimu]
       exact hn
   · intro h
-    obtain ⟨n, C, hC, hn⟩ := h
+    obtain ⟨n, C', hC, hn⟩ := h
     exists n
-    exists fC C
+    exists fC C'
     constructor
     · rw [← inst.fMinv M]
       exact last hC

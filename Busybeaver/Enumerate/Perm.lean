@@ -121,4 +121,21 @@ instance isTransformation: @Transformation l s (λ C ↦ ⟨swap q q' C.state, C
 
   simulate := single
 
-lemma equiv: equi_halts M (M.perm q q') ⟨C, T⟩ ⟨swap q q' C, T⟩ := isTransformation.equi_halts
+/-
+Swapping to states makes an equivalent machine
+-/
+theorem equiv: (M, ⟨C, T⟩) =H (M.perm q q', ⟨swap q q' C, T⟩) := isTransformation.equi_halts
+
+/-
+If the states are non-zero, then the two machines are H-equivalent on the default state
+-/
+theorem nz_equi (hq: q ≠ default) (hq': q' ≠ default): (M, default) =H (M.perm q q', default) :=
+by {
+  conv =>
+    pattern (occs:=2) (default (α:=Config l s))
+    rw [show default = ⟨swap q q' default, default⟩ by {
+      rw [swap.ne hq.symm hq'.symm]
+      rfl
+    }]
+  exact equiv
+}

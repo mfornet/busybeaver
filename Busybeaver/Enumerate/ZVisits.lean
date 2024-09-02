@@ -257,7 +257,7 @@ If a machine visits a certain list of states without writing non-zero, then we c
 - It directly writes non-zero
 - It is equi-halting with the original TM
 -/
-lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_halts M M' ⟨q, default⟩ ⟨q, default⟩ :=
+lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ (M, ⟨q, default⟩) =H (M', ⟨q, default⟩) :=
   by induction hM with
   /-
   The first two cases are not interesting
@@ -306,64 +306,53 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
     -/
     exists M'.perm nlab q
 
-    /-
-    Equi halting is actually pretty simple,
-    We just have to "allign" M and M' first, and then M' and Mtrans are equihalting by
-    construction (see [perm.equiv])
-    -/
-    have hMq : ⟨q, default⟩ -[M]-> ⟨nlab, default⟩ := by {
-      simp [Machine.step]
-      split
-      · rename_i heq
-        simp [default] at heq hq
-        rw [hq] at heq
-        cases heq
-      · rename_i heq
-        simp [default] at heq hq
-        rw [hq] at heq
-        cases heq
-        simp
-    }
-
-    have hMEqM'q : equi_halts M M' ⟨q, default⟩ ⟨nlab, default⟩ := by {
-      apply equi_halts.mono
-      · exact Multistep.single hMq
-      · exact hEq
-    }
-
     constructor
     swap
-    · apply equi_halts.trans hMEqM'q
-      conv =>
-        pattern Config.mk q default
-        rw [show q = swap nlab q nlab by simp]
-      exact perm.isTransformation.equi_halts
-
-    /-
-    Now we need to prove that Mtrans does not write any 0 on the first state
-    This is a consequence of the construction of Mtrans with regard to M'
-    -/
-    cases hV with
-    | halts hV => {
-      /-
-      M' halts directly: Mtrans halts directly too
+    · /-
+      Equi halting is actually pretty simple,
+      We just have to "allign" M and M' first, and then M' and Mtrans are equihalting by
+      construction (see [perm.equiv])
       -/
-      apply ZVisits.halts
-      simp [perm] at *
-      split <;> simp_all
-    }
-    | symNZ _ sym dir labh symnxt symne => {
-      /-
-      M' writes a non-zero symbol
-
-      Here we have to be a little smarter because Mtrans and M' will have
-      different output states the new state of Mtrans being the translated state of M'
+      calc (M, ⟨q, default⟩)
+        _ =H (M, ⟨nlab, default⟩) := by {
+          apply equi_halts.mono (n:=1)
+          apply Multistep.single
+          apply Machine.step.some' hq
+          · simp [default]
+          · simp
+        }
+        _ =H (M', ⟨nlab, default⟩) := hEq
+        _ =H (M'.perm nlab q, ⟨q, default⟩) := by {
+          conv =>
+            pattern (occs:=2) q
+            rw [show q = swap nlab q nlab by simp]
+          exact perm.equiv
+        }
+    · /-
+      Now we need to prove that Mtrans does not write any 0 on the first state
+      This is a consequence of the construction of Mtrans with regard to M'
       -/
-      apply ZVisits.symNZ _ sym dir (swap nlab q labh)
-      · simp [perm] at *
+      cases hV with
+      | halts hV => {
+        /-
+        M' halts directly: Mtrans halts directly too
+        -/
+        apply ZVisits.halts
+        simp [perm] at *
         split <;> simp_all
-      · exact symne
-    }
+      }
+      | symNZ _ sym dir labh symnxt symne => {
+        /-
+        M' writes a non-zero symbol
+
+        Here we have to be a little smarter because Mtrans and M' will have
+        different output states the new state of Mtrans being the translated state of M'
+        -/
+        apply ZVisits.symNZ _ sym dir (swap nlab q labh)
+        · simp [perm] at *
+          split <;> simp_all
+        · exact symne
+      }
   }
 
 def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts ⟨q, default⟩) :=
