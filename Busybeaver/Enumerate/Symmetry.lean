@@ -7,9 +7,6 @@ import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic
 
--- For the theorem at the end of the file
-import Busybeaver.Enumerate.ZVisits
-
 def Turing.Tape.reverse [Inhabited Γ] (T: Turing.Tape Γ): Turing.Tape Γ := {T with left := T.right, right := T.left}
 
 namespace Turing.Tape.reverse
@@ -130,29 +127,68 @@ by {
 lemma same_runtime (hM: M.halts_in n C): M.symm.halts_in n (config_reverse C) :=
   Transformation.same_halt_time hM
 
-end symm
+noncomputable def GoingTo (l s : ℕ) (dir: Turing.Dir) :=
+  Finset.univ (α:=Terminating l s) |>.filter (λ M ↦ ∃ sym nlab, M.M default default = .next sym dir nlab)
 
-/--
-It is sufficient to only consider machines where the first transition is non-zero write to the right
+noncomputable def DirectHalts (l s: ℕ) :=
+  Finset.univ (α:=Terminating l s) |>.filter (λ M ↦ M.M default default = .halt)
 
-This is another big theorem to reduce the size of the set of machines to consider
--/
-theorem only_right (decider: ∀ (M': Machine l s) (q': Label l), (∃sym nlab, M' q' default = .next sym .right nlab ∧ sym ≠ default) → M'.halts ⟨q', default⟩ ∨ ¬M'.halts ⟨q', default⟩) (symnxt: M q default = .next sym dir nlab) (symne: sym ≠ default): M.halts ⟨q, default⟩ ∨ ¬M.halts ⟨q, default⟩ :=
-by cases dir with
-| right => {
-  apply decider
-  exists sym
-  exists nlab
-}
-| left => {
-  rw [equi_halts.decider symm.equiv]
-  apply decider
-  exists sym
-  exists nlab
+lemma right_eq_left: Busybeaver' l s (GoingTo l s .right) = Busybeaver' l s (GoingTo l s .left) :=
+by {
+  apply symm.transformation.same_busybeaver' symm.config_reverse.default
+  apply Finset.ext
+  intro M
+  unfold GoingTo Transformation.lift_terminating
+  simp
   constructor
-  · simp [default] at symnxt
-    simp [symm, symnxt, Turing.Dir.other]
-  · exact symne
+  · intro ⟨sym, nlab, h⟩
+    exists (symm.transformation.lift_terminating symm.config_reverse.default) M
+    simp [Transformation.lift_terminating, symm.involutive M.M]
+    exists sym
+    exists nlab
+    simp [Machine.symm, h, Turing.Dir.other]
+  · intro ⟨M', ⟨sym, nlab, hsym⟩, hM'⟩
+    exists sym
+    exists nlab
+    rw [show M.M = M'.M.symm by rw [← hM']]
+    simp [Machine.symm, hsym, Turing.Dir.other]
 }
 
-end Machine
+theorem univ_eq_union: Finset.univ = (GoingTo l s .right) ∪ (GoingTo l s .left) ∪ (DirectHalts l s) :=
+by {
+  apply Finset.ext
+  intro M
+  simp [GoingTo, DirectHalts]
+  cases M.M default default <;> simp_all [Turing.Dir.eq_left_or_eq_right.symm]
+}
+
+/-
+To compute the busy beaver, it is enough to only consider machine going to the right
+-/
+theorem only_right: Busybeaver l s = Busybeaver' l s (GoingTo l s .right) :=
+by {
+  unfold Busybeaver
+  conv =>
+    lhs
+    pattern Finset.univ
+    rw [univ_eq_union]
+  simp [right_eq_left]
+  suffices Busybeaver' l s (DirectHalts l s) = 0 by {
+    simp [this]
+  }
+  apply Nat.eq_zero_of_le_zero
+  apply Busybeaver'.upper_bound
+  intro ⟨M, n, term⟩ hHalts
+  simp_all [DirectHalts]
+  have hMh: M.halts_in 0 default := by {
+    exists default
+    constructor
+    · unfold LastState
+      simp [default]
+      exact hHalts
+    · exact Multistep.refl
+  }
+  exact term.deterministic hMh
+}
+
+end Machine.symm

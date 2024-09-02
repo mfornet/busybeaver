@@ -4,6 +4,7 @@ import Busybeaver.Problem
 import Busybeaver.Deciders.LooperDec
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.NoHaltState
+import Busybeaver.Enumerate.Alg
 
 open TM
 abbrev TM22 := Machine 1 1
@@ -22,13 +23,10 @@ def log_decs (M: Machine l s): HaltM M Unit := do
   dbg_trace res;
   res
 
-/- #eval .undec -/
-
 def compute (l s: ℕ): Busybeaver.BBResult l s :=
   let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m0RB l s)))
   let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m1RB l s)))
   Busybeaver.BBResult.join res0.get res1.get
-/- def all22 := (Finset.univ (α:=TM22)).filter (λ M ↦ M default default = .next 1 .right 1) -/
 
 axiom task_correct {α: Type} {f: Unit → α}: (Task.spawn f |>.get) = f ()
 
@@ -62,12 +60,3 @@ def main (args: List String): IO Unit := do
     | _, _ => IO.println "Invalid arguments, expected integers"
   }
   | _ => IO.println "Not enough arguments: beaver {nlabs} {nsyms}"
-/- def main : IO Unit := do -/
-/-   IO.println "Compute initial set"; -/
-/-   let init := all22; -/
-/-   IO.println "Done"; -/
-/-   IO.println s!"N elems: {init.card}" -/
-/-   IO.println "Filter"; -/
-/-   let res := (BBcompute init allDecs); -/
-/-   IO.println s!"Max: {res.val}"; -/
-/-   IO.println s!"Undec: {res.undec.card}" -/

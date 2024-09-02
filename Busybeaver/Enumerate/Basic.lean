@@ -1,5 +1,6 @@
 import Busybeaver.Basic
 import Busybeaver.Reachability
+import Busybeaver.Problem
 
 namespace TM.Machine
 
@@ -144,6 +145,35 @@ by {
       exact last hC
     · rw [← inst.fMinv M, ← inst.fCinv q, ← bisimu]
       exact hn
+}
+
+
+def lift_terminating [inst: Transformation (l:=l) (s:=s) fC fM] (hfC: fC default = default): Terminating l s → Terminating l s :=
+  λ M ↦ {
+    M := fM M.M,
+    n := M.n,
+    terminates := by {
+      rw [← hfC]
+      exact same_halt_time M.terminates
+    }
+  }
+
+@[simp]
+lemma lift_terminating.halt_steps [inst: Transformation (l:=l) (s:=s) fC fM] {M: Terminating l s}:
+(inst.lift_terminating hfC M).n = M.n :=
+by simp [lift_terminating]
+
+theorem same_busybeaver [inst: Transformation fC fM] {S: Finset (Terminating l s)} (hfC: fC default = default): Busybeaver' l s
+S = Busybeaver' l s (S.image (inst.lift_terminating hfC)) :=
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S _ IH => simp [IH]
+
+lemma same_busybeaver' [inst: Transformation fC fM] {S: Finset (Terminating l s)}
+(hfC: fC default = default) (hS': S' = (S.image (inst.lift_terminating hfC))): Busybeaver' l s S = Busybeaver' l s S' :=
+by {
+  rw [hS']
+  exact same_busybeaver hfC
 }
 
 end Transformation
