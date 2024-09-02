@@ -43,5 +43,5 @@ def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match 
 | .loops_prf _ => {val := 0, undec := {}}
 
 
-def Busybeaver (S: Finset (Machine l s)) (filter: (M: Machine l s) → HaltM M Unit): BBResult l s :=
+def Busybeaver (S: Finset (Machine l s)) (filter: (M: Machine l s) → HaltM M α): BBResult l s :=
   S.fold BBResult.join { val := 0, undec := {}} (λ M ↦ BBResult.from_haltm (filter M))

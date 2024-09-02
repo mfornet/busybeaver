@@ -1,4 +1,3 @@
-import Mathlib.Tactic
 import Mathlib.Computability.TuringMachine
 
 instance: Fintype Turing.Dir := by {

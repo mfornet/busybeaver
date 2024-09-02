@@ -37,9 +37,12 @@ def looperDec (bound: ℕ) (M: Machine l s): HaltM M Unit := Id.run do
               _ -[M]{nth}-> heir := hnth
               _ -[M]{2}-> ntort := hHeirNHeir
 
-            conv at htortNTort =>
-              pattern nth + 2
-              rw [← one_add_one_eq_two, ← add_assoc, add_comm]
+            rw [show nth + 2 = 1 + (nth + 1) by {
+              conv =>
+                rhs
+                rw [add_comm, add_assoc]
+                simp
+            }] at htortNTort
 
             apply Machine.Progress.from_multistep
             exact Machine.Multistep.split_add hTortNTort htortNTort

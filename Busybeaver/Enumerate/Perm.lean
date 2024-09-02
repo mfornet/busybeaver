@@ -1,4 +1,3 @@
-import Mathlib.Tactic
 import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic

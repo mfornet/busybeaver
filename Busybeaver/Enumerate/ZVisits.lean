@@ -4,7 +4,7 @@ This file is concerned with the starting "0 states" of a machine, i.e. those tha
 Definitions are inspired by busycoq.
 -/
 
-import Mathlib.Tactic
+import Mathlib.Tactic.Linarith
 import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic

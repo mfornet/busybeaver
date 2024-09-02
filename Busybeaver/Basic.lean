@@ -1,5 +1,6 @@
-import Mathlib.Tactic
 import Mathlib.Computability.TuringMachine
+import Mathlib.Data.Finset.Basic
+import Mathlib.Data.Finset.Sort
 import Busybeaver.TuringExt
 
 abbrev Label (l: ℕ) := Fin (l + 1)
@@ -75,16 +76,13 @@ instance: Repr (Machine l s) := ⟨λ M _ ↦
 
 end PrettyPrint
 
-instance Machine.inhabited: Inhabited $ Machine l s := by {
-  unfold Machine
-  exact ⟨λ _ _ ↦ .halt⟩
-}
+instance Machine.inhabited: Inhabited $ Machine l s := ⟨λ _ _ ↦ .halt⟩
 
 instance Stmt.fintype: Fintype $ Stmt l s := by {
   suffices equiv: Option (Symbol s × Turing.Dir × Label l) ≃ Stmt l s by {
     have hOfin : Fintype $ Option (Symbol s × Turing.Dir × Label l) := by {
-      suffices Finite $ (Symbol s × Turing.Dir × Label l) from fintypeOfOption
-      apply Finite.instProd
+      suffices Fintype $ (Symbol s × Turing.Dir × Label l) from fintypeOfOption
+      exact instFintypeProd (Symbol s) (Turing.Dir × Label l)
     }
     apply Fintype.ofEquiv (Option (Symbol s × Turing.Dir × Label l)) equiv
   }
