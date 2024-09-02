@@ -8,6 +8,9 @@ import Mathlib.Tactic
 import Busybeaver.Basic
 import Busybeaver.Reachability
 
+-- Used when build the set of ZVisit states
+import Busybeaver.ClosedSet
+
 namespace TM
 
 variable {M: Machine l s}
@@ -338,11 +341,18 @@ lemma nodup (h: M.ZVisits q L): L.Nodup :=
     exact not_in v
   }
 
-lemma bound (h: M.ZVisits q L): L.length < Fintype.card (Label l) :=
+lemma bound (h: M.ZVisits q L): L.length ≤ l :=
   by {
     suffices L.toFinset.card < Fintype.card (Label l) by {
       rw [Eq.symm (List.toFinset_card_of_nodup (nodup h))]
-      exact this
+      apply Nat.le_of_lt_succ
+      calc L.toFinset.card
+        _ < Fintype.card (Label l) := this
+        _ ≤ l + 1 := by {
+          conv =>
+            lhs
+            simp
+        }
     }
     rw [← Finset.card_univ]
     apply Finset.card_lt_card
@@ -393,6 +403,13 @@ lemma default_move: (Turing.Tape.move (Γ:=Symbol s) dir default) = default :=
       rfl
     }
   }
+
+@[simp]
+lemma default_write_move: (Turing.Tape.move (Γ:=Symbol s) dir (Turing.Tape.write 0 default)) = default := by {
+  have hD: Turing.Tape.write (Γ:=Symbol s) default default = default := default_write_default
+  simp at hD
+  simp [*]
+}
 
 end ZeroTape
 
@@ -568,7 +585,6 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
         rw [hq] at heq
         cases heq
         simp
-        apply default_move
     }
 
     have hMEqM'q : equi_halts M M' ⟨q, default⟩ ⟨nlab, default⟩ := by {
@@ -620,10 +636,140 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
     }
   }
 
-lemma decide (M: Machine l s) (q: Label l): ∃L, M.ZVisits q L :=
-  by {
-    sorry
+def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts ⟨q, default⟩) :=
+  let rec decideInner (q': Label l) (cur: Finset (Label l)) (bound: ℕ)
+    (hq': q' ∉ cur)
+    (hcur: ∀ q'' ∈ cur, ∃dir nlab, M q'' default = .next default dir nlab ∧ (nlab ∈ cur ∨ nlab = q'))
+    (h: bound + cur.card = l + 1): (∃L, M.ZVisits q' L) ∨ (¬M.halts ⟨q', default⟩) := match bound with
+  | .zero => by {
+    simp_all
+    right
+    have hcur': cur ⊂ Finset.univ := by {
+      refine Finset.ssubset_iff.mpr ?_
+      exists q'
+      constructor
+      · exact hq'
+      · exact Finset.subset_univ (insert q' cur)
+    }
+    have hcurcard: cur.card < l + 1 := by calc cur.card
+      _ < (Finset.univ (α:=Label l)).card := Finset.card_lt_card hcur'
+      _ = l + 1 := by simp
+    apply absurd hcurcard
+    simp
+    exact Nat.le_of_eq h.symm
   }
+  | .succ n => match hM : M q' default with
+  | .halt => by {
+    left
+    exists []
+    exact halts hM
+  }
+  | .next sym dir nlab => by {
+    by_cases hsym: sym ≠ default
+    · left
+      exists []
+      exact symNZ q' sym dir nlab hM hsym
+    by_cases hnlab: nlab ∈ cur
+    · right
+      have curClosed: ClosedSet M (λ C ↦ C.state ∈ insert q' cur ∧ C.tape = default) ⟨q', default⟩ := by {
+        constructor
+        · intro ⟨⟨Cstate, Ctape⟩, hCcur, hCdef⟩
+          simp at hCcur
+          simp [*]
+          rcases hCcur with hCcur | hCcur
+          · simp at *
+            exists ⟨nlab, default⟩
+            simp_all
+            apply Progress.from_multistep (n:=0)
+            simp
+            apply Multistep.single
+            apply Machine.step.some' hM
+            · simp [default]
+            · simp
+          · obtain ⟨Cdir, Cnlab, hCnlab, hCnlabq'⟩ := hcur Cstate hCcur
+            exists ⟨Cnlab, default⟩
+            simp [*]
+            constructor
+            · exact hCnlabq'.symm
+            apply Progress.from_multistep (n:=0)
+            simp
+            apply Multistep.single
+            simp at hCdef
+            apply Machine.step.some' hCnlab
+            · simp [hCdef, default]
+            · simp [hCdef]
+        · simp_all
+          exists ⟨q', default⟩
+          simp [*]
+          exact EvStep.refl
+      }
+      exact curClosed.nonHalting
+    by_cases hlabq' : nlab = q'
+    · right
+      simp [*] at *
+      suffices ClosedSet M (λ C ↦ C.state = q' ∧ C.tape = default) ⟨q', default⟩ from this.nonHalting
+      constructor
+      · intro ⟨⟨Q's, Q't⟩, hQ's, hQ't⟩
+        simp at hQ's hQ't
+        cases hQ's
+        cases hQ't
+        simp
+        exists ⟨q', default⟩
+        simp
+        apply Progress.from_multistep (n:=0)
+        simp
+        apply Multistep.single
+        apply Machine.step.some' hM
+        · simp [default]
+        · simp [*]
+      · simp
+        exists ⟨q', default⟩
+        simp
+        exact EvStep.refl
+    simp at hsym
+    have res := decideInner nlab (insert q' cur) n (by {
+      simp_all
+    }) (by {
+      intro q'' hq''
+      simp at hq''
+      rcases hq'' with hq'' | hq''
+      · exists dir
+        exists nlab
+        simp_all
+      · obtain ⟨dir'', nlab'', hqdirnlab'', hq''nxt⟩ := hcur q'' hq''
+        exists dir''
+        exists nlab''
+        simp_all
+        left
+        exact hq''nxt.symm
+    }) (by {
+      simp_all
+      linarith
+    })
+
+    rcases res with ⟨L, hL⟩ | term
+    · left
+      exists nlab :: L
+      have hQ': M.ZVisits q' (nlab :: L) := by {
+        simp_all
+        exact symZ q' dir nlab L hM hL
+      }
+      exact hQ'
+    · right
+      refine halts.skip_next ?_ term
+      simp [Machine.step]
+      split
+      · rename_i heq
+        simp_all [default]
+      rename_i heq
+      simp [default] at hM heq
+      rw [hM] at heq
+      cases heq
+      simp [hsym]
+  }
+  decideInner q ∅ (l + 1) (by {
+    simp
+  }) (by simp) (by simp)
 
 /--
 It is sufficient to only consider machines with empty ZVisits.
@@ -634,21 +780,23 @@ This is formalized as: assume there is an algorithm that decides if a TM
 with empty ZVisits, then we can use this algorithm to decide for all TMs
 -/
 theorem only_nz (decider: ∀(M': Machine l s), (M'.ZVisits q []) → M'.halts ⟨q, default⟩ ∨ ¬(M'.halts ⟨q, default⟩)): M.halts ⟨q, default⟩ ∨ ¬(M.halts ⟨q, default⟩) := by {
-  obtain ⟨L, hL⟩ := (decide M q)
-  obtain ⟨M', hM'z, hM'h⟩ := hL.equi
-  cases decider M' hM'z with
-  | inl hM' => {
-    left
-    unfold equi_halts at hM'h
-    rw [hM'h]
-    exact hM'
-  }
-  | inr hM'n => {
-    right
-    unfold equi_halts at hM'h
-    rw [hM'h]
-    exact hM'n
-  }
+  rcases decide M q with ⟨L, hL⟩ | term
+  · obtain ⟨M', hM'z, hM'h⟩ := hL.equi
+    cases decider M' hM'z with
+    | inl hM' => {
+      left
+      unfold equi_halts at hM'h
+      rw [hM'h]
+      exact hM'
+    }
+    | inr hM'n => {
+      right
+      unfold equi_halts at hM'h
+      rw [hM'h]
+      exact hM'n
+    }
+  · right
+    exact term
 }
 
 end ZVisits

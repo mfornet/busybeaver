@@ -19,6 +19,28 @@ lemma deterministic (hB: A -[M]-> B) (hC: A -[M]-> C): B = C := by {
     rw [← hB, ← hC]
 }
 
+@[simp]
+lemma some (h: M q T.head = .next sym' dir q'): M.step ⟨q, T⟩ = some ⟨q', T.write sym' |>.move dir⟩ :=
+by {
+  simp [Machine.step]
+  split
+  · rename_i heq
+    rw [h] at heq
+    cases heq
+  · rename_i heq
+    rw [h] at heq
+    cases heq
+    rfl
+}
+
+@[simp]
+lemma some' (h: M q sym = .next sym' dir q') (hsym: sym = T.head) (hT: T' = (T.write sym' |>.move dir)): M.step ⟨q, T⟩ = .some ⟨q', T'⟩ :=
+by {
+  rw [hsym] at h
+  rw [hT]
+  exact some h
+}
+
 end Machine.step
 
 inductive Machine.Multistep (M: Machine l s): ℕ → Config l s → Config l s → Prop
@@ -385,6 +407,12 @@ lemma skip (h: A -[M]{n}-> B) (hM: ¬(M.halts B)): ¬(M.halts A) := by {
 lemma skip_evstep (h: A -[M]->* B) (hM: ¬(M.halts B)): ¬(M.halts A) := by {
   have ⟨_, hAB⟩ := h.to_multistep
   exact skip hAB hM
+}
+
+lemma skip_next (h: A -[M]-> B) (hM: ¬(M.halts B)): ¬(M.halts A) :=
+by {
+  refine skip (n:=1) ?_ hM
+  exact Multistep.single h
 }
 
 end Machine.halts
