@@ -4,6 +4,11 @@ This project contains an attempt at formalising results regarding Busy Beavers.
 
 The objective is to merge deciders and their proof of correctness.
 
+More broadly, the project should rely as little as possible on
+specific numbers of states and symbols. The idea is to have an
+executable that allows querying and computing busy beaver values, as
+well as a playground to play with TMs.
+
 # Architecture of the project
 
 The library/proofs are contained in [Busybeaver](./Busybeaver/):
