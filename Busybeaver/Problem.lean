@@ -3,6 +3,7 @@ Definition and lemmas about the Busy beaver problem
 -/
 import Busybeaver.Basic
 import Busybeaver.Reachability
+import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Basic
 import Busybeaver.Enumerate.Symmetry
 import Busybeaver.Enumerate.Quotient
@@ -428,24 +429,16 @@ def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match 
 | .loops_prf _ => {val := 0, undec := {}}
 
 private def used_states (M: Machine l s): (Finset (Label l)) :=
-  Finset.univ (α:=Label l) |>.filter (λ l ↦ ∃sym sym' dir nlab, M l sym = .next sym' dir nlab)
+  Finset.univ (α:=Label l) |>.filter (λ l ↦ ∃sym sym' dir nlab, M nlab sym = .next sym' dir l)
 
 private def used_symbols (M: Machine l s): Finset (Symbol s) :=
-  Finset.univ (α:=Symbol s) |>.filter (λ s ↦ ∃sym dir lab lab', M lab sym = .next s dir lab')
+  Finset.univ (α:=Symbol s) |>.filter (λ s ↦ ∃sym' dir lab lab', M lab sym' = .next s dir lab')
 
-private def next_symbol (M: Machine l s): Option (Symbol s) := match (used_symbols M).max with
-| .none => .none
-| .some n => if n = s then .none else .some (n + 1)
+private def usable_states (M: Machine l s): Finset (Label l) :=
+  used_states M ∪ if hM: (Finset.univ \ used_states M).Nonempty then {(Finset.univ \ (used_states M)).min' hM} else ∅
 
-private def next_state (M: Machine l s): Option (Label l) := match (used_states M).max with
-| .none => .none
-| .some n => if n = s then .none else .some (n + 1)
-
-private def usable_states (M: Machine l s) :=
-  used_states M ∪ (match next_state M with | .none => ∅ | .some n => {n})
-
-private def usable_symbols (M: Machine l s) :=
-  used_symbols M ∪ (match next_symbol M with | .none => ∅ | .some n => {n})
+private def usable_symbols (M: Machine l s): Finset (Symbol s) :=
+  used_symbols M ∪ if hM: (Finset.univ \ used_symbols M).Nonempty then {(Finset.univ \ (used_symbols M)).min' hM} else ∅ 
 
 private def possible_statements (M: Machine l s): Finset (Stmt l s) :=
   usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image
@@ -511,7 +504,7 @@ private def next_machines' (M: Machine l s) (lab: Label l) (sym: Symbol s) (hS: 
 TNF enumeration function.
 
 This enumerates TMs in TNF form starting from M and tries to decide
-them using the decider. It blocks the unwrapping at undecided TMs
+them using the decider. It blocks the unwrapping at undecided TMs.
 -/
 def BBCompute (decider: (M': Machine l s) → HaltM M' Unit) (M: Machine l s): BBResult l s :=
 match decider M with
@@ -586,6 +579,36 @@ by {
       exact hMM.symm
   · rfl
   · exact hB
+}
+
+lemma is_child.used_states (h: M ≤c M'): used_states M ⊆ used_states M' :=
+by {
+  intro lab hlab
+  simp [TM.Busybeaver.used_states] at *
+  obtain ⟨sym, sym', dir, nlab, hM⟩ := hlab
+  exists sym
+  exists sym'
+  exists dir
+  exists nlab
+  specialize h nlab sym
+  rw [hM] at h
+  simp at h
+  exact h.symm
+}
+
+lemma is_child.used_symbols (h: M ≤c M'): used_symbols M ⊆ used_symbols M' :=
+by {
+  intro sym hsym
+  simp [TM.Busybeaver.used_symbols] at *
+  obtain ⟨sym', dir, lab, lab', hM⟩ := hsym
+  exists sym'
+  exists dir
+  exists lab
+  exists lab'
+  specialize h lab sym'
+  rw [hM] at h
+  simp at h
+  exact h.symm
 }
 
 lemma is_child.parent_step (h: M ≤c M') (hM': A -[M']-> B): (A -[M]-> B) ∨ M.LastState A :=
@@ -722,7 +745,20 @@ by {
 noncomputable def terminating_children (M: Machine l s): Finset (Terminating l s) :=
   Finset.univ.filter (λ M' ↦ M ≤c M'.M)
 
-theorem correct (h: (BBCompute decider M).undec = ∅): (BBCompute decider M).val = Busybeaver' l s (terminating_children M) :=
+/--
+The BBCompute function is correct when called on a machine that uses the default symbol and state.
+
+Some explanations about the hypotheses:
+- h: there are no undecided machines
+- hsym/hlab: the initial machine uses the default symbol/state (it defines a transition for the empty tape
+-/
+theorem correct
+  (h: (BBCompute decider M).undec = ∅)
+  (hsym: default ∈ used_symbols M)
+  (hlab: default ∈ used_states M):
+
+  (BBCompute decider M).val = Busybeaver' l s (terminating_children M) :=
+
 by induction M using BBCompute.induct decider with
 | case1 M' nonhalt h' => {
   -- The machine loops, thus the children also loop
@@ -754,10 +790,16 @@ by induction M using BBCompute.induct decider with
 
   simp [Machine.LastState] at Clast
 
+  /-
+  A "simplified" version of the induction hypothesis.
+  -/
   have hMn: ∀ Mn ∈ (next_machines' M C.state C.tape.head Clast.1), (BBCompute decider Mn).val = Busybeaver' l s (terminating_children Mn) := by {
     intro Mn Hmn
+    have hMchild := next_machines'.is_child Hmn
     apply IH Mn
-    exact h Mn Hmn
+    · exact h Mn Hmn
+    · exact hMchild.used_symbols hsym
+    · exact hMchild.used_states hlab
   }
 
   /-
@@ -808,8 +850,7 @@ by induction M using BBCompute.induct decider with
     _ = Finset.fold Max.max nh (λ M' ↦ Busybeaver' l s (terminating_children M'.val)) (next_machines' M C.state C.tape.head Clast.1) := by {
     apply Finset.fold_congr
     intro M' hM'
-    apply IH
-    exact h _ hM'
+    exact hMn M' hM'
   }
     _  = Finset.fold Max.max nh (Busybeaver' l s) (
       (next_machines' M C.state C.tape.head Clast.1).image (λ M' ↦ terminating_children M'.val)
@@ -872,8 +913,87 @@ by induction M using BBCompute.induct decider with
     -/
     intro M' hM'
     simp [terminating_children] at hM'
-    simp
-    sorry
+    simp only [Finset.mem_fold_union, Finset.mem_image]
+    cases hM's: M'.M C.state C.tape.head
+    · simp [hM's] at hM'
+    rename_i sym dir lab
+    simp [hM's] at hM'
+    simp only [id_eq, exists_exists_and_eq_and, terminating_children]
+    by_cases hsym': sym ∈ used_symbols M <;> by_cases hlab': lab ∈ used_states M
+    · /-
+      First case, the new machine uses already used states and symbols.
+      This is the "easy" case as it does not require any permuation.
+      -/
+      exists M'
+      simp
+      exists update_with M C.state C.tape.head (.next sym dir lab)
+      constructor
+      · constructor
+        · simp [TM.Busybeaver.next_machines']
+          exists sym
+          exists dir
+          exists lab
+          simp [TM.Busybeaver.usable_symbols, TM.Busybeaver.usable_states, hsym', hlab']
+        · exact TM.Busybeaver.update_with.le_halt_trans Clast.1
+      · intro sym' lab'
+        simp [TM.Busybeaver.update_with]
+        split
+        · rename_i heq
+          simp
+          rw [heq.1, heq.2]
+          exact hM's.symm
+        · exact hM' sym' lab'
+    · /-
+      Second case, the symbol is already used, but the label is not
+      -/
+      have unused_states: (Finset.univ \ used_states M).Nonempty := by {
+        exists lab
+        simp
+        exact hlab'
+      }
+      let newlab := (Finset.univ \ used_states M).min' unused_states
+
+      have hnlab : newlab ∉ used_states M := by {
+        suffices newlab ∈ (Finset.univ \ used_states M) by {
+          simp at this
+          exact this
+        }
+        exact Finset.min'_mem _ unused_states
+      }
+
+      exists (TM.Machine.perm.isTransformation (q:=lab) (q':=newlab)).lift_terminating (by {
+        congr
+        apply TM.Machine.swap.ne
+        · simp [default]
+          intro hlab''
+          apply absurd hlab
+          simp
+          rw [hlab'']
+          exact hlab'
+        · simp [default]
+          intro hlab''
+          apply absurd hlab
+          simp
+          rw [hlab'']
+          exact hnlab
+      }) M'
+      constructor
+      swap
+      · simp [Transformation.lift_terminating]
+
+      simp
+      exists update_with M C.state C.tape.head (.next sym dir newlab)
+      constructor
+      · sorry
+      · simp [Transformation.lift_terminating]
+        intro flab fsym
+        simp [TM.Busybeaver.update_with]
+        split
+        · simp [TM.Machine.perm]
+          sorry
+        · sorry
+    · sorry
+    · sorry
 }
 
 /- instance is_descendant.decidable: DecidableRel (α:=Machine l s) is_descendant := -/
