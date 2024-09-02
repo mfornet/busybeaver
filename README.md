@@ -28,24 +28,9 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
   [cyclers](./Busybeaver/Deciders/Cyclers.lean) and [translated
   cyclers](./Busybeaver/Deciders/TranslatedCyclers.lean).
 
-# Broad TODOs
+# TODOs
 
-The project attempts to reconstruct the proofs of busybeaver
-computations. Here are a bunch of ongoing/todo work. They are sorted
-in a random order, and agglomerated by broad categories:
-
-- Formal-only work
-    1. Setup definition used for shift-rules and [inductive proofs](https://wiki.bbchallenge.org/wiki/Inductive_Proof_System).
-    2. Setup the definitions to reason about individual TMs
-    3. Finish the proof of the TNF enumeration algorithm (NB: some
-       lemmas may be wrong and need to tweaked to finish the proof)
-- Implementation-only work
-    1. Find a way to have more parallel evaluation when enumerating TMs
-    2. Enhance logging of the main executable
-- Mixed work
-    1. More deciders !
-    2. Write (and prove) a TNF-1RB enumeration algorithm
-    3. Allow for caching on disk (seems tricky, might involve developing _certificates_ of non-termination) ?
+You can find the ongoing tasks and goals [here](https://todo.sr.ht/~vigoux/busybeaver).
 
 # Acknowledgment
 
