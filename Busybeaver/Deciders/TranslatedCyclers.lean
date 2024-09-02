@@ -444,6 +444,8 @@ def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick
   }⟩)
 
 abbrev TickCache (M: Machine l s) := { T: TickingConfig l s × List (Tick l s) // default t-[M:T.2.reverse]->> T.1}
+
+@[specialize bound]
 def translatedCyclerDecider (bound: ℕ) (M: Machine l s) (start: TickCache M := ⟨(default, []), by {
   simp
   exact TReach.MultiTStep.refl default

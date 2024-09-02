@@ -13,7 +13,8 @@ Note that because of the HaltM monad, execution of the machine through
 
 open TM
 
-def looperDec (bound: ℕ) (M: Machine l s): HaltM M Unit := Id.run do
+@[specialize bound]
+def looperDecider (bound: ℕ) (M: Machine l s): HaltM M Unit := Id.run do
   let rec looperDecInner (bound: ℕ) {ktort} (tort: {s // init -[M]{ktort}-> s}) {kheir} (heir: {s // init-[M]{kheir}-> s}) (hht: tort -[M]->* heir): HaltM M Unit := match bound with
     | 0 => .unknown ()
     | n + 1 => do

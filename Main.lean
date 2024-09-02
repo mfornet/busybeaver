@@ -1,7 +1,7 @@
 import Busybeaver
 import Busybeaver.Basic
 import Busybeaver.Problem
-import Busybeaver.Deciders.LooperDec
+import Busybeaver.Deciders.Cyclers
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.NoHaltState
 import Busybeaver.Deciders.TranslatedCyclers
@@ -11,9 +11,9 @@ open TM
 abbrev TM22 := Machine 1 1
 
 def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
-  let tcCache ← (translatedCyclerDecider 200 M)
-  (looperDec 100 M)
-  let _ ← (translatedCyclerDecider 1000 M tcCache)
+  let _ ← (translatedCyclerDecider 200 M)
+  (looperDecider 100 M)
+  /- let _ ← (translatedCyclerDecider 800 M tcCache) -/
 
 instance [ToString α]: ToString (HaltM M α) where
   toString := λ r ↦ s!"{repr M} " ++ match r with
