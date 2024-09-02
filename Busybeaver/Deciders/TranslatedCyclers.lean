@@ -1,5 +1,8 @@
 /-
-Translated cycler decider based on [transcripts](https://www.sligocki.com/2024/06/12/tm-transcripts.html)
+Translated cycler decider based on [transcripts](https://www.sligocki.com/2024/06/12/tm-transcripts.html).
+
+The idea is to have a tape that records the fact that a machine is on one of the "trailing zeros" of
+the tape. Using that we can define the "extended transcripts" used in the blog post.
 -/
 import Busybeaver.Basic
 import Busybeaver.Reachability
@@ -49,7 +52,7 @@ lemma TickingConfig.toConfig.head: C.toConfig.tape.head = WithBot.unbot' default
 
 end ToBase
 
-section PrettyPrint
+section PrettyPrint -- TODO: remove when decider is done
 open Std.Format Lean
 
 private def right_repr [Repr α] [Inhabited α] (l: Turing.ListBlank α) (bound: ℕ): List Format := match bound with
@@ -77,6 +80,9 @@ variable {M: Machine l s}
 
 notation A " t-[" M ":" T "]-> " B => step_tick M A = Option.some (B, T)
 
+/--
+The transcript-building step relation.
+-/
 inductive MultiTStep (M: Machine l s): List (Tick l s) → TickingConfig l s → TickingConfig l s → Prop
 | refl C : MultiTStep M [] C C
 | step A B C t L : (A t-[M:t]-> B) → MultiTStep M L B C → MultiTStep M (t :: L) A C
@@ -223,6 +229,12 @@ by induction k with
   exact concat_comm
 }
 
+/--
+If a ticking machine goes twice through the transcript, with a record within the transcript, then
+we can push that cycle once more, keeping the same transcript
+
+This is the key step in proving non-termination of translated cyclers.
+-/
 def ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
 by {
   obtain ⟨q, hq⟩ := hRecord
@@ -249,9 +261,28 @@ by induction n generalizing A B C with
     _ t-[M:List.repeat L n]->> E := hE
 }
 
+/--
+If a machine follows the transcript pattern of a translated cycler, then it loops.
+-/
 def ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
   ¬M.halts A.toConfig :=
 by {
+  /- SKETCH
+
+  Suppose the machine stops after n steps on configuration E. We thus have:
+
+  A t-[M:L]->> B t-[M:L]->> C
+  A ......................... -[M]{n}-> E
+
+  Because of [ticking_extends_many], we can push past B as many times as we want, i.e:
+
+  A t-[M:L]->> B t-[M:L]->> C ........... t-[M:List.repeat L k]->> E'
+  A ......................... -[M]{n}-> E
+
+  Thus it is actually possible to "step more" from E based on the ticking assumption, which
+  contradicts it being a finishing state, concluding the proof.
+  -/
+
   intro ⟨n, E, hEl, hEr⟩
 
   obtain ⟨q, hq⟩ := hRecord
