@@ -88,7 +88,6 @@ deriving DecidableEq
 def BBResult.join (t₁ t₂: BBResult l s): BBResult l s := {
   val := Max.max t₁.val t₂.val
   undec := t₁.undec + t₂.undec
-  /- undec := t₁.undec ∪ t₂.undec -/
 }
 
 instance BBResult.join.commutative: Std.Commutative (BBResult.join (l:=l) (s:=s)) :=
@@ -117,13 +116,6 @@ def BBResult.join.fold_max [DecidableEq α] {f: α → BBResult l s} {S: Finset 
 by induction S using Finset.induction with
 | empty => simp_all
 | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
-
-/- @[simp] -/
-/- def BBResult.join.fold_union [DecidableEq α] {f: α → BBResult l s} {S: Finset α}: -/
-/-   (Finset.fold BBResult.join B f S).undec = Finset.fold Multiset.add B.undec (λ a ↦ (f a).undec) S := -/
-/- by induction S using Finset.induction with -/
-/- | empty => simp_all -/
-/- | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH] -/
 
 def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match h with
 | .unknown _ => { val := 0, undec := {M}}
