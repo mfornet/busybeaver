@@ -775,16 +775,6 @@ by {
   exact locality h
 }
 
-lemma pstep?.locality_left₀ {R L' R': List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: ({} {q;dir} R) p-[M]-> (L' {q';dir'} R')):
-  (T {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} R' ++ T') :=
-  by apply pstep?.locality' h (T:=T) (T':=T') <;> try simp
-
-lemma pstep?.locality_left₁ {R L': List (Symbol s)} {T T': PartialHTape (Symbol s)}
-  (h: ({} {q;dir} R) p-[M]-> (L' {q';dir'} {})):
-  (T {q;dir} R ++ T') p-[M]-> ((L' ++ T) {q';dir'} T') :=
-  by apply pstep?.locality' h (T:=T) (T':=T') <;> try simp
-
 lemma pstep.finiteness {hwf: A.tape.well_formed} (h: M.pstep A hwf = some B):
   A.tape.finiteness = B.tape.finiteness :=
 by {
@@ -953,7 +943,11 @@ macro_rules
 | `(tactic| locality $h) => `(tactic| locality; exact $h)
 | `(tactic| locality!) => `(tactic| locality; decide)
 
+end TM.Machine
+
 section Example
+
+open TM
 
 def tmpMach: Machine 4 2
 | 0, 0 => .next 1 .right 1
@@ -971,9 +965,6 @@ def tmpMach: Machine 4 2
 /-
 Example of using the locality principle and decidable equality to perform actual computations
 with partial states.
-
-Note that in its current form, the proof is very verbose.
-Having tactics to avoid such verbosity will be needed.
 -/
 lemma shiftRuleLeft: ({} {2}> List.replicate n (1: Symbol 2)) p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2)) {2}> {}) :=
 by induction n with
