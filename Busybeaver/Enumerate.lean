@@ -564,6 +564,34 @@ lemma equi (hM: M.ZVisits q L): ∃ (M': Machine l s), M'.ZVisits q [] ∧ equi_
     }
   }
 
+lemma decide (M: Machine l s) (q: Label l): ∃L, M.ZVisits q L := sorry
+
+/--
+It is sufficient to only consider machines with empty ZVisits.
+
+_The_ theorem of interest.
+
+This is formalized as: assume there is an algorithm that decides if a TM
+with empty ZVisits, then we can use this algorithm to decide for all TMs
+-/
+theorem only_nz (decider: ∀(M': Machine l s), (M'.ZVisits q []) → M'.halts ⟨q, default⟩ ∨ ¬(M'.halts ⟨q, default⟩)): M.halts ⟨q, default⟩ ∨ ¬(M.halts ⟨q, default⟩) := by {
+  obtain ⟨L, hL⟩ := (decide M q)
+  obtain ⟨M', hM'z, hM'h⟩ := hL.equi
+  cases decider M' hM'z with
+  | inl hM' => {
+    left
+    unfold equi_halts at hM'h
+    rw [hM'h]
+    exact hM'
+  }
+  | inr hM'n => {
+    right
+    unfold equi_halts at hM'h
+    rw [hM'h]
+    exact hM'n
+    }
+  }
+
 end ZVisits
 
 end Machine
