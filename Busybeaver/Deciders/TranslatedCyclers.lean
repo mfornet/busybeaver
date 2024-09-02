@@ -300,29 +300,32 @@ by induction k with
 }
 
 /--
+If a ticking machine steps twice off the border, then we can extend it any number of times.
+-/
+lemma ticking_bot_twice (hAB: A t-[M:(q, ⊥)]-> B) (hBC: B t-[M:(q,⊥)]-> C): ∃D, C t-[M:(q,⊥)]-> D :=
+  sorry
+
+/--
 If a ticking machine goes twice through the transcript, with a record within the transcript, then
 we can push that cycle once more, keeping the same transcript
 
 This is the key step in proving non-termination of translated cyclers.
 -/
-def ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
+lemma ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
 by {
   obtain ⟨q, hq⟩ := hRecord
-  rw [List.mem_iff_append] at hq
-  obtain ⟨S, T, hST⟩ := hq
-  rw [hST] at hAB hBC
-  obtain ⟨aC, hAaC, haCB⟩ := hAB.split
-  obtain ⟨bC, hBbC, hbCC⟩ := hBC.split
-  cases haCB
-  rename_i aC' haCaC' haC'B
-  cases hbCC
-  rename_i bC' hbCbC' hbC'C
-
-  rw [hST]
-  sorry
+  induction L generalizing A B C with
+  | nil => simp at hq
+  | cons head tail IH => {
+    simp at hq
+    rcases hq with hq | hq
+    · cases hq
+      sorry
+    · sorry
+  }
 }
 
-def ticking_extends_many (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
+lemma ticking_extends_many (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
   ∃D, B t-[M:List.repeat L n]->> D :=
 by induction n generalizing A B C with
 | zero => {
@@ -343,7 +346,7 @@ by induction n generalizing A B C with
 /--
 If a machine follows the transcript pattern of a translated cycler, then it loops.
 -/
-def ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
+lemma ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: ∃q, (q, ⊥) ∈ L):
   ¬M.halts A.toConfig :=
 by {
   /- SKETCH
