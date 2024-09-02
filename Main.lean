@@ -10,7 +10,7 @@ open TM
 abbrev TM22 := Machine 1 1
 
 def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
-  (looperDec 100 M)
+  (looperDec 1000 M)
 
 instance [ToString α]: ToString (HaltM M α) where
   toString := λ r ↦ s!"{repr M} " ++ match r with

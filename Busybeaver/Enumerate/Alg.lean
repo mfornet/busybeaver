@@ -86,7 +86,8 @@ deriving DecidableEq
 
 def BBResult.join (t₁ t₂: BBResult l s): BBResult l s := {
   val := Max.max t₁.val t₂.val
-  undec := t₁.undec ∪ t₂.undec
+  undec := t₁.undec.disjUnion t₂.undec sorry
+  /- undec := t₁.undec ∪ t₂.undec -/
 }
 
 instance BBResult.join.commutative: Std.Commutative (BBResult.join (l:=l) (s:=s)) :=
