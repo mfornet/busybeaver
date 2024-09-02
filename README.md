@@ -11,6 +11,7 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
 - [Basic.lean](./Busybeaver/Basic.lean) contains the base definition of Turing machines
 - [Reachability.lean](./Busybeaver/Reachability.lean) contains many definitions related to reachability in TMs
 - [ClosedSet.lean](./Busybeaver/ClosedSet.lean) defines a tool to prove non-halting based on [Closed Sets](https://wiki.bbchallenge.org/wiki/Closed_Set)
+- [Enumerate](./Busybeaver/Enumerate/) contains everything related to machine enumeration, and will at some point contain the algorithm for deciding termination based on [Tree Normal Forms](https://wiki.bbchallenge.org/wiki/Tree_Normal_Form)
 - [Deciders](./Busybeaver/Deciders/) contains the code of deciders. They are designed as proof-carrying functions.
 
 # Acknowledgment
