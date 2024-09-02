@@ -830,10 +830,10 @@ by induction n with
 }
 | succ n IH => {
   have htmp := calc ({} {2}> List.replicate (n+1) (1: Symbol 2))
-    _ p-[tmpMach]{0}-> ({} {2}> ([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2))) := by simp; rfl
+    _ = ({} {2}> ([(1: Symbol 2)] ++ List.replicate n (1: Symbol 2))) := by simp; rfl
     _ p-[tmpMach]{1}-> ([(1: Symbol 2)] {2}> (List.replicate n (1: Symbol 2))) := by locality!
     _ p-[tmpMach]{n}-> ((List.replicate n (1: Symbol 2) ++ [(1: Symbol 2)]) {2}> {}) := by locality IH
-    _ p-[tmpMach]{0}-> ((List.replicate (n+1) (1: Symbol 2)) {2}> {}) := by {
+    _ = ((List.replicate (n+1) (1: Symbol 2)) {2}> {}) := by {
       simp [-PartialHTape.append_lists]
       symm
       exact List.replicate_succ' n 1
