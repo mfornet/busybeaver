@@ -137,7 +137,7 @@ by induction L generalizing Lb with
 
 def is_preffix (T T': PartialHTape Γ): Prop := match T, T' with
 | .finite L, .finite L' => L <+: L'
-| .finite L, .infinite L' => listBlankPrefix L L'
+| .finite L, .infinite L' => L <+:b L'
 | .infinite _, .finite _ => False
 | .infinite L, .infinite L' => L = L'
 
