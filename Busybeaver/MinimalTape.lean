@@ -193,7 +193,7 @@ instance: PartialOrder (PartialHTape Γ) where
     }
   }
 
-variable {T T': PartialHTape Γ} (h: T.is_preffix T')
+variable {T T': PartialHTape Γ} (h: T ≤ T')
 
 include h
 
@@ -205,37 +205,38 @@ by {
 
   cases T
   swap
-  · simp [is_preffix] at h
+  · simp [instPartialOrder, is_preffix] at h
 
   rename_i L' L
   simp [nonempty] at*
-  simp [is_preffix] at h
+  simp [instPartialOrder, is_preffix] at h
   exact List.IsPrefix.ne_nil h hT
 }
 
-lemma is_preffix_head (hg: T.head? = some g): T'.head? = some g :=
+lemma le_head? (hg: T.head? = some g): T'.head? = some g :=
 by match T, T' with 
-| .infinite _, .finite _ => simp [is_preffix] at h
+| .infinite _, .finite _ => simp [instPartialOrder, is_preffix] at h
 | .infinite _, .infinite _ => {
   simp [head?] at *
-  simp [is_preffix] at h
+  simp [instPartialOrder, is_preffix] at h
   rw [← h]
   exact hg
 }
 | .finite L, .infinite _ => {
   simp [head?] at *
-  simp [is_preffix] at h
-  cases L with simp [PartialHTape.listBlankPrefix] at h
+  simp [instPartialOrder, is_preffix] at h
+  cases L with
   | nil => simp at hg
   | cons head tail => {
     simp at hg
+    simp at h
     cases hg
     exact h.1.symm
   }
 }
 | .finite L, .finite L' => {
   simp [head?] at *
-  simp [is_preffix] at h
+  simp [instPartialOrder, is_preffix] at h
   match L, L' with
   | [], _ => simp at hg
   | head :: tail, [] => simp at h
@@ -246,18 +247,50 @@ by match T, T' with
   }
 }
 
+lemma le_head (hT: T.nonempty) (hT': T'.nonempty): T.head hT = T'.head hT' :=
+by {
+  have hTh := PartialHTape.nonempty.head?_eq_some_head hT
+  have hTh' := PartialHTape.nonempty.head?_eq_some_head hT'
+  rw [le_head? h hTh] at hTh'
+  simp at hTh'
+  exact hTh'
+}
+
 end PartialHTape
 
 namespace PartialTape
 
+variable [Inhabited Γ]
+
 def isSubtape (T T': PartialTape Γ): Prop :=
-  T.dir == T'.dir ∧ T.left.is_preffix T'.left ∧ T.right.is_preffix T'.right
+  T.dir = T'.dir ∧ T.left ≤ T'.left ∧ T.right ≤  T'.right
 
-instance: HasSubset (PartialTape Γ) := ⟨isSubtape⟩
+instance: PartialOrder (PartialTape Γ) where
+  le := isSubtape
+  le_refl A := by simp [isSubtape]
+  le_trans A B C hA hB := by {
+    simp [isSubtape] at *
+    constructor
+    · rw [hA.1, hB.1]
+    constructor
+    · exact le_trans hA.2.1 hB.2.1
+    · exact le_trans hA.2.2 hB.2.2
+  }
+  le_antisymm A B hAB hBA := by {
+    simp [isSubtape] at *
+    obtain ⟨Ad, Al, Ar⟩ := A
+    obtain ⟨Bd, Bl, Br⟩ := B
+    simp at *
+    constructor
+    · rw [hAB.1]
+    constructor
+    · exact le_antisymm hAB.2.1 hBA.2.1
+    · exact le_antisymm hAB.2.2 hBA.2.2
+  }
 
-lemma sub_well_formed {T T': PartialTape Γ} (h: T ⊆ T') (hT: T.well_formed): T'.well_formed :=
+lemma le_well_formed {T T': PartialTape Γ} (h: T ≤ T') (hT: T.well_formed): T'.well_formed :=
 by {
-  simp [instHasSubset, isSubtape] at h
+  simp [instPartialOrder, isSubtape] at h
   simp [well_formed, pointed] at *
   split at hT <;> {
     rename_i heq
@@ -270,19 +303,66 @@ by {
   }
 }
 
+lemma le_head_eq {T T': PartialTape Γ} (h: T ≤ T') (hT: T.well_formed) (hT': T'.well_formed):
+  T.head hT = T'.head hT' :=
+by {
+  obtain ⟨hd, hl, hr⟩ := h
+  cases hTd: T.dir <;> {
+    simp [hTd, head, pointed, ← hd]
+    first
+    | exact PartialHTape.le_head hl _ _
+    | exact PartialHTape.le_head hr _ _
+  }
+}
+
 end PartialTape
 
 namespace PartialConfig
 
 def isSubConfig (C C': PartialConfig l s): Prop :=
-  C.state = C'.state ∧ C.tape ⊆ C'.tape
+  C.state = C'.state ∧ C.tape ≤ C'.tape
 
-instance: HasSubset (PartialConfig l s) := ⟨isSubConfig⟩
+instance: PartialOrder (PartialConfig l s) where
+  le := isSubConfig
+  le_refl A := by simp [isSubConfig]
+  le_trans A B C hA hB := by {
+    simp [isSubConfig] at *
+    constructor
+    · rw [hA.1, hB.1]
+    · exact le_trans hA.2 hB.2
+  }
+  le_antisymm A B hAB hBA := by {
+    simp [isSubConfig] at *
+    obtain ⟨Aq, At⟩ := A
+    obtain ⟨Ba, Bt⟩ := B
+    simp at *
+    constructor
+    · rw [hAB.1]
+    · exact le_antisymm hAB.2 hBA.2
+  }
 
 variable {A B: PartialConfig l s} {M: Machine l s}
 
-lemma subconfig_step_mono (hA: A ⊆ A') (hwf: A.tape.well_formed) (hwf': A'.tape.well_formed)
-  (h: M.pstep A hwe = .some B) (h': M.pstep A' hwf' = .some B'): B ⊆ B':=
+open Machine.pstep?
+
+lemma pstep?_of_le_pstep? (hA: A ≤ A') (hAB: A p-[M]-> B): ∃B', B ≤ B' ∧ A' p-[M]-> B' :=
 by {
+  have hAwf := (well_formed hAB)
+  obtain ⟨hAq, hAt⟩ := hA
+  have hAwf' := PartialTape.le_well_formed hAt hAwf
+  simp [to_pstep' hAwf] at hAB
+  simp [to_pstep' hAwf']
+  simp [Machine.pstep] at *
+  rw [← PartialTape.le_head_eq hAt hAwf, ← hAq]
+  split
+  · rename_i heq
+    rw [heq] at hAB
+    simp at hAB
+  rename_i heq
+  rw [heq] at hAB
+  simp at hAB
+  simp
+  rw [← hAB]
+  simp [instPartialOrder, isSubConfig]
   sorry
 }
