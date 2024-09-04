@@ -75,6 +75,27 @@ lemma cons_nth_succ {T: Turing.ListBlank Γ}: (cons A T).nth (i + 1) = T.nth i :
 by induction T using Turing.ListBlank.induction_on; simp
 
 @[simp]
+lemma cons_injective {T T': Turing.ListBlank Γ} {g g': Γ}: cons g T = cons g' T' ↔ g = g' ∧ T = T' :=
+by {
+  constructor
+  swap
+  · intro ⟨hg, hT⟩
+    rw [hg, hT]
+  intro hg
+  constructor
+  · rw [
+      show g = (cons g T).head by simp,
+      show g' = (cons g' T').head by simp,
+      hg
+    ]
+  · rw [
+      show T = (cons g T).tail by simp,
+      show T' = (cons g' T').tail by simp,
+      hg
+    ]
+}
+
+@[simp]
 lemma append_mk_nth {L: List Γ} {T: Turing.ListBlank Γ}:
   (L ++ T).nth i = if _ : i < L.length then L[i] else T.nth (i - L.length) :=
 by induction i generalizing L T with
@@ -93,6 +114,99 @@ by induction i generalizing L T with
 lemma default_nth: (default: Turing.ListBlank Γ).nth i = default :=
   by rfl
 
+@[simp]
+lemma append_empty {T: Turing.ListBlank Γ}: ([]: List Γ) ++ T = T :=
+  by rfl
+
+@[simp]
+lemma append_cons {T: Turing.ListBlank Γ} {L: List Γ} {g: Γ}: g :: L ++ T = Turing.ListBlank.cons g (L ++ T) :=
+  by rfl
+
+@[simp]
+lemma append_nth {T: Turing.ListBlank Γ} {L: List Γ}: (L ++ T).nth n = if h: n < L.length then L[n]'h else T.nth (n - L.length) :=
+by induction n generalizing L with
+| zero => {
+  simp
+  split
+  · rename_i heq
+    cases L <;> simp at heq
+    simp
+  · rename_i heq
+    simp at heq
+    cases heq
+    simp
+}
+| succ n _ => cases L <;> simp
+
+/--
+If two list blanks are different, then by [Classical.choice] they differ at some point.
+-/
+lemma ne_exists_different {Lb Lb': Turing.ListBlank Γ}: Lb ≠ Lb' ↔ ∃n, Lb.nth n ≠ Lb'.nth n :=
+by {
+  constructor
+  · intro hn
+    simp at hn
+    rw [Turing.ListBlank.ext_iff] at hn
+    push_neg at hn
+    exact hn
+  · intro ⟨n, hn⟩ hL
+    rw [Turing.ListBlank.ext_iff] at hL
+    specialize hL n
+    contradiction
+}
+
+@[simp]
+def take (Lb: Turing.ListBlank Γ): ℕ → List Γ
+| 0 => []
+| n + 1 => Lb.head :: Lb.tail.take n
+
+@[simp]
+lemma take.length {Lb: Turing.ListBlank Γ}: (Lb.take n).length = n :=
+  by induction n generalizing Lb <;> simp_all
+
+@[simp]
+def take_nth {Lb: Turing.ListBlank Γ} {n i: ℕ} (h: i < n): (Lb.take n)[i]'(by simp [h]) = Lb.nth i :=
+by induction i generalizing n Lb with
+| zero => {
+  simp
+  cases n <;> simp at h
+  simp
+}
+| succ i IH => {
+  simp
+  cases n <;> simp at h
+  simp
+  exact IH h
+}
+
+@[simp]
+def drop (Lb: Turing.ListBlank Γ): ℕ → ListBlank Γ
+| 0 => Lb
+| n + 1 => Lb.tail.drop n
+
+@[simp]
+lemma drop_nth {Lb: Turing.ListBlank Γ}: (Lb.drop n).nth n' = Lb.nth (n + n') :=
+by induction n generalizing Lb with
+| zero => simp
+| succ n IH => {
+  simp
+  rw [IH, ← Turing.ListBlank.nth_succ]
+  congr 1
+  exact Nat.add_right_comm n n' 1
+}
+
+lemma append_take_drop {Lb: Turing.ListBlank Γ}: (Lb.take n) ++ (Lb.drop n) = Lb :=
+by {
+  ext i
+  simp
+  split
+  · rename_i h
+    simp [take_nth h]
+  · rename_i heq
+    congr 1
+    push_neg at heq
+    exact Nat.add_sub_of_le heq
+}
 
 end Turing.ListBlank
 

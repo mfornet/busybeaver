@@ -162,12 +162,11 @@ instance: HAppend (List Γ) (PartialHTape Γ) (PartialHTape Γ) := ⟨append⟩
 
 @[simp]
 lemma append_nil {T: PartialHTape Γ}: ([]: List Γ) ++ T = T :=
-by induction T with simp [instHAppendList, append]
-| infinite L => simp [Turing.ListBlank.instHAppend]
+  by induction T <;> simp [instHAppendList, append]
 
 @[simp]
 lemma append_nil_end {L: List Γ}: L ++ (.finite []: PartialHTape Γ) = L :=
-by simp [instHAppendList, append]
+  by simp [instHAppendList, append]
 
 @[simp]
 lemma append_empty_end {L: List Γ}: L ++ ({}: PartialHTape Γ) = L :=
@@ -182,9 +181,7 @@ lemma append_listsblanks {L: List Γ} {R: Turing.ListBlank Γ}: L ++ (PartialHTa
   by simp [instHAppendList, append]
 
 lemma cons_append {L: List Γ} {T: PartialHTape Γ} {g: Γ}: (g :: L) ++ T = cons g (L ++ T) :=
-by cases T with
-| finite L' => simp
-| infinite L' => simp [Turing.ListBlank.instHAppend]
+  by cases T <;> simp
 
 lemma append_assoc {L L': List Γ} {T: PartialHTape Γ}: L ++ L' ++ T = L ++ (L' ++ T) :=
 by cases T with

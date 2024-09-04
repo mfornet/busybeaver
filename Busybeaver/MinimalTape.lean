@@ -69,6 +69,11 @@ infix:40 " <+:b " => listBlankPrefix
 lemma listBlankPrefix.def {L L': List Γ}: L <+:b (Turing.ListBlank.mk L') ↔ (∃n, L <+: L' ++ List.replicate n default) :=
   by rfl
 
+@[simp]
+lemma listBlankPrefix.cons_cons {L: List Γ} {g g': Γ} {Lb: Turing.ListBlank Γ}:
+  g :: L <+:b Turing.ListBlank.cons g' Lb ↔ g = g' ∧ L <+:b Lb :=
+  by induction Lb using Turing.ListBlank.induction_on; simp
+
 lemma listBlankPrefix.head {g: Γ} {L: List Γ} {Lb: Turing.ListBlank Γ}
   (h: (g :: L) <+:b Lb): Lb.head = g :=
 by induction Lb using Turing.ListBlank.induction_on with
@@ -123,6 +128,17 @@ by induction Lb using Turing.ListBlank.induction_on with
   | cons headb tailb => simp
 }
 
+instance {L: List Γ} {Lb: Turing.ListBlank Γ} [DecidableEq Γ]: Decidable (L <+:b Lb) :=
+by induction L generalizing Lb with
+| nil => {
+  simp
+  exact instDecidableTrue
+}
+| cons head tail IH => {
+  simp
+  apply inferInstance
+}
+
 lemma listBlankPrefix.append {L L': List Γ} {Lb: Turing.ListBlank Γ}
   (h: (L ++ L') <+:b Lb): L <+:b Lb :=
 by induction L generalizing Lb with
@@ -133,6 +149,65 @@ by induction L generalizing Lb with
   use h.1
   apply IH
   exact h.2
+}
+
+section Meets
+
+variable [DecidableEq Γ]
+
+def ListBlank.meetList (Lb: Turing.ListBlank Γ): (L: List Γ) → List Γ
+| [] => []
+| head :: tail =>
+  if head = Lb.head then
+    head :: ListBlank.meetList Lb.tail tail
+  else
+    []
+
+def ListBlank.meet.correct {Lb: Turing.ListBlank Γ} {L: List Γ}: ListBlank.meetList Lb L <+: L ∧ ListBlank.meetList Lb L <+:b Lb :=
+  by induction Lb, L using ListBlank.meetList.induct <;> simp_all [ListBlank.meetList]
+
+def List.meet: (L L': List Γ) → List Γ
+| [], [] | [], _ :: _ | _ :: _, [] => []
+| head :: tail, head' :: tail' =>
+  if head = head' then
+    head :: List.meet tail tail'
+  else
+    []
+
+def List.meet.prefix_left {L L': List Γ}: List.meet L L' <+: L :=
+  by induction L, L' using List.meet.induct <;> simp_all [meet]
+
+def List.meet.commutative {L L': List Γ}: List.meet L L' = List.meet L' L :=
+by induction L, L' using List.meet.induct with simp_all [meet]
+| case5 _ _ _ _ h => {
+  split
+  · simp_all
+  · rfl
+}
+
+def List.meet.prefix_right {L L': List Γ}: List.meet L L' <+: L' :=
+by {
+  rw [List.meet.commutative]
+  exact List.meet.prefix_left
+}
+
+end Meets
+
+lemma listBlankPrefix.exists_trailing {L: List Γ} {Lb: Turing.ListBlank Γ}:
+  L <+:b Lb ↔ ∃(L': Turing.ListBlank Γ), Lb = L ++ L' :=
+by induction L generalizing Lb with
+| nil => simp
+| cons head tail IH => {
+  simp
+  constructor
+  · intro h
+    obtain ⟨L', hL'⟩ := IH.mp h.2
+    use L'
+    rw [← Turing.ListBlank.cons_head_tail Lb, hL', h.1]
+  · intro ⟨L', hL'⟩
+    rw [← Turing.ListBlank.cons_head_tail Lb, Turing.ListBlank.cons_injective] at hL'
+    use hL'.1.symm
+    exact IH.mpr ⟨L', hL'.2⟩
 }
 
 def is_preffix (T T': PartialHTape Γ): Prop := match T, T' with
@@ -193,7 +268,111 @@ instance: PartialOrder (PartialHTape Γ) where
     }
   }
 
+@[simp]
+lemma le_finite {L': List Γ}: PartialHTape.finite L ≤ PartialHTape.finite L' ↔ L <+: L' :=
+  by rfl
+
+@[simp]
+lemma le_infinite {Lb Lb': Turing.ListBlank Γ}: PartialHTape.infinite Lb ≤ PartialHTape.infinite Lb' ↔ Lb = Lb' :=
+  by rfl
+
+@[simp]
+lemma le_infinite_left {Lb: Turing.ListBlank Γ}: ¬(PartialHTape.infinite Lb ≤ .finite L) :=
+by {
+  simp [instPartialOrder, is_preffix]
+}
+
+@[simp]
+lemma le_infinite_right {Lb: Turing.ListBlank Γ}: .finite L ≤ PartialHTape.infinite Lb ↔ L <+:b Lb :=
+  by rfl
+
+
+def meet [DecidableEq Γ]: PartialHTape Γ → PartialHTape Γ → PartialHTape Γ
+| .finite L, .finite L' => List.meet L L'
+| .finite L, .infinite Lb | .infinite Lb, .finite L => ListBlank.meetList Lb L
+| .infinite Lb, .infinite Lb' =>
+  if Lb = Lb' then
+    Lb
+  else
+    .finite []
+
 variable {T T': PartialHTape Γ} (h: T ≤ T')
+
+@[simp]
+lemma le_empty: .finite [] ≤ T :=
+  by cases T <;> simp [instPartialOrder, is_preffix]
+
+lemma meet.commutative [DecidableEq Γ]: T.meet T' = T'.meet T :=
+by {
+  cases T <;> cases T'
+  · simp [meet]
+    exact List.meet.commutative
+  · simp [meet]
+  · simp [meet]
+  · rename_i Lb Lb'
+    simp [meet]
+    split
+    · simp_all
+    rename_i heq
+    split
+    · rename_i heq
+      cases heq
+      contradiction
+    rfl
+}
+
+lemma meet.le_left [DecidableEq Γ]: T.meet T' ≤ T :=
+by {
+  cases T <;> cases T'
+  · simp [meet]
+    exact List.meet.prefix_left
+  · simp [meet]
+    exact ListBlank.meet.correct.1
+  · simp [meet]
+    exact ListBlank.meet.correct.2
+  · simp [meet]
+    split <;> simp
+}
+
+lemma meet.le_right [DecidableEq Γ]: T.meet T' ≤ T' :=
+by {
+  rw [commutative]
+  exact le_left
+}
+
+/-!
+We have enough to define the SemiLattice structure of partial half tapes
+-/
+
+instance [DecidableEq Γ]: SemilatticeInf (PartialHTape Γ) where
+  inf := meet
+  inf_le_left T T' := by {
+    simp
+    exact meet.le_left
+  }
+  inf_le_right T T' := by {
+    simp
+    exact meet.le_right
+  }
+  le_inf A B C hAB hAC := by {
+    simp at *
+    cases A with
+    | infinite La => {
+      cases B <;> simp at hAB
+      cases C <;> simp at hAC
+      simp [meet]
+      simp_all
+    }
+    | finite La => {
+      cases B <;> cases C <;> simp_all [meet]
+      · sorry
+      · sorry
+      · sorry
+      · split
+        · simp_all
+        · simp_all
+    }
+  }
 
 include h
 
@@ -209,7 +388,6 @@ by {
 
   rename_i L' L
   simp [nonempty] at*
-  simp [instPartialOrder, is_preffix] at h
   exact List.IsPrefix.ne_nil h hT
 }
 
@@ -236,7 +414,6 @@ by match T, T' with
 }
 | .finite L, .finite L' => {
   simp [head?] at *
-  simp [instPartialOrder, is_preffix] at h
   match L, L' with
   | [], _ => simp at hg
   | head :: tail, [] => simp at h
