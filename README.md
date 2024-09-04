@@ -35,3 +35,13 @@ You can find the ongoing tasks and goals [here](https://todo.sr.ht/~vigoux/busyb
 # Acknowledgment
 
 I am heavily inspired by the following Coq formalisation of the problem: [busycoq](https://github.com/meithecatte/busycoq).
+
+# Contibuting
+
+This project follows and email workflow, we recommend to [setup git to
+send emails](https://git-send-email.io). To setup for this specific
+repo, we recommend:
+```
+git config format.subjectPrefix "PATCH busybeaver"
+git config sendemail.to "~vigoux/busybeaver-devel@lists.sr.ht"
+```
