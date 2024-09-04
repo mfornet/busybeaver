@@ -13,7 +13,6 @@ abbrev TM22 := Machine 1 1
 def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
   let _ ← (translatedCyclerDecider 200 M)
   (looperDecider 100 M)
-  /- let _ ← (translatedCyclerDecider 800 M tcCache) -/
 
 instance [ToString α]: ToString (HaltM M α) where
   toString := λ r ↦ s!"{repr M} " ++ match r with
