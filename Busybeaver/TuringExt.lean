@@ -155,6 +155,12 @@ by {
     contradiction
 }
 
+partial def meet [DecidableEq Γ] (Lb Lb': Turing.ListBlank Γ) (h: Lb ≠ Lb'): List Γ :=
+  if Lb.head = Lb'.head then
+    Lb.head :: (meet Lb.tail Lb'.tail (by sorry))
+  else
+    []
+
 @[simp]
 def take (Lb: Turing.ListBlank Γ): ℕ → List Γ
 | 0 => []
