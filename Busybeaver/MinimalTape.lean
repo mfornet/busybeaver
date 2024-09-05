@@ -743,6 +743,35 @@ by {
 lemma le_infinite_right {Lb: Turing.ListBlank Γ}: .finite L ≤ PartialHTape.infinite Lb ↔ L <+:b Lb :=
   by rfl
 
+lemma le_cons {g: Γ} {Lb Lb': PartialHTape Γ} (h: Lb ≤ Lb'): cons g Lb ≤ cons g Lb' :=
+  by cases Lb <;> cases Lb' <;> simp_all
+
+lemma le_tail {Lb Lb': PartialHTape Γ} (h: Lb ≤ Lb'): Lb.tail ≤ Lb'.tail := 
+by {
+  cases Lb <;> cases Lb' <;> simp_all [tail]
+  · rename_i L L'
+    cases L
+    · simp
+    rename_i head tail
+    cases L'
+    · simp at h
+    rename_i head' tail'
+    simp at h
+    simp
+    exact h.2
+  · rename_i L Lb'
+    cases L
+    · simp
+    rename_i head tail
+    simp
+    rw [
+      ← Turing.ListBlank.cons_head_tail Lb',
+      listBlankPrefix.cons
+    ] at h
+    simp at h
+    exact h.2
+}
+
 
 def meet [DecidableEq Γ]: PartialHTape Γ → PartialHTape Γ → PartialHTape Γ
 | .finite L, .finite L' => List.meet L L'
@@ -933,6 +962,57 @@ by {
   }
 }
 
+instance {d: Turing.Dir} [DecidableEq Γ]: SemilatticeInf { T: PartialTape Γ // T.dir = d } where
+  inf A B := ⟨{ dir := d, left := A.val.left ⊓ B.val.left, right := A.val.right ⊓ B.val.right}, rfl⟩
+  inf_le_left := by {
+    intro ⟨A, hA⟩ ⟨B, hB⟩
+    simp [instPartialOrder, isSubtape, hA]
+  }
+  inf_le_right := by {
+    intro ⟨A, hA⟩ ⟨B, hB⟩
+    simp [instPartialOrder, isSubtape, hB]
+  }
+  le_inf := by {
+    intro ⟨A, hA⟩ ⟨B, hB⟩ ⟨C, hC⟩ hAB hAC
+    simp_all [instPartialOrder, isSubtape, hA]
+  }
+
+lemma le_move_stable {T T': PartialTape Γ} {hT: T.well_formed} {hT': T'.well_formed} (h: T ≤ T'): T.move hT D ≤ T'.move hT' D :=
+by {
+  unfold PartialTape.move
+  have hcopy := h
+  simp [instPartialOrder, isSubtape] at h
+  rw [h.1]
+  split
+  · simp_all [instPartialOrder, isSubtape]
+  · simp_all [instPartialOrder, isSubtape]
+  · simp [instPartialOrder, isSubtape]
+    constructor
+    · rw [le_head_eq hcopy hT hT']
+      exact PartialHTape.le_cons h.2.1
+    · exact PartialHTape.le_tail h.2.2
+  · simp [instPartialOrder, isSubtape]
+    constructor
+    · exact PartialHTape.le_tail h.2.1
+    · rw [le_head_eq h hT hT']
+      simp_all [instPartialOrder, isSubtape]
+      exact PartialHTape.le_cons h.2.2
+}
+
+lemma le_write_stable {T T': PartialTape Γ} (h: T ≤ T'): T.write sym ≤ T'.write sym :=
+by {
+  simp [instPartialOrder, isSubtape] at h
+  unfold write
+  rw [h.1]
+  split
+  · simp_all [instPartialOrder, isSubtape]
+    apply PartialHTape.le_cons
+    exact PartialHTape.le_tail h.2.1
+  · simp_all [instPartialOrder, isSubtape]
+    apply PartialHTape.le_cons
+    exact PartialHTape.le_tail h.2.2
+}
+
 end PartialTape
 
 namespace PartialConfig
@@ -963,24 +1043,27 @@ variable {A B: PartialConfig l s} {M: Machine l s}
 
 open Machine.pstep?
 
-lemma pstep?_of_le_pstep? (hA: A ≤ A') (hAB: A p-[M]-> B): ∃B', B ≤ B' ∧ A' p-[M]-> B' :=
+lemma pstep?_stable (hA: A ≤ A') (hAB: A p-[M]-> B) (hAB': A' p-[M]-> B'): B ≤ B' :=
 by {
   have hAwf := (well_formed hAB)
   obtain ⟨hAq, hAt⟩ := hA
   have hAwf' := PartialTape.le_well_formed hAt hAwf
   simp [to_pstep' hAwf] at hAB
-  simp [to_pstep' hAwf']
+  simp [to_pstep' hAwf'] at hAB'
   simp [Machine.pstep] at *
-  rw [← PartialTape.le_head_eq hAt hAwf, ← hAq]
-  split
-  · rename_i heq
-    rw [heq] at hAB
-    simp at hAB
-  rename_i heq
-  rw [heq] at hAB
+
+  rw [
+    hAq,
+    PartialTape.le_head_eq hAt hAwf hAwf'
+  ] at hAB
+
+  split at hAB
+  · cases hAB
   simp at hAB
-  simp
-  rw [← hAB]
+
+  simp_all
+  rw [← hAB', ← hAB]
   simp [instPartialOrder, isSubConfig]
-  sorry
+  apply PartialTape.le_move_stable
+  exact PartialTape.le_write_stable hAt
 }
