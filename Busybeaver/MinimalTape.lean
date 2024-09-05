@@ -1068,7 +1068,8 @@ by {
   exact PartialTape.le_write_stable hAt
 }
 
-lemma pstep?_of_le_pstep? (hA: A ≤ A') (hAB: A p-[M]-> B): ∃B', B ≤ B' ∧ A' p-[M]-> B' :=
+-- FIXME: This is horribly written and needs a refactor
+def pstep?_of_le_pstep? (hA: A ≤ A') (hAB: A p-[M]-> B): { B' // B ≤ B' ∧ A' p-[M]-> B' }:=
 by {
   have hAwf := (well_formed hAB)
   obtain ⟨hAq, hAt⟩ := hA
@@ -1086,6 +1087,22 @@ by {
   simp_all
   rw [← hAB]
   simp [instPartialOrder, isSubConfig]
-  apply PartialTape.le_move_stable
-  exact PartialTape.le_write_stable hAt
+
+  rename_i heq
+  match hM: M.pstep A' hAwf' with
+  | none => {
+    unfold Machine.pstep at hM
+    rw [heq] at hM
+    simp at hM
+  }
+  | some B₀ => {
+    use B₀
+    unfold Machine.pstep at hM
+    rw [heq] at hM
+    simp at hM
+    rw [← hM]
+    simp
+    apply PartialTape.le_move_stable
+    exact PartialTape.le_write_stable hAt
+  }
 }
