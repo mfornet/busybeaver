@@ -155,11 +155,44 @@ by {
     contradiction
 }
 
-partial def meet [DecidableEq Γ] (Lb Lb': Turing.ListBlank Γ) (h: Lb ≠ Lb'): List Γ :=
-  if Lb.head = Lb'.head then
-    Lb.head :: (meet Lb.tail Lb'.tail (by sorry))
-  else
-    []
+def meet_blank [DecidableEq Γ]: List Γ → List Γ → List Γ
+| [], [] => []
+| [], head :: tail | head :: tail, [] => if head = default then default :: meet_blank tail [] else []
+| head :: tail, head' :: tail' => if head = head' then head :: meet_blank tail tail' else []
+termination_by L L' => L.length + L'.length
+
+lemma meet_blank.commutative [DecidableEq Γ] {L L': List Γ}: meet_blank L L' = meet_blank L' L :=
+by induction L, L' using meet_blank.induct with simp_all [meet_blank]
+| case7 head tail head' tail' hne => {
+  push_neg at hne
+  symm at hne
+  simp [hne]
+}
+
+@[simp]
+lemma meet_blank.replicate_default_left [DecidableEq Γ]: meet_blank [] (List.replicate n default) = List.replicate n (default: Γ) :=
+by induction n with
+| zero => simp [meet_blank]
+| succ n IH => {
+  simp [List.replicate_succ, meet_blank]
+  rw [commutative]
+  exact IH
+}
+
+@[simp]
+lemma meet_blank.replicate_default_right [DecidableEq Γ]: meet_blank (List.replicate n default) [] = List.replicate n (default: Γ) :=
+by {
+  rw [commutative]
+  exact replicate_default_left
+}
+
+private lemma meet_blank.blank_extends [DecidableEq Γ] {L L': List Γ} (h: BlankExtends L L'): meet_blank L L' = L' :=
+by {
+  simp [BlankExtends] at h
+  obtain ⟨n, hn⟩ := h
+  cases hn
+  induction L <;> simp_all [meet_blank]
+}
 
 @[simp]
 def take (Lb: Turing.ListBlank Γ): ℕ → List Γ

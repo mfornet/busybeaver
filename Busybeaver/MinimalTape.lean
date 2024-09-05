@@ -163,6 +163,25 @@ def ListBlank.meetList (Lb: Turing.ListBlank Γ): (L: List Γ) → List Γ
   else
     []
 
+def meet_part [DecidableEq Γ] (Lb Lb': Turing.ListBlank Γ): PartialHTape Γ :=
+by {
+  apply Lb.liftOn
+  swap
+  · apply Lb'.liftOn
+    swap
+    · exact fun A B ↦
+        if Turing.BlankRel A B then
+          .infinite (Turing.ListBlank.mk A)
+        else
+          .finite (Turing.ListBlank.meet_blank A B)
+    intro A B hAB
+    funext C
+    split
+    · rename_i hAC
+      sorry
+  sorry
+}
+
 def ListBlank.meet.correct {Lb: Turing.ListBlank Γ} {L: List Γ}: ListBlank.meetList Lb L <+: L ∧ ListBlank.meetList Lb L <+:b Lb :=
   by induction Lb, L using ListBlank.meetList.induct <;> simp_all [ListBlank.meetList]
 
