@@ -96,6 +96,16 @@ by {
 }
 
 @[simp]
+lemma cons_default_empty: cons default ∅ = (∅: Turing.ListBlank Γ) :=
+by {
+  ext i
+  cases i <;> {
+    simp
+    rfl
+  }
+}
+
+@[simp]
 lemma append_mk_nth {L: List Γ} {T: Turing.ListBlank Γ}:
   (L ++ T).nth i = if _ : i < L.length then L[i] else T.nth (i - L.length) :=
 by induction i generalizing L T with
@@ -137,6 +147,17 @@ by induction n generalizing L with
     simp
 }
 | succ n _ => cases L <;> simp
+
+@[simp]
+lemma liftOn_mk {L: List Γ}: Turing.ListBlank.liftOn (Turing.ListBlank.mk L) f prf = f L :=
+  by rfl
+
+@[simp]
+lemma mk_eq_mk {L L': List Γ}: Turing.ListBlank.mk L = Turing.ListBlank.mk L' ↔ Turing.BlankRel L L' :=
+by {
+  simp [mk, Quotient.eq'' (s₁:=Turing.BlankRel.setoid Γ)]
+  rfl
+}
 
 /--
 If two list blanks are different, then by [Classical.choice] they differ at some point.

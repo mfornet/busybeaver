@@ -221,7 +221,6 @@ by {
   simp [tail, cons_append]
 }
 
-
 def infty: PartialHTape Γ := PartialHTape.infinite (default: Turing.ListBlank Γ)
 
 @[simp]
@@ -238,6 +237,31 @@ by {
     simp at *
     trivial
 }
+
+@[simp]
+lemma cons.cons_infty {L: PartialHTape Γ}: cons default L = infty ↔ L = infty :=
+by cases L with
+| finite L => simp [infty]
+| infinite Lb => {
+  simp [infty]
+  constructor
+  swap
+  · intro h
+    cases h
+    ext i
+    cases i <;> {
+      simp
+      rfl
+    }
+  · intro h
+    conv_rhs at h => rw [← Turing.ListBlank.cons_head_tail default]
+    rw [Turing.ListBlank.cons_injective] at h
+    rw [h.2]
+    rfl
+}
+
+lemma cons.injective {L L': PartialHTape Γ} {g g': Γ}: cons g L = cons g' L' ↔ g = g' ∧ L = L' :=
+  by cases L <;> cases L' <;> simp
 
 end PartialHTape
 
