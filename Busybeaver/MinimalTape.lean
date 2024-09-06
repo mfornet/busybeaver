@@ -4,6 +4,8 @@ _finite_ subtape from the orinal configuration that is enough to emulate the seq
 -/
 
 import Busybeaver.Basic
+import Busybeaver.ClosedSet
+import Busybeaver.Reachability
 import Busybeaver.Partial
 
 namespace TM
@@ -1105,4 +1107,87 @@ by {
     apply PartialTape.le_move_stable
     exact PartialTape.le_write_stable hAt
   }
+}
+
+/--
+A extended version of the locality theorem: if a machine partial-steps through a sequence from A to
+B, then whatever A' such that A ≤ A', we know that the machine steps from A' to a B' such that B ≤ B'.
+
+This conveniently allow all kinds of "local" reasoning.
+We can prove non-halting based only on partial steps:
+  1. find a set of closed set of partial configurations, call it R
+  2. Prove that at some point we have A -[M]->* R
+-/
+theorem stability (hAB: A p-[M]{n}-> B) (hA: A ≤ A'): ∃B', B ≤ B' ∧ A' p-[M]{n}-> B' :=
+by induction hAB generalizing A' with
+| refl C => use A', hA, .refl A'
+| step A C B n hAC _ IH => {
+  obtain ⟨B', hCB', hAB'⟩ := pstep?_of_le_pstep? hA hAC
+  obtain ⟨Bl, hBl, hB'l⟩ := IH hCB'
+  use Bl, hBl, .step A' B' Bl n hAB' hB'l
+}
+
+lemma use_step {A: Config l s} {rA rB: PartialConfig l s} {dirA: Turing.Dir}
+  (h: rA ≤ PartialConfig.directize A dirA) (hr: rA p-[M]{n}-> rB):
+  ∃(B: Config l s), ∃ dirB, rB ≤ PartialConfig.directize B dirB ∧ A -[M]{n}-> B :=
+by induction hr generalizing A dirA with
+| refl C => use A, dirA, h, .refl
+| step rA rC rB n hAC hCB IH => {
+  obtain ⟨C, hRc, hArc⟩ := pstep?_of_le_pstep? h hAC
+  cases hC: C.tape.dir <;> {
+
+    -- We can lift the intermediate partial configuration to a Config
+    -- Essentially, we want to say that stepping infinite PartialConfig is the same as stepping
+    -- Config
+    let C' : { P: PartialConfig l s // P.tape.dir = _ } := ⟨C, hC⟩
+    lift C' to Config l s with Cc hCc
+    · simp [C']
+      unfold PartialTape.is_infinite
+      rw [← Machine.pstep?.finiteness hArc]
+      simp only [PartialConfig.directize]
+      exact PartialTape.directize.infinite
+
+    rw [
+      show C = ↑(C') by rfl,
+      ← hCc
+    ] at hRc hArc
+
+    obtain ⟨B', dirB', hB'le, hB'r⟩ := IH hRc
+    use B', dirB', hB'le
+
+    -- Now, we only need to show that we can steop from A to Cc
+    refine Machine.Multistep.succ ?_ hB'r
+    sorry
+  }
+}
+
+/--
+A altered version of closed set resonning based on partial configurations.
+
+To prove non halting from a configuration I you need:
+  - A set of partial configurations `p`
+  - A proof that this set if closed under partial steps
+  - A proof that there exists an r ∈ p such that r ≤ I
+-/
+lemma closed_partial_set {M: Machine l s} {p: PartialConfig l s → Prop} (I: Config l s)
+  (closed: ∀ A, p A → ∃ B n, p B ∧ n > 0 ∧ A p-[M]{n}-> B)
+  (hread: ∃r, p r ∧ r ≤ I): ¬(M.halts I) :=
+by {
+  closed_set (λ C ↦ ∃r dir, p r ∧ r ≤ PartialConfig.directize C dir)
+  · intro ⟨A, rA, dirA, pRa, hRa⟩
+    obtain ⟨rB, n, pRb, npos, hRaRb⟩ := closed rA pRa
+    obtain ⟨B, dirB, hrB, hAB⟩ := use_step hRa hRaRb
+    simp
+    use B
+    constructor
+    · use rB, pRb, dirB
+    · apply Machine.Progress.from_multistep' npos hAB
+  · simp
+    use I
+    constructor
+    · obtain ⟨r, hpr, hrI⟩ := hread
+      use r, hpr, Turing.Dir.right
+      simp [directize]
+      exact hrI
+    · exact .refl
 }

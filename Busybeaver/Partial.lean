@@ -298,19 +298,19 @@ by {
   split <;> simp_all
 }
 
-def is_infinite.left {T: PartialTape Γ} (hT: T.is_infinite): T.left.is_infinite := by {
+lemma is_infinite.left {T: PartialTape Γ} (hT: T.is_infinite): T.left.is_infinite := by {
   unfold is_infinite at hT
   simp [finiteness] at hT
   split at hT <;> simp_all
 }
 
-def is_infinite.right {T: PartialTape Γ} (hT: T.is_infinite): T.right.is_infinite := by {
+lemma is_infinite.right {T: PartialTape Γ} (hT: T.is_infinite): T.right.is_infinite := by {
   unfold is_infinite at hT
   simp [finiteness] at hT
   split at hT <;> simp_all
 }
 
-lemma directize.infinite {T: Turing.Tape Γ} {dir: Turing.Dir}: (directize T dir).val.is_infinite :=
+lemma directize.infinite {T: Turing.Tape Γ} {dir: Turing.Dir}: (directize T dir).val.finiteness = .infinite :=
   by cases dir <;> simp [directize, finiteness, is_infinite]
 
 def undirectize (T: PartialTape Γ) (hT: T.is_infinite): Turing.Tape Γ :=
@@ -352,8 +352,7 @@ def pointed (T: PartialTape Γ): PartialHTape Γ := match T.dir with
 
 def well_formed (T: PartialTape Γ): Prop := T.pointed.nonempty
 
-
-def infinite.well_formed {T: PartialTape Γ} (hT: T.is_infinite): T.well_formed :=
+def is_infinite.well_formed {T: PartialTape Γ} (hT: T.is_infinite): T.well_formed :=
 by {
   cases hT': T.dir <;> {
     simp [PartialTape.well_formed, pointed, hT']
@@ -365,7 +364,7 @@ by {
 
 lemma directize.well_formed {T: Turing.Tape Γ} {dir: Turing.Dir}: (directize T dir).val.well_formed :=
 by {
-  apply infinite.well_formed
+  apply is_infinite.well_formed
   exact infinite
 }
 
@@ -531,6 +530,27 @@ def PartialConfig.unexp : Unexpander
 | _ => throw ()
 
 end Delab
+
+def PartialConfig.directize (C: Config l s) (dir: Turing.Dir := Turing.Dir.right): { P: PartialConfig l s // P.tape.dir = dir } :=
+  let ⟨pT, prf⟩ := PartialTape.directize C.tape dir
+  ⟨{ state := C.state, tape := pT}, prf⟩
+
+instance: Coe (Config l s) (PartialConfig l s) where
+  coe C := { state := C.state, tape := PartialTape.directize C.tape }
+
+instance {dir: Turing.Dir}:
+  CanLift { P: PartialConfig l s // P.tape.dir = dir } (Config l s)
+    (PartialConfig.directize · dir) (λ P ↦ P.val.tape.is_infinite) where
+  prf P hP := by {
+    have pwf := PartialTape.is_infinite.well_formed hP
+    obtain ⟨⟨Pq, Pt⟩, hPdir⟩ := P
+    simp at hP hPdir
+    let Pt' : { ρ : PartialTape (Symbol s) // ρ.dir = dir } := ⟨Pt, hPdir⟩
+    lift Pt' to Turing.Tape (Symbol s) with PT hPT
+    · simp [hP]
+    use { state := Pq, tape := PT }
+    simp [PartialConfig.directize, hPT]
+  }
 
 lemma PartialConfig.expand_well_formed {q: Label l} {dir: Turing.Dir} {L R: List (Symbol s)} {T T': PartialHTape (Symbol s)}
   (h: (L {q;dir} R : PartialConfig l s).tape.well_formed): ((L ++ T) {q;dir} (R ++ T')).tape.well_formed :=

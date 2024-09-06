@@ -343,6 +343,13 @@ lemma from_multistep (h: A -[M]{n + 1}-> B): A -[M]->+ B :=
       _ -[M]->+ B := IH
   }
 
+lemma from_multistep' (hn: n > 0) (h: A -[M]{n}-> B): A -[M]->+ B :=
+by {
+  cases n
+  · simp at hn
+  · exact from_multistep h
+}
+
 end Machine.Progress
 
 namespace Machine.EvStep
