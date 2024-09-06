@@ -6,6 +6,7 @@ import Busybeaver.Problem
 import Busybeaver.Deciders.Cyclers
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.TranslatedCyclers
+import Busybeaver.Deciders.BackwardsReasoning
 
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Enumerate.Impl
