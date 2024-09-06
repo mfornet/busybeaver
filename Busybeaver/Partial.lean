@@ -271,6 +271,13 @@ def directize (T: Turing.Tape Γ) (dir: Turing.Dir := .right): {T : PartialTape 
 | .left => ⟨{ dir := .left, left := Turing.ListBlank.cons T.head T.left, right := T.right }, rfl⟩
 | .right => ⟨{ dir := .right, left := T.left, right := Turing.ListBlank.cons T.head T.right }, rfl⟩
 
+@[simp]
+lemma directize_dir {T: Turing.Tape Γ} {dir: Turing.Dir}: (directize T dir).val.dir = dir :=
+by {
+  simp [directize]
+  split <;> rfl
+}
+
 inductive Finiteness where
 | finite
 | half

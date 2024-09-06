@@ -1127,12 +1127,90 @@ by induction hAB generalizing A' with
   use Bl, hBl, .step A' B' Bl n hAB' hB'l
 }
 
+--TODO: move all of these in Partial.lean
+
+@[simp]
+lemma directize_state {A: Config l s} {dirA: Turing.Dir}: (directize A dirA).val.state = A.state :=
+  by rfl
+
+@[simp]
+lemma directize_head {A: Config l s} {dirA: Turing.Dir} {hAwf}: (directize A dirA).val.tape.head hAwf = A.tape.head :=
+  by cases dirA <;> simp only [PartialTape.head, PartialHTape.head, directize,
+    PartialTape.directize, PartialTape.pointed, Turing.ListBlank.head_cons]
+
+@[simp]
+lemma directize_dir {A: Config l s} {dirA: Turing.Dir}: (directize A dirA).val.tape.dir = dirA :=
+by {
+  simp [directize, PartialTape.directize]
+  split <;> rfl
+}
+
+@[simp]
+lemma directize_write {Γ} [Inhabited Γ] {g: Γ} {T: Turing.Tape Γ} {dir: Turing.Dir}:
+  (PartialTape.directize T dir).val.write g = (PartialTape.directize (T.write g) dir).val :=
+by {
+  simp [PartialTape.write]
+  cases dir <;> simp only [PartialHTape.cons, PartialHTape.tail, PartialTape.directize,
+    Turing.ListBlank.tail_cons, Turing.Tape.write]
+}
+
+@[simp]
+lemma move_dir {Γ} [Inhabited Γ] {dir: Turing.Dir} {T: PartialTape Γ} {hT}:
+  (T.move hT dir).dir = dir :=
+by {
+  simp [PartialTape.move]
+  split <;> rfl
+}
+
+/--
+Steping from partial configurations that originate from configurations, implies that the original
+configurations step from one to the other.
+
+This is a major theorem about the correctness of the partial step relation.
+-/
+theorem one_step {A B: Config l s} {dirA dirB: Turing.Dir}
+  (hAB: (directize A dirA) p-[M]-> (directize B dirB)): A -[M]-> B :=
+by {
+  have hAwf : PartialTape.well_formed (directize A dirA).val.tape := by {
+    simp [directize]
+    apply PartialTape.is_infinite.well_formed
+    simp only [PartialTape.is_infinite, PartialTape.directize.infinite]
+  }
+  rw [Machine.pstep?.to_pstep' hAwf] at hAB
+  simp [Machine.pstep] at hAB
+  split at hAB
+  · cases hAB
+  simp at hAB
+  rename_i sym dir lab heq
+  simp [Machine.step, heq]
+  obtain ⟨Bq, Bt⟩ := B
+  simp [directize] at hAB
+  simp
+  cases hAB.1
+  simp_all
+
+  have hDirs: dirB = dir := by {
+    rw [
+      show dirB = (PartialTape.directize Bt dirB).val.dir by simp,
+      ← hAB
+    ]
+    simp
+  }
+  cases hDirs
+
+  simp [PartialTape.move] at hAB
+  split at hAB <;> simp_all only [PartialTape.head, PartialHTape.head, Turing.Tape.write,
+    PartialTape.directize, PartialTape.pointed, Turing.ListBlank.head_cons, PartialHTape.cons_list',
+    PartialHTape.tail, Turing.ListBlank.tail_cons, PartialTape.mk.injEq,
+    PartialHTape.infinite.injEq, true_and, Turing.Tape.move]
+}
+
 lemma use_step {A: Config l s} {rA rB: PartialConfig l s} {dirA: Turing.Dir}
   (h: rA ≤ PartialConfig.directize A dirA) (hr: rA p-[M]{n}-> rB):
   ∃(B: Config l s), ∃ dirB, rB ≤ PartialConfig.directize B dirB ∧ A -[M]{n}-> B :=
 by induction hr generalizing A dirA with
 | refl C => use A, dirA, h, .refl
-| step rA rC rB n hAC hCB IH => {
+| step rA rC rB n hAC _ IH => {
   obtain ⟨C, hRc, hArc⟩ := pstep?_of_le_pstep? h hAC
   cases hC: C.tape.dir <;> {
 
@@ -1141,7 +1219,7 @@ by induction hr generalizing A dirA with
     -- Config
     let C' : { P: PartialConfig l s // P.tape.dir = _ } := ⟨C, hC⟩
     lift C' to Config l s with Cc hCc
-    · simp [C']
+    · simp only [C']
       unfold PartialTape.is_infinite
       rw [← Machine.pstep?.finiteness hArc]
       simp only [PartialConfig.directize]
@@ -1157,12 +1235,12 @@ by induction hr generalizing A dirA with
 
     -- Now, we only need to show that we can steop from A to Cc
     refine Machine.Multistep.succ ?_ hB'r
-    sorry
+    exact one_step hArc
   }
 }
 
 /--
-A altered version of closed set resonning based on partial configurations.
+An altered version of closed set resonning based on partial configurations.
 
 To prove non halting from a configuration I you need:
   - A set of partial configurations `p`
