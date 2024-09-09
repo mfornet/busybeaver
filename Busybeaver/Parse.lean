@@ -58,6 +58,4 @@ def pmachine (l s): Parsec (Machine l s) := attempt do
         }
     })
   else
-    fail "Invalid number of statements"
-
-#eval pmachine 1 1 "1LA1LB_0RB0RA".iter
+    fail s!"Invalid number of statements {code.size}, expected {(l + 1) * (s + 1)}"

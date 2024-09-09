@@ -6,6 +6,7 @@ import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.NoHaltState
 import Busybeaver.Deciders.TranslatedCyclers
 import Busybeaver.Enumerate.Alg
+import Busybeaver.Parse
 
 import Cli
 
@@ -16,16 +17,16 @@ def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
   let _ ← (translatedCyclerDecider 200 M)
   (looperDecider 100 M)
 
-instance [ToString α]: ToString (HaltM M α) where
-  toString := λ r ↦ s!"{repr M} " ++ match r with
-  | .unknown a => s!"unknown {a}"
+instance: ToString (HaltM M α) where
+  toString := λ
+  | .unknown _ => s!"unknown"
   | .loops_prf _ => "loops"
   | .halts_prf n _ _ => s!"halts in {n + 1}"
 
 def log_decs (M: Machine l s): HaltM M Unit := do
   let res := allDecs M;
   if ¬res.decided then
-    dbg_trace res
+    dbg_trace s!"{repr M} {res}"
   res
 
 def compute (l s: ℕ): Busybeaver.BBResult l s :=
@@ -43,6 +44,40 @@ unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
 section Cli
 
 open Cli
+
+instance: ParseableType (Machine l s) where
+  name := s!"Machine {l + 1} {s + 1}"
+  parse? str := match TM.Parse.pmachine l s str.iter with
+    | .success _ M => some M
+    | .error _ _ => none
+
+def runCheckCmd (p: Parsed): IO UInt32 := do
+  let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
+  let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
+  let M : Machine l s := p.positionalArg! "machine" |>.as! (Machine l s)
+
+  if let some n := p.flag? "translated-cycler" then
+    let n := n.as! ℕ
+    IO.println s!"Translated cycler {n}: {(translatedCyclerDecider n M)}"
+
+  if let some n := p.flag? "cycler" then
+    let n := n.as! ℕ
+    IO.println s!"Cycler {n}: {(translatedCyclerDecider n M)}"
+  return 0
+
+unsafe def checkCmd := `[Cli|
+  decide VIA runCheckCmd;
+  "Runs the deciders on the provided machine."
+
+  FLAGS:
+    tc, "translated-cycler": ℕ; "Run the translated cycler decider with this parameter"
+    c, "cycler": ℕ; "Run the cycler decider with this parameter"
+
+  ARGS:
+    nlabs: ℕ; "Number of labels for the machines"
+    nsyms: ℕ; "Number of symbols for the machines"
+    machine: String; "The machine code"
+]
 
 unsafe def computeCmd (p: Parsed): IO UInt32 := do
   let start ← IO.monoMsNow
@@ -85,6 +120,9 @@ unsafe def mainCmd := `[Cli|
   ARGS:
     nlabs: ℕ; "Number of labels for the machines"
     nsyms: ℕ; "Number of symbols for the machines"
+
+  SUBCOMMANDS:
+    checkCmd
 ]
 
 unsafe def main (args: List String): IO UInt32 := do
