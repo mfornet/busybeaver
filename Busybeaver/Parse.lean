@@ -32,3 +32,32 @@ def pstmt (l s): Parsec (Stmt l s) := attempt do
     let dir ← pdir
     let lab ← plab l
     return .next sym dir lab
+
+def pmachine (l s): Parsec (Machine l s) := attempt do
+  let code ← many do
+    let sub ← pstmt l s
+    let _ ← optional (pchar '_')
+    return sub
+  if harr : code.size = (l + 1) * (s + 1) then
+    return λ ⟨lab, hlab⟩ ⟨sym, hsym⟩ ↦ code[lab * (s + 1) + sym]'(by {
+      rw [harr]
+      calc lab * (s + 1) + sym
+        _ ≤ l * (s + 1) + sym := by {
+          simp
+          apply Nat.mul_le_mul
+          · exact Nat.le_of_lt_succ hlab
+          · exact Nat.le_refl _
+        }
+        _ < l * (s + 1) + (s + 1) := by {
+          simp
+          exact hsym
+        }
+        _ = (l + 1) * (s + 1) := by {
+          symm
+          exact Nat.succ_mul l (s + 1)
+        }
+    })
+  else
+    fail "Invalid number of statements"
+
+#eval pmachine 1 1 "1LA1LB_0RB0RA".iter
