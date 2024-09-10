@@ -38,16 +38,10 @@ deriving DecidableEq, Inhabited
 section PrettyPrint
 open Std.Format Lean
 
-private def right_repr [Repr α] [Inhabited α] (l: Turing.ListBlank α) (bound: ℕ): List Format := match bound with
-| 0 => []
-| n + 1 => repr l.head :: (right_repr l.tail n)
-
-private def left_repr [Repr α] [Inhabited α] (l: Turing.ListBlank α) (bound: ℕ): List Format := match bound with
-| 0 => []
-| n + 1 => left_repr l.tail n ++ [repr l.head]
-
-instance: Repr (SymbolicConfig l s) := ⟨λ cfg _ ↦
-  Std.Format.joinSep (left_repr cfg.tape.left 10) " " ++ s!" {cfg.state}>{repr cfg.tape.head} " ++ Std.Format.joinSep (right_repr cfg.tape.right 10) " "⟩
+unsafe instance: Repr (SymbolicConfig l s) := ⟨λ cfg _ ↦
+  let leftrepr := (Quot.unquot cfg.tape.left).reverse.map repr
+  let rightrepr := (Quot.unquot cfg.tape.right).map repr
+  Std.Format.joinSep leftrepr " " ++ s!" {cfg.state}>{repr cfg.tape.head} " ++ Std.Format.joinSep rightrepr " "⟩
 
 end PrettyPrint
 
@@ -95,8 +89,9 @@ by {
 
 def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 1 .right 1 else .halt
 
-def sym_eval_bw (M: Machine l s) (C: SymbolicConfig l s) (lab: Label l) (sym: Symbol s): Option
-(SymbolicConfig l s) := match M lab sym with
+def sym_eval_bw (M: Machine l s) (C: SymbolicConfig l s) (lab: Label l) (sym: Symbol s):
+  Option (SymbolicConfig l s) :=
+match M lab sym with
 | .halt => .none
 | .next _ dir lab' =>
   if lab' ≠ lab then
