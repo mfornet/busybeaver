@@ -29,6 +29,19 @@ by {
 /-- Underspecified tape for backward steps -/
 abbrev SymbolicTape s := Turing.Tape (WithTop (Symbol s))
 
+def SymbolicTape.match (T T': SymbolicTape s): Prop :=
+  ∀i, T.nth i = ⊤ ∨ T.nth i = T'.nth i
+
+@[simp]
+lemma SymbolicTape.match.refl {T: SymbolicTape s}: T.match T :=
+by {
+  intro _
+  right
+  rfl
+}
+
+local notation T " ⊨ " T' => SymbolicTape.match T T'
+
 /-- Config for backward steps -/
 structure SymbolicConfig (l s) where
   state: Label l
@@ -106,6 +119,9 @@ match M lab sym with
       else
         .none
 
+/--
+Tris to apply `M L S` backwards if possible, returning the resulting symbolic configuration.
+-/
 def matchingConfig? (M: Machine l s) (C: SymbolicConfig l s) (L: Label l) (S: Symbol s): Option (SymbolicConfig l s) :=
   match M L S with
   | .halt => .none
@@ -120,7 +136,8 @@ def backward_step (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConf
   Finset.eraseNone.toFun <|
     Finset.univ (α:=Label l × Symbol s) |>.image (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
 
-def backward_step.correct (hC: C ∈ backward_step M C'): C' ∈ M.sym_eval C :=
+def backward_step.correct (hC: C ∈ backward_step M C'):
+  ∃C₀ ∈ M.sym_eval C, (C'.tape ⊨ C₀.tape) ∧ C'.state = C₀.state :=
 by {
   simp [backward_step] at hC
   obtain ⟨L, S, hLS⟩ := hC
@@ -187,90 +204,74 @@ by {
       simp
       simp [Turing.Tape.move] at hC
       simp [← hC, hCs]
-      sorry
+      intro i
+      simp [Turing.Tape.nth]
+      split
+      · simp
+      · rename_i n
+        cases n <;> simp [hC]
+      · rename_i n
+        cases n <;> simp [hC]
     }
 }
-    /- |>.attach.image λ ⟨⟨L, S⟩, hS⟩ ↦ match hM: M L S with -/
-    /- | .halt => by simp_all -/
-    /- | .next sym' dir lab' => by { -/
-    /-   simp_all -/
-    /-   use { state := L, tape := (C.tape.move dir.other).write S } -/
-    /-   obtain ⟨sym'', dir', hDefs, hlink⟩ := hS -/
-    /-   cases hDefs.1 -/
-    /-   cases hDefs.2.1 -/
-    /-   cases hDefs.2.2 -/
-    /-   simp_all -/
-    /-   simp [sym_eval] -/
-    /-   simp [Turing.Tape.write] -/
-    /-   split -/
-    /-   · simp_all -/
-    /-   rename_i heq -/
-    /-   rw [hM] at heq -/
-    /-   cases heq -/
-    /-   simp [sym_step] -/
-    /-   split -/
-    /-   · rename_i heq -/
-    /-     rw [hM] at heq -/
-    /-     cases heq -/
-    /-   rename_i heq -/
-    /-   rw [hM] at heq -/
-    /-   cases heq -/
-    /-   obtain ⟨Cs, Ch, Cl, Cr⟩ := C -/
-    /-   simp_all -/
-    /-   sorry -/
-    /-   /- -/
-    /-   cases dir <;> { -/
-    /-     simp [Turing.Tape.move, Turing.Tape.write, Turing.Dir.other] -/
-    /-     simp [Turing.Tape.move, Turing.Dir.other] at hlink -/
-    /-     rw [← hlink] -/
-    /-     exact (Turing.ListBlank.cons_head_tail _).symm -/
-    /-   } -/
-    /-   -/ -/
-    /- } -/
 
-def sym_matches (tS: WithTop (Symbol s)) (S: Symbol s): Bool := match tS with
-| ⊤ => True
-| .some S' => S' == S
+def SymbolicConfig.matchesConfig (C: SymbolicConfig l s) (C': Config l s): Prop :=
+  C.state == C'.state ∧ (∀i, C.tape.nth i = ⊤ ∨ C.tape.nth i = C'.tape.nth i)
 
-def SymbolicConfig.matches (C: SymbolicConfig l s) (C': Config l s): Prop :=
-  C.state == C'.state ∧ (∀i, sym_matches (C.tape.nth i) (C'.tape.nth i))
-
-lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matches C'): ¬(A -[M]-> C') :=
+lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matchesConfig C'): ¬(A -[M]-> C') :=
 by {
   intro hAC'
   obtain ⟨sym', dir, hM, hC't⟩ := Machine.step.some_rev hAC'
-  simp [backward_step, Finset.filter_eq_empty_iff] at h
+  simp [backward_step, Finset.eraseNone, Finset.subtype, Finset.filter_eq_empty_iff] at h
 
   obtain ⟨hCC's, hCC't⟩ := hCC'
   simp at hCC's
 
   rw [← hCC's] at hM
-  sorry
 
-  /-
-  apply h A.state A.tape.head sym' dir hM
-  rw [← Turing.Tape.nth_zero]
+  suffices (matchingConfig? M C A.state A.tape.head).isSome by {
+    simp [Option.isSome] at this
+    split at this
+    swap
+    · cases this
+
+    rename_i heq
+    specialize h A.state A.tape.head heq
+    cases h
+  }
+
+  simp [matchingConfig?, hM]
+  split
+  · simp
+  simp
+  rename_i h
+  simp at h
   cases dir
-  · simp [Turing.Dir.other, -Turing.Tape.nth_zero] at *
-    rw [hC't] at hCC't
+  · simp [Turing.Dir.other, Turing.Tape.move] at h
     specialize hCC't 1
-    simp [Turing.Tape.write] at hCC't
-    simp [sym_matches] at hCC't
-    split at hCC't
-    · rename_i heq -- TODO: this branch is a contradiction
-      rw [heq]
-      simp [WithTop.some]
-      sorry
-    · simp at hCC't
-      rename_i heq
-      rw [hCC't] at heq
-      exact heq
-  · simp [Turing.Dir.other, -Turing.Tape.nth_zero] at *
-    rw [hC't] at hCC't
-    specialize hCC't (-1)
-    simp [Turing.Tape.write] at hCC't
-    sorry
-  -/
+    simp [Turing.Tape.nth] at hCC't
+    rcases hCC't with _ | heq
+    · refine absurd ?_ h.2
+      trivial
+    · refine absurd ?_ h.1
+      rw [heq, hC't]
+      simp [Turing.Tape.move, Turing.Tape.write]
+  · simp [Turing.Dir.other, Turing.Tape.move] at h
+    specialize hCC't (Int.negSucc 0)
+    simp [Turing.Tape.nth] at hCC't
+    rcases hCC't with _ | heq
+    · refine absurd ?_ h.2
+      trivial
+    · refine absurd ?_ h.1
+      rw [heq, hC't]
+      simp [Turing.Tape.move, Turing.Tape.write]
+}
+
+theorem backward_step.unreachable {C: SymbolicConfig l s} {sym: Symbol s} (h: backward_step M C = ∅) (hC:
+C.tape.head = sym): unreachable_trans M C.state sym default :=
+by {
+  intro n C' hCs hCh hdC'
+  sorry
 }
 
 def Multiset.all (S: Multiset α): (α → Bool) → Bool :=
@@ -286,7 +287,23 @@ def Multiset.all (S: Multiset α): (α → Bool) → Bool :=
     }
   })
 
+@[simp]
+def Multiset.all.empty: Multiset.all 0 f = true :=
+  by rfl
+
+@[simp]
+def Multiset.all.cons {S: Multiset α}: Multiset.all (a ::ₘ S) f = true ↔ f a && Multiset.all S f :=
+  Quotient.inductionOn S <| fun _ ↦ by rfl
+
+@[simp]
+def Multiset.all.true {S: Multiset α}: Multiset.all S f = true ↔ ∀ a ∈ S, f a = true :=
+  Quotient.inductionOn S <| fun _ ↦ by simp [Multiset.all]
+
 def Finset.all (S: Finset α): (α → Bool) → Bool := Multiset.all S.val
+
+@[simp]
+lemma Finset.all.true {S: Finset α}: Finset.all S f = true ↔ ∀ a ∈ S, f a = true :=
+  by simp [Finset.all]
 
 lemma halting_trans.empty_loops {M: Machine l s} (h: M.halting_trans = ∅): ¬(M.halts default) :=
 by {
@@ -308,7 +325,14 @@ def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
     match n with
     | 0 => .false
     | n + 1 => Finset.all (backward_step M cfg) (λ C ↦ loop n C)
-  if Finset.all M.symbolic_halting (loop bound) then
-    .loops_prf sorry
+  if h: Finset.all M.symbolic_halting (loop bound) then
+    .loops_prf (by {
+      simp at h
+      apply halting_trans.all_unreachable
+      intro ⟨lab, sym⟩ hls
+      simp
+      simp [halting_trans] at hls
+      sorry
+    })
   else
     .unknown ()
