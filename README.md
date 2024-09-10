@@ -46,5 +46,20 @@ repo, a `lake` script is provided:
 lake script run gitconfig
 ```
 
+After running this command, and assuming that you are working off the
+`master` branch, it should be sufficient to:
+
+1. `git send-email master`
+2. Annotate the patch set, the first annotation will be the cover
+   letter, that describes broadly your changes
+3. Wait for a review !
+
+If you need to make changes and resubmit a patch, you can do that
+using:
+```bash
+# Replace 2 by the version of the patchset
+git send-email -v2 master
+```
+
 For additional guidelines about how to contribute and send patches, we
 recommend reading [aerc's contributing guidelines](https://git.sr.ht/~rjarry/aerc/tree/master/item/CONTRIBUTING.md).
