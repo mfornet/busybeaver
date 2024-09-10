@@ -38,9 +38,12 @@ I am heavily inspired by the following Coq formalisation of the problem: [busyco
 
 # Contibuting
 
-This project follows and email workflow, we recommend to [setup git to
-send emails](https://git-send-email.io). To setup for this specific
-repo, a `lake` script is provided:
+This project follows the `sr.ht` workflow, we recommend to [setup git to
+send emails](https://git-send-email.io). Note that it is not required
+to create a `sr.ht` account to contribute, simply clone the repo and
+make your changes.
+
+To setup for this specific repo, a `lake` script is provided:
 
 ```
 lake script run gitconfig
