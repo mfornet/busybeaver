@@ -33,6 +33,7 @@ Sets up the git repository for contribution.
 script gitconfig do
   gitConfig "format.subjectPrefix" "PATCH busybeaver"
   gitConfig "format.signOff" "yes"
+  gitConfig "format.coverLetter" "yes"
 
   gitConfig "sendemail.to" "~vigoux/busybeaver-devel@lists.sr.ht"
   gitConfig "sendemail.annotate" "yes"
