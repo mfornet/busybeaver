@@ -11,6 +11,7 @@ package «busybeaver» where
 
 require mathlib from git "https://github.com/leanprover-community/mathlib4"
 
+require Cli from git "https://github.com/leanprover/lean4-cli" @ "main"
 
 @[default_target]
 lean_exe «beaver» where

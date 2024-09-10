@@ -7,6 +7,8 @@ import Busybeaver.Deciders.NoHaltState
 import Busybeaver.Deciders.TranslatedCyclers
 import Busybeaver.Enumerate.Alg
 
+import Cli
+
 open TM
 abbrev TM22 := Machine 1 1
 
@@ -38,37 +40,52 @@ unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
     for M in Quot.unquot set do
       file.putStrLn s!"{repr M}")
 
-set_option compiler.extract_closed false
-unsafe def main (args: List String): IO Unit := do
-  match args with
-  | nlabs :: nsyms :: rest => {
-    match nlabs.trim.toNat?, nsyms.trim.toNat? with
-    | some nl, some ns => 
-      let start ← IO.monoMsNow
-      let l := nl - 1
-      let s := ns - 1
-      if hl: l = 0 then
-        have _: Busybeaver l s = 0 := by {
-          rw [hl]
-          exact Busybeaver.one_state
-        }
-        IO.println s!"Busybeaver(1, {s+1}) = 1"
-      else
-        IO.println "Starting computation"
-        let comp := compute l s
-        if hcomp: comp.undec = ∅ then
-          have _: comp.val = Busybeaver l s := by {
-            simp [comp] at *
-            simp [compute, task_correct]
-            exact Eq.symm (Busybeaver.BBCompute.correct_complete hcomp)
-          }
-          IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
-        else
-          IO.println s!"#Undec: {Multiset.card comp.undec}"
-          IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
-          if hr: rest ≠ [] then
-            save_to_file (rest.head hr) comp.undec
-      IO.println s!"In: {(← IO.monoMsNow) - start}ms"
-    | _, _ => IO.println "Invalid arguments, expected integers"
-  }
-  | _ => IO.println "Not enough arguments: beaver {nlabs} {nsyms}"
+section Cli
+
+open Cli
+
+unsafe def computeCmd (p: Parsed): IO UInt32 := do
+  let start ← IO.monoMsNow
+  let nl : ℕ := p.positionalArg! "nlabs" |>.as! ℕ
+  let ns : ℕ := p.positionalArg! "nsyms" |>.as! ℕ
+  let l := nl - 1
+  let s := ns - 1
+  if hl: l = 0 then
+    have _: Busybeaver l s = 0 := by {
+      rw [hl]
+      exact Busybeaver.one_state
+    }
+    IO.println s!"Busybeaver(1, {s+1}) = 1"
+  else
+    IO.println "Starting computation"
+    let comp := compute l s
+    if hcomp: comp.undec = ∅ then
+      have _: comp.val = Busybeaver l s := by {
+        simp [comp] at *
+        simp [compute, task_correct]
+        exact Eq.symm (Busybeaver.BBCompute.correct_complete hcomp)
+      }
+      IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
+    else
+      IO.println s!"#Undec: {Multiset.card comp.undec}"
+      IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
+      if let some path := p.flag? "output" then
+        save_to_file (path.as! String) comp.undec
+  IO.println s!"In: {(← IO.monoMsNow) - start}ms"
+  return 0
+
+unsafe def mainCmd := `[Cli|
+  mainCmd VIA computeCmd;
+  "Runs the computation of a given BB value."
+
+  FLAGS:
+    o, output: String; "Where to store the holdout list after execution"
+    nt, "no-time"; "Don't print resolution time after execution"
+
+  ARGS:
+    nlabs: ℕ; "Number of labels for the machines"
+    nsyms: ℕ; "Number of symbols for the machines"
+]
+
+unsafe def main (args: List String): IO UInt32 := do
+  mainCmd.validate args
