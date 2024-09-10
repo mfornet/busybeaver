@@ -110,7 +110,7 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
   return 0
 
 unsafe def mainCmd := `[Cli|
-  mainCmd VIA computeCmd;
+  beaver VIA computeCmd;
   "Runs the computation of a given BB value."
 
   FLAGS:
