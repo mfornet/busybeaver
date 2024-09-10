@@ -40,8 +40,11 @@ I am heavily inspired by the following Coq formalisation of the problem: [busyco
 
 This project follows and email workflow, we recommend to [setup git to
 send emails](https://git-send-email.io). To setup for this specific
-repo, we recommend:
+repo, a `lake` script is provided:
+
 ```
-git config format.subjectPrefix "PATCH busybeaver"
-git config sendemail.to "~vigoux/busybeaver-devel@lists.sr.ht"
+lake script run gitconfig
 ```
+
+For additional guidelines about how to contribute and send patches, we
+recommend reading [aerc's contributing guidelines](https://git.sr.ht/~rjarry/aerc/tree/master/item/CONTRIBUTING.md).
