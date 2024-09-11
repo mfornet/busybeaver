@@ -20,16 +20,6 @@ instance: ToString (HaltM M α) where
   | .loops_prf _ => "loops"
   | .halts_prf n _ _ => s!"halts in {n + 1}"
 
-def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
-  let _ ← (translatedCyclerDecider 200 M)
-  (looperDecider 100 M)
-
-def defaultDec (quiet: Bool) (M: Machine l s): HaltM M Unit := do
-  let res := allDecs M;
-  if ¬res.decided && ¬quiet then
-    dbg_trace s!"{repr M} {res}"
-  res
-
 def compute (l s: ℕ) (dec: (M: Machine l s) → HaltM M Unit): Busybeaver.BBResult l s :=
   let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute dec (Busybeaver.BBCompute.m0RB l s)))
   let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute dec (Busybeaver.BBCompute.m1RB l s)))
@@ -66,6 +56,11 @@ def configFromFile (path: String): IO (Option <| List DeciderConfig) := do
   let Except.ok parsed := Json.parse content | throw <| IO.userError "Invalid JSON"
   let .ok done := fromJson? parsed | throw <| IO.userError "Invalid configuration"
   return done
+
+def defaultConfig: List DeciderConfig := [
+  .translatedCycler 200,
+  .cycler 100
+]
 
 end DeciderCombinator
 
@@ -117,12 +112,13 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
   let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
   let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
 
-  let dec ← if let some path := p.flag? "config" then
-    match (← configFromFile (path.as! String)) with
-    | some dec => pure <| toLogDecider dec
-    | none => pure <| defaultDec
-  else
-    pure <| defaultDec
+  let mut cfg := defaultConfig
+
+  if let some path := p.flag? "config" then
+    if let some parsed := ← configFromFile (path.as! String) then
+      cfg := parsed
+
+  let dec := toLogDecider cfg (p.hasFlag "quiet")
 
   if hl: l = 0 then
     have _: Busybeaver l s = 0 := by {
@@ -132,7 +128,7 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
     IO.println s!"Busybeaver(1, {s+1}) = 1"
   else
     IO.println "Starting computation"
-    let comp := compute l s (dec <| p.hasFlag "quiet")
+    let comp := compute l s dec
     if hcomp: comp.undec = ∅ then
       have _: comp.val = Busybeaver l s := by {
         simp [comp] at *
