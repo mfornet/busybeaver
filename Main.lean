@@ -8,14 +8,12 @@ import Busybeaver.Deciders.TranslatedCyclers
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Parse
 
+import Lean.Data.Json
+
 import Cli
 
 open TM
 abbrev TM22 := Machine 1 1
-
-def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
-  let _ ← (translatedCyclerDecider 200 M)
-  (looperDecider 100 M)
 
 instance: ToString (HaltM M α) where
   toString := λ
@@ -23,27 +21,63 @@ instance: ToString (HaltM M α) where
   | .loops_prf _ => "loops"
   | .halts_prf n _ _ => s!"halts in {n + 1}"
 
-def log_decs (M: Machine l s): HaltM M Unit := do
+def allDecs: (M: Machine l s) → HaltM M Unit := λ M ↦ do
+  let _ ← (translatedCyclerDecider 200 M)
+  (looperDecider 100 M)
+
+def defaultDec (quiet: Bool) (M: Machine l s): HaltM M Unit := do
   let res := allDecs M;
-  if ¬res.decided then
+  if ¬res.decided && ¬quiet then
     dbg_trace s!"{repr M} {res}"
   res
 
-def compute (l s: ℕ): Busybeaver.BBResult l s :=
-  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m0RB l s)))
-  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute log_decs (Busybeaver.BBCompute.m1RB l s)))
+def compute (l s: ℕ) (dec: (M: Machine l s) → HaltM M Unit): Busybeaver.BBResult l s :=
+  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute dec (Busybeaver.BBCompute.m0RB l s)))
+  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute dec (Busybeaver.BBCompute.m1RB l s)))
   Busybeaver.BBResult.join res0.get res1.get
 
 axiom task_correct {α: Type} {f: Unit → α}: (Task.spawn f |>.get) = f ()
+
+section DeciderCombinator
+
+open Lean
+
+inductive DeciderConfig where
+| translatedCycler : ℕ → DeciderConfig
+| cycler : ℕ → DeciderConfig
+deriving FromJson, ToJson
+
+def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
+| .translatedCycler n => do let _ ← translatedCyclerDecider n M
+| .cycler n => looperDecider n M
+
+@[inline]
+def toDecider (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
+  for d in cfg do
+    d.decider M
+
+def toLogDecider (cfg: List DeciderConfig) (quiet: Bool) (M: Machine l s): HaltM M Unit := do
+  let res := toDecider cfg M
+  if !quiet && !res.decided then
+    dbg_trace s!"{repr M} {res}"
+  res
+
+def configFromFile (path: String): IO (Option <| List DeciderConfig) := do
+  let content ← IO.FS.readFile path
+  let Except.ok parsed := Json.parse content | throw <| IO.userError "Invalid JSON"
+  let .ok done := fromJson? parsed | throw <| IO.userError "Invalid configuration"
+  return done
+
+end DeciderCombinator
+
+section Cli
+
+open Cli
 
 unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
   IO.FS.withFile path IO.FS.Mode.write (λ file ↦ do
     for M in Quot.unquot set do
       file.putStrLn s!"{repr M}")
-
-section Cli
-
-open Cli
 
 instance: ParseableType (Machine l s) where
   name := s!"Machine {l + 1} {s + 1}"
@@ -81,10 +115,16 @@ unsafe def checkCmd := `[Cli|
 
 unsafe def computeCmd (p: Parsed): IO UInt32 := do
   let start ← IO.monoMsNow
-  let nl : ℕ := p.positionalArg! "nlabs" |>.as! ℕ
-  let ns : ℕ := p.positionalArg! "nsyms" |>.as! ℕ
-  let l := nl - 1
-  let s := ns - 1
+  let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
+  let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
+
+  let dec ← if let some path := p.flag? "config" then
+    match (← configFromFile (path.as! String)) with
+    | some dec => pure <| toLogDecider dec
+    | none => pure <| defaultDec
+  else
+    pure <| defaultDec
+
   if hl: l = 0 then
     have _: Busybeaver l s = 0 := by {
       rw [hl]
@@ -93,7 +133,7 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
     IO.println s!"Busybeaver(1, {s+1}) = 1"
   else
     IO.println "Starting computation"
-    let comp := compute l s
+    let comp := compute l s (dec <| p.hasFlag "quiet")
     if hcomp: comp.undec = ∅ then
       have _: comp.val = Busybeaver l s := by {
         simp [comp] at *
@@ -114,7 +154,9 @@ unsafe def mainCmd := `[Cli|
   "Runs the computation of a given BB value."
 
   FLAGS:
+    c, config: String; "Configuration of the deciders to run"
     o, output: String; "Where to store the holdout list after execution"
+    q, quiet; "Disable logging of holdouts during resolution"
     nt, "no-time"; "Don't print resolution time after execution"
 
   ARGS:
