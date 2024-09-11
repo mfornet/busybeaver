@@ -13,7 +13,6 @@ import Lean.Data.Json
 import Cli
 
 open TM
-abbrev TM22 := Machine 1 1
 
 instance: ToString (HaltM M α) where
   toString := λ
