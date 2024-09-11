@@ -36,6 +36,11 @@ inductive DeciderConfig where
 | cycler : ℕ → DeciderConfig
 deriving FromJson, ToJson
 
+instance: ToString DeciderConfig where
+  toString := λ
+  | .translatedCycler n => s!"Translated cycler {n}"
+  | .cycler n => s!"Cycler {n}"
+
 def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
 | .translatedCycler n => do let _ ← translatedCyclerDecider n M
 | .cycler n => looperDecider n M
@@ -62,6 +67,13 @@ def defaultConfig: List DeciderConfig := [
   .cycler 100
 ]
 
+def determineConfig: (Option String) → IO (List DeciderConfig)
+| none => pure defaultConfig
+| some path => do
+    return match (← configFromFile path) with
+    | none => defaultConfig
+    | some cfg => cfg
+
 end DeciderCombinator
 
 section Cli
@@ -84,13 +96,12 @@ def runCheckCmd (p: Parsed): IO UInt32 := do
   let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
   let M : Machine l s := p.positionalArg! "machine" |>.as! (Machine l s)
 
-  if let some n := p.flag? "translated-cycler" then
-    let n := n.as! ℕ
-    IO.println s!"Translated cycler {n}: {(translatedCyclerDecider n M)}"
+  let cfg ← determineConfig ((p.flag? "config").map (Parsed.Flag.as! · String))
 
-  if let some n := p.flag? "cycler" then
-    let n := n.as! ℕ
-    IO.println s!"Cycler {n}: {(translatedCyclerDecider n M)}"
+  for d in cfg do
+    let res := d.decider M
+    IO.println s!"{d}: {res}"
+
   return 0
 
 unsafe def checkCmd := `[Cli|
@@ -98,8 +109,7 @@ unsafe def checkCmd := `[Cli|
   "Runs the deciders on the provided machine."
 
   FLAGS:
-    tc, "translated-cycler": ℕ; "Run the translated cycler decider with this parameter"
-    c, "cycler": ℕ; "Run the cycler decider with this parameter"
+    c, config: String; "Configuration of the deciders to run"
 
   ARGS:
     nlabs: ℕ; "Number of labels for the machines"
@@ -112,12 +122,7 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
   let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
   let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
 
-  let mut cfg := defaultConfig
-
-  if let some path := p.flag? "config" then
-    if let some parsed := ← configFromFile (path.as! String) then
-      cfg := parsed
-
+  let cfg ← determineConfig ((p.flag? "config").map (Parsed.Flag.as! · String))
   let dec := toLogDecider cfg (p.hasFlag "quiet")
 
   if hl: l = 0 then
