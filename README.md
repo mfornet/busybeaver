@@ -9,6 +9,34 @@ specific numbers of states and symbols. The idea is to have an
 executable that allows querying and computing busy beaver values, as
 well as a playground to play with TMs.
 
+# Using the project
+
+You will need to have `lake` installed:
+```
+lake exe beaver -h
+```
+
+Follow the help from here.
+
+## Configuration file
+
+The binary admits a configuration file for the deciders, in JSON, the
+configuration is an array of decider parameters, which can be
+repeated.
+
+There are two deciders currently:
+- Translated cyclers: `{ "translatedCycler": <number> }`
+- Cyclers: `{ "cycler": <number> }`
+
+An example configuration file (which is equivalent to the default
+configuration):
+```json
+[
+  { "translatedCycler" :  200 },
+  { "cycler" : 100 }
+]
+```
+
 # Architecture of the project
 
 The library/proofs are contained in [Busybeaver](./Busybeaver/):
