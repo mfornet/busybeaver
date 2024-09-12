@@ -38,7 +38,7 @@ def pstmt: Parsec TStmt := attempt do
 def pStateCode: Parsec <| Array TStmt := many1 pstmt
 
 def sep1 (el: Parsec α) (sep: Parsec β): Parsec (Array α) :=
-  do manyCore (do let _ ← sep; el) #[← el]
+  do manyCore (attempt do let _ ← sep; el) #[← el]
 
 structure MParseRes where
   l : ℕ
@@ -49,14 +49,14 @@ deriving Inhabited
 def pmachine: Parsec MParseRes := attempt do
   let code ← sep1 pStateCode (pchar '_')
   if hcs: code.size = 0 then
-    unreachable!
+    fail "Empty code"
   else
 
   let l := code.size - 1
   let asize := (code[0]'(Nat.zero_lt_of_ne_zero hcs)).size
 
   if has: asize = 0 then
-    unreachable!
+    fail "Empty code"
   else
 
   if hca: ∀i: Fin code.size, (code[i.val]'(i.prop)).size = asize then
