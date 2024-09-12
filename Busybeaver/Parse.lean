@@ -15,47 +15,92 @@ def pdir: Parsec Turing.Dir := attempt do
   | 'R' => return .right
   | _ => fail s!"Expected one of L/R"
 
-def psym (s): Parsec (Symbol s) := attempt do
+def psym: Parsec ℕ := attempt do
   let d ← digit
   return d.toString.toNat!
 
-def plab (l): Parsec (Label l) := attempt do
+def plab: Parsec ℕ := attempt do
   let d ← asciiLetter
   return d.toNat - Char.toNat 'A'
 
-def pstmt (l s): Parsec (Stmt l s) := attempt do
+abbrev TStmt := Option (ℕ × Turing.Dir × ℕ)
+
+def pstmt: Parsec TStmt := attempt do
   if (← peek!) == '-' then
     skip ; skip ; skip
-    return .halt
+    return .none
   else
-    let sym ← psym s
+    let sym ← psym
     let dir ← pdir
-    let lab ← plab l
-    return .next sym dir lab
+    let lab ← plab
+    return .some (sym, dir, lab)
 
-def pmachine (l s): Parsec (Machine l s) := attempt do
-  let code ← many do
-    let sub ← pstmt l s
-    let _ ← optional (pchar '_')
-    return sub
-  if harr : code.size = (l + 1) * (s + 1) then
-    return λ ⟨lab, hlab⟩ ⟨sym, hsym⟩ ↦ code[lab * (s + 1) + sym]'(by {
-      rw [harr]
-      calc lab * (s + 1) + sym
-        _ ≤ l * (s + 1) + sym := by {
-          simp
-          apply Nat.mul_le_mul
-          · exact Nat.le_of_lt_succ hlab
-          · exact Nat.le_refl _
-        }
-        _ < l * (s + 1) + (s + 1) := by {
-          simp
-          exact hsym
-        }
-        _ = (l + 1) * (s + 1) := by {
-          symm
-          exact Nat.succ_mul l (s + 1)
-        }
-    })
+def pStateCode: Parsec <| Array TStmt := many1 pstmt
+
+def sep1 (el: Parsec α) (sep: Parsec β): Parsec (Array α) :=
+  do manyCore (do let _ ← sep; el) #[← el]
+
+structure MParseRes where
+  l : ℕ
+  s : ℕ
+  M : Machine l s
+deriving Inhabited
+
+def pmachine: Parsec MParseRes := attempt do
+  let code ← sep1 pStateCode (pchar '_')
+  if hcs: code.size = 0 then
+    unreachable!
   else
-    fail s!"Invalid number of statements {code.size}, expected {(l + 1) * (s + 1)}"
+
+  let l := code.size - 1
+  let asize := (code[0]'(Nat.zero_lt_of_ne_zero hcs)).size
+
+  if has: asize = 0 then
+    unreachable!
+  else
+
+  if hca: ∀i: Fin code.size, (code[i.val]'(i.prop)).size = asize then
+    let s := asize - 1
+
+    let mut mcode: Array (Array (Stmt l s)) := code.map
+      λ ic ↦ ic.map λ
+        | .none => .halt
+        | .some (tsym, tdir, tlab) => .next tsym tdir tlab
+
+    have hmc: mcode.size = code.size := by simp [mcode]
+    have hmsc : ∀ i: Fin mcode.size, (mcode[i.val]'i.prop).size = asize := by {
+      intro ⟨i, hi⟩
+      simp [mcode]
+      rw [hmc] at hi
+      exact hca ⟨i, hi⟩
+    }
+
+    return {
+      l := l,
+      s := s,
+      M := λ ⟨lab, hlab⟩ ⟨sym, hsym⟩ ↦
+        have hlab' : lab < mcode.size := by {
+          rw [hmc]
+          calc lab
+            _ < l + 1 := hlab
+            _ = code.size := by {
+              simp [l]
+              exact Nat.succ_pred_eq_of_ne_zero hcs
+            }
+        }
+        let scode := mcode[lab]'hlab'
+        scode[sym]'(by {
+          simp [scode]
+          calc sym
+            _ < s + 1 := hsym
+            _ = mcode[lab].size := by {
+              simp [s]
+              specialize hmsc ⟨lab, hlab'⟩
+              simp at hmsc
+              rw [hmsc]
+              exact Nat.succ_pred_eq_of_ne_zero has
+            }
+        })
+    }
+  else
+    fail s!"Not all states have the same number of statements"

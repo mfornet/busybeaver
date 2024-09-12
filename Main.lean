@@ -80,21 +80,23 @@ section Cli
 
 open Cli
 
+open TM.Parse
+
 unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
   IO.FS.withFile path IO.FS.Mode.write (λ file ↦ do
     for M in Quot.unquot set do
       file.putStrLn s!"{repr M}")
 
-instance: ParseableType (Machine l s) where
-  name := s!"Machine {l + 1} {s + 1}"
-  parse? str := match TM.Parse.pmachine l s str.iter with
+instance: ParseableType MParseRes where
+  name := s!"Machine"
+  parse? str := match TM.Parse.pmachine str.iter with
     | .success _ M => some M
     | .error _ _ => none
 
 def runCheckCmd (p: Parsed): IO UInt32 := do
-  let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
-  let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
-  let M : Machine l s := p.positionalArg! "machine" |>.as! (Machine l s)
+  let ⟨l, s, M⟩ := p.positionalArg! "machine" |>.as! MParseRes
+
+  IO.println s!"Parsed machine with {l + 1} labels and {s + 1} symbols: {repr M}"
 
   let cfg ← determineConfig ((p.flag? "config").map (Parsed.Flag.as! · String))
 
@@ -112,8 +114,6 @@ unsafe def checkCmd := `[Cli|
     c, config: String; "Configuration of the deciders to run"
 
   ARGS:
-    nlabs: ℕ; "Number of labels for the machines"
-    nsyms: ℕ; "Number of symbols for the machines"
     machine: String; "The machine code"
 ]
 
