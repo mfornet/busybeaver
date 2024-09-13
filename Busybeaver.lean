@@ -9,3 +9,5 @@ import Busybeaver.Deciders.TranslatedCyclers
 
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Parse
+
+import Busybeaver.SpaceTimeDiagram

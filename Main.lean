@@ -112,6 +112,29 @@ unsafe def checkCmd := `[Cli|
     machine: String; "The machine code"
 ]
 
+unsafe def runExploreCmd (p: Parsed): IO UInt32 := do
+  let ⟨l, s, M⟩ := p.positionalArg! "machine" |>.as! MParseRes
+  let depth := p.positionalArg! "depth" |>.as! ℕ
+  let output := p.positionalArg! "output" |>.as! String
+
+  IO.println s!"Parsed machine with {l + 1} labels and {s + 1} symbols: {repr M}"
+
+  let doc := TM.SpaceTime.generate depth M
+
+  IO.FS.writeFile output (toString doc)
+
+  return 0
+
+unsafe def exploreCmd := `[Cli|
+  explore VIA runExploreCmd;
+  "Creates a space time diagram of the machine"
+
+  ARGS:
+    machine: String; "The machine code"
+    depth: ℕ; "Depth to explore"
+    output: String; "Path to write the output"
+]
+
 unsafe def computeCmd (p: Parsed): IO UInt32 := do
   let start ← IO.monoMsNow
   let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
@@ -160,7 +183,8 @@ unsafe def mainCmd := `[Cli|
     nsyms: ℕ; "Number of symbols for the machines"
 
   SUBCOMMANDS:
-    checkCmd
+    checkCmd;
+    exploreCmd
 ]
 
 unsafe def main (args: List String): IO UInt32 := do
