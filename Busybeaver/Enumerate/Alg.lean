@@ -187,7 +187,9 @@ by {
 @[simp]
 def Multiset.sum_empty_iff_all_empty [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
   ∑ a ∈ S, f a = 0 ↔ ∀ a ∈ S, f a = 0 :=
-by sorry
+by induction S using Finset.induction with
+| empty => simp
+| @insert A S hA IH => simp [Finset.sum_insert hA, IH]
 
 def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match h with
 | .unknown _ => { val := 0, undec := {M}}
@@ -427,147 +429,6 @@ by induction M using BBCompute.induct decider with
     is_child Mc M := next_machines.is_child Clast.1 hMc
 }
 
-lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M'):
-    (M'.LastState C) ∨ (∃Mc ∈ next_machines M C.state C.tape.head, ∃Mh, (Mh ~m M') ∧ Mc ≤c Mh) :=
-by match hM'C: M' C.state C.tape.head with
-| .halt => {
-  left
-  simp [Machine.LastState]
-  exact hM'C
-}
-| .next sym dir lab => {
-  sorry
-    /-
-    The tricky bit of the proof.
-
-    Any child machine with a non-halting transition at C is equivalent to a next_machine':
-    - if the transition uses already used states/symbols, then it is itself a child of a
-      next_machine'
-    - otherwise, "normalize" the machine into a machine using the successor of the sates/symbols
-      this one is a next_machine'
-
-    This in turns creates 4 subcases, each of which need to be handled independently.
-    intro M' hM'
-    simp [terminating_children] at hM'
-    cases hM's: M'.M C.state C.tape.head
-    · simp [hM's] at hM'
-    rename_i sym dir lab
-    simp [hM's] at hM'
-    simp only [id_eq, exists_exists_and_eq_and, terminating_children]
-    by_cases hsym': sym ∈ used_symbols M <;> by_cases hlab': lab ∈ used_states M
-    · /-
-      First case, the new machine uses already used states and symbols.
-      This is the "easy" case as it does not require any permuation.
-      -/
-      exists M'
-      simp
-      exists update_with M C.state C.tape.head (.next sym dir lab)
-      constructor
-      · constructor
-        · simp [TM.Busybeaver.next_machines']
-          exists sym
-          exists dir
-          exists lab
-          simp [TM.Busybeaver.usable_symbols, TM.Busybeaver.usable_states, hsym', hlab']
-        · exact TM.Busybeaver.update_with.le_halt_trans Clast.1
-      · intro sym' lab'
-        simp [TM.Busybeaver.update_with]
-        split
-        · rename_i heq
-          simp
-          rw [heq.1, heq.2]
-          exact hM's.symm
-        · exact hM' sym' lab'
-    · /-
-      Second case, the symbol is already used, but the label is not
-      -/
-      have unused_states: (Finset.univ \ used_states M).Nonempty := by {
-        exists lab
-        simp
-        exact hlab'
-      }
-      let newlab := (Finset.univ \ used_states M).min' unused_states
-
-      have hnlab : newlab ∉ used_states M := by {
-        suffices newlab ∈ (Finset.univ \ used_states M) by {
-          simp at this
-          exact this
-        }
-        exact Finset.min'_mem _ unused_states
-      }
-
-      /-
-      This is the "normalized machine".
-
-      It uses the next usable state instead of any unused state
-      -/
-      exists (TM.Machine.perm.isTransformation (q:=lab) (q':=newlab)).lift_terminating (by {
-        congr
-        apply TM.Machine.swap.ne
-        · simp [default]
-          intro hlab''
-          apply absurd hlab
-          simp
-          rw [hlab'']
-          exact hlab'
-        · simp [default]
-          intro hlab''
-          apply absurd hlab
-          simp
-          rw [hlab'']
-          exact hnlab
-      }) M'
-      constructor
-      swap
-      · simp [Transformation.lift_terminating]
-
-      /-
-      This is the parent of the normalized machine, that is the machine that covers the normalized
-      machine during its recursive call
-      -/
-      exists ⟨update_with M C.state C.tape.head (.next sym dir newlab), update_with.le_halt_trans Clast.1⟩
-      constructor
-      · simp [next_machines']
-        exists sym
-        exists dir
-        exists newlab
-        simp
-        constructor
-        · simp [usable_symbols, hsym']
-        · simp [usable_states, unused_states]
-      · simp [Transformation.lift_terminating]
-        have hM'perm : M ≤c M'.M.perm lab newlab := is_child.perm_unused_states hM' hlab' hnlab
-        have hUpd : M ≤c update_with M C.state C.tape.head (.next sym dir newlab) := update_with.is_child Clast.1
-        intro lab' sym'
-        simp [update_with]
-        split
-        · simp
-          rename_i heq
-          rw [heq.1, heq.2] at *
-          suffices C.state ≠ lab ∧ C.state ≠ newlab by {
-            simp [perm, Machine.swap.ne this.1 this.2]
-            split
-            · rename_i heq
-              rw [hM's] at heq
-              cases heq
-            rename_i heq
-            rw [hM's] at heq
-            cases heq
-            simp
-          }
-          constructor
-          · intro hCslab
-            rw [← hCslab] at hlab'
-            exact hlab' hCs
-          · intro hCsnlab
-            rw [← hCsnlab] at hnlab
-            exact hnlab hCs
-        · exact hM'perm lab' sym'
-    · sorry
-    · sorry
-    -/
-}
-
 lemma is_child.perm_unused_states {M M': Machine l s} (h: M ≤c M') (hq: q ∉ TM.Busybeaver.used_states M) (hq': q' ∉ TM.Busybeaver.used_states M): M ≤c M'.perm q q' :=
 by {
   intro lab sym
@@ -650,6 +511,109 @@ by {
     exact h'
 }
 
+
+lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M')
+    (hlabz: default ∈ used_states M) (hsymz: default ∈ used_symbols M)
+    (hlabC: C.state ∈ used_states M) (hheadC: C.tape.head ∈ used_symbols M):
+    (M'.LastState C) ∨ (∃Mc ∈ next_machines M C.state C.tape.head, ∃Mh, (Mh ~m M') ∧ Mc ≤c Mh) :=
+by match hM'C: M' C.state C.tape.head with
+| .halt => {
+  left
+  simp [Machine.LastState]
+  exact hM'C
+}
+| .next sym dir lab => {
+  /-
+  The tricky bit of the proof.
+
+  Any child machine with a non-halting transition at C is equivalent to a next_machine':
+  - if the transition uses already used states/symbols, then it is itself a child of a
+    next_machine'
+  - otherwise, "normalize" the machine into a machine using the successor of the sates/symbols
+    this one is a next_machine'
+  -/
+  right
+
+  wlog hsym: sym ∈ usable_symbols M
+  · sorry
+
+  wlog hlab: lab ∈ usable_states M generalizing M' lab
+  · have hlabUnused : lab ∉ used_states M := by {
+      simp [usable_states] at hlab
+      exact hlab.1
+    }
+    have unused_states: (Finset.univ \ used_states M).Nonempty := by {
+      exists lab
+      simp
+      simp [usable_states] at hlab
+      exact hlab.1
+    }
+
+    let newlab := (Finset.univ \ used_states M).min' unused_states
+
+    have hnlab : newlab ∉ used_states M := by {
+      suffices newlab ∈ (Finset.univ \ used_states M) by {
+        simp at this
+        exact this
+      }
+      exact Finset.min'_mem _ unused_states
+    }
+
+    obtain ⟨Mc, hMc, Mh, hMhl, hMhr⟩ := @this
+      (M'.perm lab newlab)
+      (is_child.perm_unused_states hM' hlabUnused hnlab) newlab
+      (by {
+        suffices C.state ≠ lab ∧ C.state ≠ newlab by
+          simp [perm, Machine.swap.ne this.1 this.2, hM'C]
+        constructor
+        · intro hlab
+          cases hlab
+          exact absurd hlabC hlabUnused
+        · intro hlab
+          rw [← hlab] at hnlab
+          exact absurd hlabC hnlab
+      }) (by simp [usable_states, hnlab, unused_states])
+
+    use Mc, hMc, (Mh.perm lab newlab)
+    constructor
+    · have hlab: lab ≠ default := by {
+        intro hlab
+        cases hlab
+        simp only [usable_states, Finset.mem_union, not_or] at hlab
+        exact absurd hlabz hlab.1
+      }
+      have hnlabz: newlab ≠ default := by {
+        intro hlab
+        rw [hlab] at hnlab
+        exact absurd hlabz hnlab
+      }
+
+      calc Mh.perm lab newlab
+        _ ~m Mh := Isomorph.states lab newlab Mh hlab hnlabz |>.symm
+        _ ~m M'.perm lab newlab := hMhl
+        _ ~m M' := Isomorph.states lab newlab M' hlab hnlabz |>.symm
+    · sorry
+
+  use update_with M C.state C.tape.head (.next sym dir lab)
+  constructor
+  · simp [next_machines]
+    use sym, dir, lab
+
+  use M'
+  constructor
+  · constructor
+  · intro lab' sym'
+    specialize hM' lab' sym'
+    simp [update_with]
+    split
+    · simp
+      rename_i heq
+      cases heq.1
+      cases heq.2
+      exact hM'C.symm
+    · exact hM'
+}
+
 lemma Finset.fold_attach {S: Finset α} [DecidableEq α] [Std.Commutative op] [Std.Associative op]:
   Finset.fold op B (f ∘ Subtype.val) S.attach = Finset.fold op B f S :=
 by induction S using Finset.induction with
@@ -666,7 +630,6 @@ by induction S using Finset.induction with
   simp at IH
   simp [IH]
 }
-
 
 /--
 The BBCompute function is correct when called on a machine that uses the default symbol and state.
@@ -840,8 +803,6 @@ by induction M using BBCompute.induct decider with
 
   /-
   Before embarquing in this, lets proove some properties about C
-
-  FIXME: not used for now but will probably be
   -/
   have hCs: C.state ∈ used_states M := used_states.mono_default hlab Clast.2
   have hCt: C.tape.head ∈ used_symbols M := used_symbols.mono_default hsym Clast.2
@@ -870,7 +831,7 @@ by induction M using BBCompute.induct decider with
     obtain hMM' := next_machines.terminates_children (by {
       simp [Machine.LastState]
       exact Clast.1
-    }) Clast.2 hM'.1
+    }) Clast.2 hM'.1 hlab hsym hCs hCt
     rcases hMM' with hMM' | ⟨Mc, hMc, Mh, hMhh, hMhc⟩
     · simp [Machine.LastState] at hMM'
       exact absurd hMM' hM'.2

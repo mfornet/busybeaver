@@ -21,26 +21,29 @@ This will allow to simpler definitions
 -/
 inductive Isomorph: Machine l s → Machine l s → Prop
 | refl M : Isomorph M M
-| states L L' M M' : L ≠ default → L' ≠ default → M' = M.perm L L' → Isomorph M M'
-| symbols S S' M M' : S ≠ default → S' ≠ default → M' = M.translated S S' → Isomorph M M'
+| states L L' M : L ≠ default → L' ≠ default → Isomorph M (M.perm L L')
+| symbols S S' M : S ≠ default → S' ≠ default → Isomorph M (M.translated S S')
 | trans M₁ M₂ M₃ : Isomorph M₁ M₂ → Isomorph M₂ M₃ → Isomorph M₁ M₃
+
+attribute [refl] Isomorph.refl
 
 notation M " ~m " M' => Isomorph M M'
 
 namespace Isomorph
 
+@[symm]
 lemma symm (h: M ~m M'): M' ~m M :=
 by induction h with
 | refl => exact refl _
-| states L L' M M' hL hL' hM => {
-  apply states L L' M' M hL hL'
-  rw [hM]
-  simp
+| states L L' M hL hL' => {
+  have he := states L L' (M.perm L L') hL hL'
+  simp at he
+  exact he
 }
-| symbols S S' M M' hS hS' hM => {
-  apply symbols S S' M' M hS hS'
-  rw [hM]
-  simp
+| symbols S S' M hS hS' => {
+  have he := symbols S S' (M.translated S S') hS hS'
+  simp at he
+  exact he
 }
 | trans M₁ M₂ M₃ _ _ IH₁ IH₂ => {
   exact trans M₃ M₂ M₁ IH₂ IH₁
@@ -49,12 +52,10 @@ by induction h with
 lemma equi_halts (h: M ~m M'): (M, default) =H (M', default) :=
 by induction h with
 | refl => exact equi_halts.refl
-| states L L' M M' hL hL' hM => {
-  rw [hM]
+| states L L' M hL hL' => {
   exact perm.nz_equi hL hL'
 }
-| symbols S S' M M' hS hS' hM => {
-  rw [hM]
+| symbols S S' M hS hS' => {
   exact translated.equi_halts' hS.symm hS'.symm
 }
 | trans M₁ M₂ M₃ _ _ IH₁ Ih₂ => exact equi_halts.trans IH₁ Ih₂
@@ -62,16 +63,14 @@ by induction h with
 lemma same_halt_time {l s} {M M': Machine l s} (h: M ~m M') (hM: M.halts_in n default): M'.halts_in n default :=
 by induction h with
 | refl M => trivial
-| states L L' M M' hL hL' hM' => {
-  cases hM'
+| states L L' M hL hL' => {
   apply perm.isTransformation.same_halt_time₁ hM
   symm at hL hL'
   simp [default] at *
   symm
   exact swap.ne hL hL'
 }
-| symbols S S' M M' hS hS' hM' => {
-  cases hM'
+| symbols S S' M hS hS'=> {
   symm at hS hS'
   apply (translated.transformation hS hS').same_halt_time₁ hM
   suffices (default: Turing.Tape (Symbol s)).translate S S' hS hS' = default by {
@@ -95,6 +94,9 @@ instance setoid: Setoid (Machine l s) where
       exact trans x y z hx hy
     }
   }
+
+instance instIsTrans: IsTrans (Machine l s) Isomorph where
+  trans := trans
 
 def EqTM (l s: ℕ) := Quotient (α:=Machine l s) setoid
 
