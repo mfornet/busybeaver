@@ -1,6 +1,9 @@
 import Busybeaver.Basic
 import Busybeaver.Reachability
 
+-- TODO: remove
+import Busybeaver.Parse
+
 namespace TM.Machine
 
 /--
@@ -29,6 +32,22 @@ by {
 /-- Underspecified tape for backward steps -/
 abbrev SymbolicTape s := Turing.Tape (WithTop (Symbol s))
 
+abbrev LawfulSymbolicTape s := { T: SymbolicTape s // T.head ≠ ⊤ }
+
+section
+
+variable (T: LawfulSymbolicTape s)
+
+def LawfulSymbolicTape.left := T.val.left
+def LawfulSymbolicTape.right := T.val.right
+
+def LawfulSymbolicTape.head: Symbol s := WithTop.untop T.val.head T.prop
+
+def LawfuleSymbolicTape.write (sym: Symbol s): LawfulSymbolicTape s :=
+  ⟨T.val.write sym, by simp [Turing.Tape.write]⟩
+
+end
+
 def SymbolicTape.match (T T': SymbolicTape s): Prop :=
   ∀i, T.nth i = ⊤ ∨ T.nth i = T'.nth i
 
@@ -45,8 +64,13 @@ local notation T " ⊨ " T' => SymbolicTape.match T T'
 /-- Config for backward steps -/
 structure SymbolicConfig (l s) where
   state: Label l
-  tape: SymbolicTape s
-deriving DecidableEq, Inhabited
+  tape: LawfulSymbolicTape s
+deriving DecidableEq
+
+instance: Inhabited (SymbolicConfig l s) := ⟨{
+  state := default,
+  tape := ⟨{ head := ↑(default: Symbol s), left := default, right := default }, by simp⟩
+}⟩
 
 section PrettyPrint
 open Std.Format Lean
@@ -54,169 +78,56 @@ open Std.Format Lean
 unsafe instance: Repr (SymbolicConfig l s) := ⟨λ cfg _ ↦
   let leftrepr := (Quot.unquot cfg.tape.left).reverse.map repr
   let rightrepr := (Quot.unquot cfg.tape.right).map repr
-  Std.Format.joinSep leftrepr " " ++ s!" {cfg.state}>{repr cfg.tape.head} " ++ Std.Format.joinSep rightrepr " "⟩
+  Std.Format.joinSep leftrepr " " ++ s!" {Char.ofNat <| cfg.state + 'A'.toNat}>{repr cfg.tape.head} " ++ Std.Format.joinSep rightrepr " "⟩
 
 end PrettyPrint
 
 def SymbolicConfig.from_trans (lab: Label l) (sym: Symbol s): SymbolicConfig l s := {
   state := lab,
-  tape := { head := sym, left := default, right := default }
+  tape := ⟨{ head := sym, left := default, right := default }, by simp⟩
 }
-
-def sym_step (M: Machine l s) (C: SymbolicConfig l s) (sym: Symbol s) (h: M C.state sym ≠ .halt): SymbolicConfig l s :=
-match hM: M C.state sym with
-| .halt => by contradiction
-| .next sym' dir lab' => { state := lab', tape := (C.tape.write ↑sym').move dir }
-
-
-def sym_eval (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConfig l s) := match C.tape.head with
-| ⊤ =>
-  Finset.univ (α:=Symbol s) |>.filter (λ S ↦ M C.state S ≠ .halt) |>.attach.image
-  λ ⟨S, hS⟩ ↦ sym_step M C S (by {
-    simp at hS
-    exact hS
-  })
-| some sym => match hM : M C.state sym with
-  | .halt => {}
-  | .next sym' dir lab' => {
-    sym_step M C sym (by {
-      rw [hM]
-      simp
-    })
-  }
 
 def symbolic_halting (M: Machine l s): Finset (SymbolicConfig l s) :=
   M.halting_trans.image λ ⟨lab, sym⟩ ↦ SymbolicConfig.from_trans lab sym
 
-lemma symbolic_halting.empty_step {C: SymbolicConfig l s} (h: C ∈ symbolic_halting M): sym_eval M C = ∅ :=
-by {
-  simp [symbolic_halting] at h
-  obtain ⟨a, b, hAB, hCdef⟩ := h
-  simp [halting_trans] at hAB
-  rw [← hCdef] at *
-  cases hCdef
-  simp [SymbolicConfig.from_trans] at *
-  simp [sym_eval]
-  split <;> simp_all
-}
-
-def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 1 .right 1 else .halt
-
-def sym_eval_bw (M: Machine l s) (C: SymbolicConfig l s) (lab: Label l) (sym: Symbol s):
-  Option (SymbolicConfig l s) :=
-match M lab sym with
-| .halt => .none
-| .next _ dir lab' =>
-  if lab' ≠ lab then
-    .none
-  else
-    let bw_moved := C.tape.move dir.other
-    match bw_moved.head with
-    | ⊤ => .some { state := lab, tape := bw_moved.write sym }
-    | some sym'' =>
-      if sym'' = sym then
-        .some { state := lab, tape := bw_moved }
-      else
-        .none
+def tmpMach: Machine 4 1 := mach["1RB0LD_1LC0RE_---1LD_1LA1LD_1RA0RA"]
 
 /--
-Tris to apply `M L S` backwards if possible, returning the resulting symbolic configuration.
+Tries to apply `M L S` backwards if possible, returning the resulting symbolic configuration.
 -/
 def matchingConfig? (M: Machine l s) (C: SymbolicConfig l s) (L: Label l) (S: Symbol s): Option (SymbolicConfig l s) :=
   match M L S with
   | .halt => .none
   | .next sym' dir lab' =>
-    let Cm := (C.tape.move dir.other)
+    /-
+    We are in this configuration (assuming dir = .right wlog)
+                C.tape
+    ... Cm.head C.head ...
+
+    For it to be consistent to have applied the M L S configuration, we need to do the following
+    modification
+
+        L                    lab'
+    ... S _ ...  -> ... sym' ____ ...
+    -/
+    let Cm := (C.tape.val.move dir.other)
     if lab' = C.state ∧ (Cm.head = sym' ∨ Cm.head = ⊤) then
-      .some { state := L, tape := Cm.write S }
+      .some { state := L, tape := ⟨Cm.write S, by simp [Turing.Tape.write]⟩}
     else
+      -- This is BR contradiction case
       .none
 
 def backward_step (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConfig l s):=
   Finset.eraseNone.toFun <|
     Finset.univ (α:=Label l × Symbol s) |>.image (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
 
-def backward_step.correct (hC: C ∈ backward_step M C'):
-  ∃C₀ ∈ M.sym_eval C, (C'.tape ⊨ C₀.tape) ∧ C'.state = C₀.state :=
-by {
-  simp [backward_step] at hC
-  obtain ⟨L, S, hLS⟩ := hC
-  simp [matchingConfig?] at hLS
-  split at hLS
-  · cases hLS
-  rename_i sym dir lab heq
-  split at hLS
-  swap
-  · cases hLS
-  rename_i heq'
-  obtain ⟨hCs, hChmatch⟩ := heq'
-  simp at hLS
-  symm at hLS
-  cases hLS
+unsafe def startCfg := Quot.unquot tmpMach.symbolic_halting.val |>.get! 0
+unsafe def nxtCfg := Quot.unquot (backward_step tmpMach startCfg).val |>.get! 0
 
-  simp [sym_eval]
-  simp [Turing.Tape.write]
-  split
-  · rename_i heq'
-    rw [heq] at heq'
-    cases heq'
-
-  rename_i heq'
-  rw [heq] at heq'
-  cases heq'
-  simp
-
-  simp [sym_step]
-  split
-  · rename_i heq'
-    rw [heq] at heq'
-    cases heq'
-
-  rename_i heq'
-  rw [heq] at heq'
-  cases heq'
-
-  rcases hChmatch with hC | hC
-  · simp [Turing.Tape.write, Turing.Tape.move]
-    split <;> {
-      simp only [Turing.Dir.other] at *
-      rename_i heq'
-      simp at heq'
-      cases heq'.1
-      cases heq'.2.1
-      cases heq'.2.2
-      simp at heq'
-      cases heq'
-      simp
-      simp [Turing.Tape.move] at hC
-      simp [← hC, hCs]
-    }
-  · simp [Turing.Tape.write, Turing.Tape.move]
-    split <;> {
-      simp only [Turing.Dir.other] at *
-      rename_i heq'
-      simp at heq'
-      cases heq'.1
-      cases heq'.2.1
-      cases heq'.2.2
-      simp at heq'
-      cases heq'
-      simp
-      simp [Turing.Tape.move] at hC
-      simp [← hC, hCs]
-      intro i
-      simp [Turing.Tape.nth]
-      split
-      · simp
-      · rename_i n
-        cases n <;> simp [hC]
-      · rename_i n
-        cases n <;> simp [hC]
-    }
-}
+#eval backward_step tmpMach nxtCfg
 
 def SymbolicConfig.matchesConfig (C: SymbolicConfig l s) (C': Config l s): Prop :=
-  C.state == C'.state ∧ (∀i, C.tape.nth i = ⊤ ∨ C.tape.nth i = C'.tape.nth i)
+  C.state == C'.state ∧ (∀i, C.tape.val.nth i = ⊤ ∨ C.tape.val.nth i = C'.tape.nth i)
 
 lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matchesConfig C'): ¬(A -[M]-> C') :=
 by {
@@ -267,8 +178,9 @@ by {
       simp [Turing.Tape.move, Turing.Tape.write]
 }
 
-theorem backward_step.unreachable {C: SymbolicConfig l s} {sym: Symbol s} (h: backward_step M C = ∅) (hC:
-C.tape.head = sym): unreachable_trans M C.state sym default :=
+theorem backward_step.unreachable {C: SymbolicConfig l s} {sym: Symbol s}
+  (h: backward_step M C = ∅):
+  unreachable_trans M C.state C.tape.head A :=
 by {
   intro n C' hCs hCh hdC'
   sorry
@@ -316,6 +228,11 @@ lemma halting_trans.eq_zero_nonhalts {M: Machine l s} (hM: M.n_halting_trans = 0
   exact empty_loops hM
 }
 
+def backwardReason (bound: ℕ) (M: Machine l s) (C: SymbolicConfig l s): Bool :=
+match bound with
+| 0 => .false
+| n + 1 => Finset.all (backward_step M C) (λ C ↦ backwardReason n M C)
+
 end Machine
 
 open Machine
@@ -332,6 +249,7 @@ def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
       intro ⟨lab, sym⟩ hls
       simp
       simp [halting_trans] at hls
+
       sorry
     })
   else
