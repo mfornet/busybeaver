@@ -512,7 +512,7 @@ by {
 }
 
 
-lemma next_machines.terminates_children (hCl: M.LastState C) (hCr: default -[M]{n}-> C) (hM': M ≤c M')
+lemma next_machines.terminates_children (hM': M ≤c M')
     (hlabz: default ∈ used_states M) (hsymz: default ∈ used_symbols M)
     (hlabC: C.state ∈ used_states M) (hheadC: C.tape.head ∈ used_symbols M):
     (M'.LastState C) ∨ (∃Mc ∈ next_machines M C.state C.tape.head, ∃Mh, (Mh ~m M') ∧ Mc ≤c Mh) :=
@@ -534,19 +534,72 @@ by match hM'C: M' C.state C.tape.head with
   -/
   right
 
-  wlog hsym: sym ∈ usable_symbols M
-  · sorry
+  wlog hsym: sym ∈ usable_symbols M generalizing M' sym
+  · have hsymUnused : sym ∉ used_symbols M := by {
+      simp [usable_symbols] at hsym
+      exact hsym.1
+    }
+
+    have unused_symbols: (Finset.univ \ used_symbols M).Nonempty := by {
+      exists sym
+      simp
+      exact hsymUnused
+    }
+
+    let newsym := (Finset.univ \ used_symbols M).min' unused_symbols
+
+    have hnsym : newsym ∉ used_symbols M := by {
+      have htmp := Finset.min'_mem _ unused_symbols
+      simp [newsym]
+      simp at htmp
+      exact htmp
+    }
+
+    obtain ⟨Mc, hMc, Mh, hMhl, hMhr⟩ := @this
+      (M'.translated sym newsym)
+      (is_child.translate_unused_symbols hM' hsymUnused hnsym) newsym
+      (by {
+        suffices C.tape.head ≠ sym ∧ C.tape.head ≠ newsym by
+          simp [Machine.translated, Machine.swap.ne this.1 this.2, hM'C]
+        constructor
+        · intro hlab
+          cases hlab
+          exact absurd hheadC hsymUnused
+        · intro hlab
+          rw [← hlab] at hnsym
+          exact absurd hheadC hnsym
+      }) (by simp [usable_symbols, hnsym, unused_symbols])
+
+    use Mc, hMc, Mh
+    constructor
+    swap
+    · exact hMhr
+    · have hsym: sym ≠ default := by {
+        intro hlab
+        cases hlab
+        simp only [usable_symbols, Finset.mem_union, not_or] at hsym
+        exact absurd hsymz hsymUnused
+      }
+      have hnsymz: newsym ≠ default := by {
+        intro hlab
+        rw [hlab] at hnsym
+        exact absurd hsymz hnsym
+      }
+
+      calc Mh
+        _ ~m M'.translated sym newsym := hMhl
+        _ ~m M' := Isomorph.symbols sym newsym M' hsym hnsymz |>.symm
 
   wlog hlab: lab ∈ usable_states M generalizing M' lab
   · have hlabUnused : lab ∉ used_states M := by {
       simp [usable_states] at hlab
       exact hlab.1
     }
+
     have unused_states: (Finset.univ \ used_states M).Nonempty := by {
       exists lab
       simp
-      simp [usable_states] at hlab
-      exact hlab.1
+      exact hlabUnused
     }
 
     let newlab := (Finset.univ \ used_states M).min' unused_states
@@ -560,8 +613,9 @@ by match hM'C: M' C.state C.tape.head with
     }
 
     obtain ⟨Mc, hMc, Mh, hMhl, hMhr⟩ := @this
+      newlab
       (M'.perm lab newlab)
-      (is_child.perm_unused_states hM' hlabUnused hnlab) newlab
+      (is_child.perm_unused_states hM' hlabUnused hnlab)
       (by {
         suffices C.state ≠ lab ∧ C.state ≠ newlab by
           simp [perm, Machine.swap.ne this.1 this.2, hM'C]
@@ -572,10 +626,13 @@ by match hM'C: M' C.state C.tape.head with
         · intro hlab
           rw [← hlab] at hnlab
           exact absurd hlabC hnlab
-      }) (by simp [usable_states, hnlab, unused_states])
+      })
+      (by simp [usable_states, hnlab, unused_states])
 
-    use Mc, hMc, (Mh.perm lab newlab)
+    use Mc, hMc, Mh
     constructor
+    swap
+    · exact hMhr
     · have hlab: lab ≠ default := by {
         intro hlab
         cases hlab
@@ -588,11 +645,9 @@ by match hM'C: M' C.state C.tape.head with
         exact absurd hlabz hnlab
       }
 
-      calc Mh.perm lab newlab
-        _ ~m Mh := Isomorph.states lab newlab Mh hlab hnlabz |>.symm
+      calc Mh
         _ ~m M'.perm lab newlab := hMhl
         _ ~m M' := Isomorph.states lab newlab M' hlab hnlabz |>.symm
-    · sorry
 
   use update_with M C.state C.tape.head (.next sym dir lab)
   constructor
@@ -828,10 +883,10 @@ by induction M using BBCompute.induct decider with
       simp
   · intro M' hM'
     simp [terminating_children] at hM'
-    obtain hMM' := next_machines.terminates_children (by {
-      simp [Machine.LastState]
-      exact Clast.1
-    }) Clast.2 hM'.1 hlab hsym hCs hCt
+    simp
+
+    obtain hMM' := next_machines.terminates_children hM'.1 hlab hsym hCs hCt
+
     rcases hMM' with hMM' | ⟨Mc, hMc, Mh, hMhh, hMhc⟩
     · simp [Machine.LastState] at hMM'
       exact absurd hMM' hM'.2
