@@ -154,7 +154,7 @@ by {
 }
 
 
-def lift_terminating [inst: Transformation (l:=l) (s:=s) fC fM] (hfC: fC default = default): Terminating l s → Terminating l s :=
+def lift_terminating (inst: Transformation (l:=l) (s:=s) fC fM) (hfC: fC default = default): Terminating l s → Terminating l s :=
   λ M ↦ {
     M := fM M.M,
     n := M.n,

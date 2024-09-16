@@ -138,10 +138,11 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
       have _: comp.val = Busybeaver l s := by {
         simp [comp] at *
         simp [compute, task_correct]
-        exact Eq.symm (Busybeaver.BBCompute.correct_complete hcomp)
+        exact Eq.symm (Busybeaver.BBCompute.correct_complete hl hcomp)
       }
       IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
     else
+      -- TODO: check BB(l,s) ≥ n
       IO.println s!"#Undec: {Multiset.card comp.undec}"
       IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
       if let some path := p.flag? "output" then

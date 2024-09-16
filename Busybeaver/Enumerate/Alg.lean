@@ -930,18 +930,158 @@ by {
   }
 }
 
-lemma only_0RB_1RB: Busybeaver l s = Busybeaver' l s (terminating_children (m0RB l s) ∪ terminating_children (m1RB l s)) :=
+lemma only_0RB_1RB (hl: l ≠ 0): Busybeaver l s = Busybeaver' l s (terminating_children (m0RB l s) ∪ terminating_children (m1RB l s)) :=
 by {
   rw [symm.only_right]
   apply Busybeaver'.biject_fold
-  · sorry
-  · sorry
+  swap
+  · intro M' hM'
+    simp at hM'
+    rcases hM' with hM' | hM' <;> {
+      simp [terminating_children] at hM'
+      use M'
+      specialize hM' 0 0
+      simp [symm.GoingTo]
+      simp [m1RB, m0RB] at hM'
+      rw [← hM']
+      simp
+    }
+  intro M' hM'
+  simp [symm.GoingTo] at hM'
+  obtain ⟨sym, lab, hsl⟩ := hM'
+
+  by_cases labz: lab = 0
+  · suffices ¬M'.M.halts default by {
+      exfalso
+      apply this
+      use M'.n
+      exact M'.terminates
+    }
+    cases labz
+    closed_set λ C ↦ C.state = 0 ∧ C.tape.head = 0 ∧ C.tape.right = default
+    · intro ⟨A, hAs, hAh, hAr⟩
+      cases hM: M'.M.step A with
+      | none => {
+        simp at hM
+        rw [hAs, hAh, hsl] at hM
+        cases hM
+      }
+      | some B' => {
+        simp
+        use B'
+        constructor
+        swap
+        · exact Progress.single hM
+        obtain ⟨sym, dir, hMA, hMB⟩ := Machine.step.some_rev hM
+        rw [hAs, hAh, hsl] at hMA
+        simp at hMA
+        cases hMA.1.symm
+        cases hMA.2.1.symm
+        use hMA.2.2.symm
+        simp [Turing.Tape.write, Turing.Tape.move] at hMB
+        rw [hMB]
+        simp
+        rw [hAr]
+        constructor <;> rfl
+      }
+    · simp
+      use default
+      constructor
+      · constructor
+        · rfl
+        · constructor <;> rfl
+      · exact EvStep.refl
+
+  wlog hlab : lab = 1 generalizing M' lab
+  · let Mpermed := Transformation.lift_terminating (perm.isTransformation (q:=lab) (q':=1))
+      (by {
+        simp [default]
+        rw [Machine.swap.ne]
+        · symm
+          exact labz
+        · simp
+          exact hl
+      }) M'
+    apply this Mpermed 1
+    simp [Mpermed, Transformation.lift_terminating, Machine.perm]
+    rw [Machine.swap.ne, hsl]
+    simp
+    all_goals aesop
+
+  cases hlab
+  cases s
+  · rw [
+      show m1RB l 0 = m0RB l 0 by rfl,
+    ]
+    simp
+    use M'
+    simp [terminating_children]
+    intro lab sym
+    simp [m0RB]
+    simp_all only [ne_eq, Fin.one_eq_zero_iff, add_left_eq_self, not_false_eq_true, Fin.isValue]
+    split
+    next
+      h =>
+      simp_all only [Fin.isValue, not_true_eq_false, imp_false, Stmt.next.injEq, and_self, and_true, false_or]
+      obtain ⟨left, right⟩ := h
+      subst left right
+      ext1
+      simp_all only [Fin.isValue, Fin.coe_fin_one]
+    next h => simp_all only [Fin.isValue, not_and, not_false_eq_true, implies_true, true_or]
+
+  rename_i s
+  by_cases hsym: sym = default
+  · use M'
+    cases hsym
+    simp
+    left
+    simp [terminating_children]
+    intro lab sym
+    simp [m0RB]
+    simp_all only [Fin.default_eq_zero]
+    split
+    · simp_all only [not_true_eq_false, imp_false, or_true]
+    · simp_all only [not_and, not_false_eq_true, implies_true, true_or]
+
+  wlog hsym' : sym = 1 generalizing M' sym
+  · let Mpermed := Transformation.lift_terminating (translated.transformation (S:=sym) (S':=1)
+      (by {
+        symm
+        exact hsym
+      })
+      (by {
+        simp
+      }))
+      (by {
+        simp [Turing.Tape.translate]
+        congr
+        rw [show (default: Config l (s + 1)).tape = default by rfl]
+        exact Turing.Tape.map_default
+      }) M'
+    apply this 1 Mpermed
+    simp [Mpermed, Transformation.lift_terminating, Machine.translated]
+    rw [Machine.swap.ne, hsl]
+
+    all_goals aesop -- Maybe a bit too violent ?
+
+  cases hsym'
+  simp at hsym
+  use M'
+  simp
+  right
+
+  simp [terminating_children]
+  intro lab sym
+  simp [m1RB]
+  split
+  · simp_all only [not_true_eq_false, imp_false, or_true]
+  · simp_all only [not_and, not_false_eq_true, implies_true, true_or]
 }
 
-theorem correct_complete (h: (BBResult.join (BBCompute decider (m0RB l s)) (BBCompute decider (m1RB l s))).undec = ∅):
+theorem correct_complete (hl: l ≠ 0) (h: (BBResult.join (BBCompute decider (m0RB l s)) (BBCompute decider (m1RB l s))).undec = ∅):
   Busybeaver l s = (BBResult.join (BBCompute decider (m0RB l s)) (BBCompute decider (m1RB l s))).val :=
 by {
-  simp [BBResult.join, only_0RB_1RB]
+  simp [BBResult.join, only_0RB_1RB hl]
   simp [BBResult.join, Finset.union_eq_empty] at h
   congr
   · symm
