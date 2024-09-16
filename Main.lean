@@ -3,7 +3,6 @@ import Busybeaver.Basic
 import Busybeaver.Problem
 import Busybeaver.Deciders.Cyclers
 import Busybeaver.Deciders.BoundExplore
-import Busybeaver.Deciders.NoHaltState
 import Busybeaver.Deciders.TranslatedCyclers
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Parse

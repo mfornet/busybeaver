@@ -7,7 +7,7 @@ import Busybeaver.Enumerate.Symmetry
 import Busybeaver.Enumerate.Translate
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Quotient
-import Busybeaver.Deciders.NoHaltState
+import Busybeaver.Deciders.BackwardsReasoning
 
 import Mathlib.Algebra.BigOperators.Group.Finset
 
@@ -728,7 +728,7 @@ by induction M using BBCompute.induct decider with
         simp
       exact Nat.lt_of_le_of_ne hntrans hMne
     }
-    apply Machine.eq_zero_nonhalts hMnz
+    apply Machine.halting_trans.eq_zero_nonhalts hMnz
     use nh, C
   }
 

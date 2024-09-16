@@ -4,7 +4,7 @@ A definition of an order for turing machines.
 import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Problem
-import Busybeaver.Deciders.NoHaltState
+import Busybeaver.Deciders.BackwardsReasoning
 
 namespace TM.Machine
 
@@ -185,7 +185,7 @@ by {
   apply Finset.eq_empty_of_forall_not_mem
   intro M' hM'
   simp [terminating_children] at hM'
-  have hMnohalts := Machine.eq_zero_nonhalts hM
+  have hMnohalts := Machine.halting_trans.eq_zero_nonhalts hM
   simp [init] at hMnohalts
   apply hM'.halt_of_halt_parent hMnohalts
   use M'.n
@@ -227,7 +227,7 @@ by {
     _ = 1 := hM
   simp at le1
 
-  have M'ns := Machine.eq_zero_nonhalts le1
+  have M'ns := Machine.halting_trans.eq_zero_nonhalts le1
 
   apply M'ns
   use n'

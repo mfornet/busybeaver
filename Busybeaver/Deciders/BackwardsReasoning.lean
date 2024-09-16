@@ -196,3 +196,8 @@ by {
   apply all_unreachable
   simp [h]
 }
+
+lemma halting_trans.eq_zero_nonhalts {M: Machine l s} (hM: M.n_halting_trans = 0): ¬M.halts default := by {
+  simp [Machine.n_halting_trans] at hM
+  exact empty_loops hM
+}
