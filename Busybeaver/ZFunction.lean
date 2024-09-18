@@ -64,7 +64,7 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
         simp
         exact Nat.le_sub_of_add_le' b
 
-      have h_sz_len : as.size = as.data.length := by simp
+      have h_sz_len : as.size = as.data.length := by rfl
 
       if he : as[z]'(by linarith) = as[i + z] then
         loop_extend as i (z + 1) (by
@@ -131,10 +131,8 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
               ]
 
               by_cases h3 : n = z
-              · calc as.data[i + n]
-                  _ = as.data[i + z] := getElem_congr (congrArg (HAdd.hAdd i) h3)
-                  _ = as[z] := he.symm
-                  _ = as.data[n] := getElem_congr h3.symm
+              · cases h3
+                exact he.symm
               · push_neg at h3
                 have h4 : n < z := Nat.lt_of_le_of_ne hs h3
                 have h5 : n < (slice as.data i z).length := by rw [hz]; exact h4
@@ -260,8 +258,7 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
           )
 
           have h₃ : slice as.data l (r - l) = as.data.take (r - l) := by
-            let hpre₁ := List.prefix_iff_eq_take.mp hpre
-            rw [hpre₁]
+            rw [List.prefix_iff_eq_take.mp hpre]
             unfold slice
             simp
             have hl : r - l ≤ as.size - l := Nat.sub_le_sub_right hr l
@@ -286,11 +283,9 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
                 List.IsPrefix.trans this hpre
               unfold slice
               exact (List.prefix_take_le_iff (by simp; exact hl0)).mpr (Nat.min_le_right (r - i) zarray.table[i - l])
-            let hpre₁ := List.prefix_iff_eq_take.mp hpres
-            rw [hpre₁]
+            rw [List.prefix_iff_eq_take.mp hpres]
             unfold slice
             simp
-
             have hl : t ≤ as.size - (i - l) := Nat.le_of_succ_le hl0
             have hr : t ≤ as.size := calc t
               _ ≤ as.size - (i - l) := hl
