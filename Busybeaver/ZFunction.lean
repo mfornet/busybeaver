@@ -116,7 +116,7 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
                 have h2a : (List.drop i as.data)[n]'(by
                   simp
                   calc n ≤ z := hs
-                       _ < as.data.length - i := by exact Nat.lt_sub_iff_add_lt'.mpr b) = (List.take (z + 1) (List.drop i as.data))[n] := by
+                       _ < as.data.length - i := Nat.lt_sub_iff_add_lt'.mpr b) = (List.take (z + 1) (List.drop i as.data))[n] := by
                   have hib : n < (List.drop i as.data).length := by
                     simp
                     calc n ≤ z := hs
@@ -146,7 +146,7 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
                   have hnt : (List.drop i as.data)[n]'(by
                     simp
                     calc n < z := h4
-                         _ ≤ (i + z) - i := by exact le_add_tsub_swap
+                         _ ≤ (i + z) - i := le_add_tsub_swap
                          _ < as.data.length - i := by (
                           refine Nat.sub_lt_sub_right ?_ b
                           exact Nat.le_add_right i z
@@ -214,7 +214,7 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
                 apply List.get_tail _ (n - z - 1) (by rw[List.length_tail tail, ←hin]; exact h₅) (by
                   rw [← hin]
                   calc n - (z + 1) + 1 < tail.length - 1 + 1 := by linarith
-                       _ = tail.length := by exact Nat.sub_add_cancel h₂
+                       _ = tail.length := Nat.sub_add_cancel h₂
                   )
               rw [ht]
               clear ht
@@ -290,8 +290,8 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
         · have hzt : z = t := if_pos hiz
           rw [hzt]
 
-          have ht : t ≤ r - i := by exact Nat.min_le_left (r - i) zarray.table[i - l]
-          have hlir : i ≤ r := by exact Nat.le_of_succ_le hiz
+          have ht : t ≤ r - i := Nat.min_le_left (r - i) zarray.table[i - l]
+          have hlir : i ≤ r := Nat.le_of_succ_le hiz
 
           suffices slice as.data i t = as.data.take t by (
             rw [this]
@@ -321,7 +321,7 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
                 refine Eq.symm (Nat.sub_add_comm ?htt)
                 exact Nat.le_trans hlir hr
               )
-              _ = as.size - (i - l) := by exact Nat.Simproc.add_sub_le as.size hlil
+              _ = as.size - (i - l) := Nat.Simproc.add_sub_le as.size hlil
 
             let hpre := (zarray.is_z_function hb).right.left.left
             simp at hpre
@@ -345,7 +345,7 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
 
           have hl : i - l + t ≤ r - l := by
               calc i - l + t ≤ i - l + (r - i) := by exact Nat.add_le_add_left ht (i - l)
-                           _ = i + (r - i) - l := by exact Eq.symm (Nat.sub_add_comm hlil)
+                           _ = i + (r - i) - l := Eq.symm (Nat.sub_add_comm hlil)
                            _ = r - l := by aesop
 
           have h₅ : slice as.data i t = slice (slice as.data l (r - l)) (i - l) t := by
