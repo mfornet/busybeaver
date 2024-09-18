@@ -28,9 +28,8 @@ structure PartialZArray [BEq α] (as : Array α) where
 
 def PartialZArray.init [BEq α] (as : Array α) : PartialZArray as :=
   let table := (Array.mkEmpty as.size).push as.size
-  let he : table = #[as.size] := rfl
   ⟨table, by
-    rw [he]
+    rw [show table = #[as.size] from rfl]
     intro i b
     simp at b
     unfold correct_z_function_value
@@ -69,7 +68,7 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
         simp
         exact Nat.le_sub_of_add_le' b
 
-      have hbz : as.size = as.data.length := by simp
+      have h_sz_len : as.size = as.data.length := by simp
 
       if he : as[z]'(by linarith) = as[i + z] then
         loop_extend as i (z + 1) (by
@@ -85,65 +84,70 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
               refine Nat.sub_le_of_le_add ?_
               refine Nat.le_add_right_of_le ?_
               linarith
-            · rw [hm]
-              have h1 : (slice as.data i z ++ tail).length = as.data.length := congrArg List.length hp'
-              have h2 : (slice as.data i z ++ tail).length = (slice as.data i z).length + tail.length := List.length_append (slice as.data i z) tail
-              rw [h2] at h1
-              rw [hz] at h1
-              rw [hbz, ← h1]
-              calc z + tail.length - (tail.length - 1)
+            · have h₁ := calc z + tail.length
+                _ = (slice as.data i z).length + tail.length := by rw [hz]
+                _ = (slice as.data i z ++ tail).length := List.length_append (slice as.data i z) tail |>.symm
+                _ = as.data.length := congrArg List.length hp'
+
+              calc as.size - (tail.length - 1)
+                _ = z + tail.length - (tail.length - 1) := by rw [h_sz_len, ← h₁]
                 _ = z + (tail.length - (tail.length - 1)) := by refine Nat.add_sub_assoc ?h z; exact Nat.sub_le tail.length 1
                 _ = z + (tail.length - tail.length + 1) := by
                     refine Eq.symm ((fun {m k n} ↦ Nat.add_left_cancel_iff.mpr) ?_)
                     simp
                     exact Eq.symm (Nat.sub_sub_self (by linarith))
                 _ = z + 1 := by simp
+                _ = min (z + 1) (as.size - i) := hm.symm
           · unfold slice
             simp
             intro n h₁ h₂
             by_cases hs : n ≤ z
-            · have h0 : (List.take (z + 1) (List.drop i as.data)).length = z + 1 := by
+            · have hi₁ : (List.take (z + 1) (List.drop i as.data)).length = z + 1 := by
                 simp
                 exact Nat.le_sub_of_add_le' b
-              have h1 : (List.take (z + 1) (List.drop i as.data) ++ tail.tail)[n]'(by
-                simp
-                rw [hm]
-                exact Nat.lt_of_lt_of_eq h₁ (congrFun (congrArg HAdd.hAdd hm) (tail.length - 1))) = (List.take (z + 1) (List.drop i as.data))[n] := by
-                  apply List.getElem_append_left
 
-              rw [h1]
-              have h2 : (List.take (z + 1) (List.drop i as.data))[n] = as.data[i + n] := by
-                -- apply List.getElem_take
-                have h2a : (List.drop i as.data)[n]'(by
-                  simp
-                  calc n
-                    _ ≤ z := hs
-                    _ < as.data.length - i := Nat.lt_sub_iff_add_lt'.mpr b) = (List.take (z + 1) (List.drop i as.data))[n] := by
-                  have hib : n < (List.drop i as.data).length := by
+              rw [
+                show (List.take (z + 1) (List.drop i as.data) ++ tail.tail)[n]'(by
                     simp
-                    calc n
-                      _ ≤ z := hs
-                      _ ≤ (i + z) - i := le_add_tsub_swap
-                      _ < as.data.length - i := by
-                        refine Nat.sub_lt_sub_right ?_ b
-                        exact Nat.le_add_right i z
-                  apply List.getElem_take (List.drop i as.data) hib (by linarith)
+                    rw [hm]
+                    exact Nat.lt_of_lt_of_eq h₁ (congrFun (congrArg HAdd.hAdd hm) (tail.length - 1)))
+                  = (List.take (z + 1) (List.drop i as.data))[n] by apply List.getElem_append_left,
 
-                rw [← h2a]
-                exact List.getElem_drop' as.data
-              rw [h2]
+                show (List.take (z + 1) (List.drop i as.data))[n] = as.data[i + n] by {
+                  rw [
+                    show (List.take (z + 1) (List.drop i as.data))[n] = (List.drop i as.data)[n]'(by
+                        simp
+                        calc n
+                          _ ≤ z := hs
+                          _ < as.data.length - i := Nat.lt_sub_iff_add_lt'.mpr b) by {
+                      symm
+                      apply List.getElem_take (List.drop i as.data) (by
+                        simp
+                        calc n
+                          _ ≤ z := hs
+                          _ ≤ (i + z) - i := le_add_tsub_swap
+                          _ < as.data.length - i := by
+                            refine Nat.sub_lt_sub_right ?_ b
+                            exact Nat.le_add_right i z) (by linarith)
+                      }
+                  ]
+                  exact List.getElem_drop' as.data
+                }
+              ]
 
               by_cases h3 : n = z
-              · have h4 : as.data[z] = as.data[n] := getElem_congr h3.symm
-                have h5 : as.data[i + z] = as.data[i + n] := getElem_congr (congrArg (HAdd.hAdd i) h3.symm)
-                rw [← h4, ← h5]
-                exact he.symm
+              · calc as.data[i + n]
+                  _ = as.data[i + z] := getElem_congr (congrArg (HAdd.hAdd i) h3)
+                  _ = as[z] := he.symm
+                  _ = as.data[n] := getElem_congr h3.symm
               · push_neg at h3
                 have h4 : n < z := Nat.lt_of_le_of_ne hs h3
                 have h5 : n < (slice as.data i z).length := by rw [hz]; exact h4
-                have h6 : (slice as.data i z)[n]'h5 = as.data[i + n]  := by
+                rw [
+                  show as.data[i + n] = (slice as.data i z)[n]'h5 by
+                  symm
                   unfold slice
-                  have hnt : (List.drop i as.data)[n]'(by
+                  rw [show (List.take z (List.drop i as.data))[n] = (List.drop i as.data)[n]'(by
                       simp
                       calc n
                         _ < z := h4
@@ -151,7 +155,8 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
                         _ < as.data.length - i := by
                           refine Nat.sub_lt_sub_right ?_ b
                           exact Nat.le_add_right i z
-                      ) = (List.take z (List.drop i as.data))[n] := by
+                      ) by
+                    symm
                     apply List.getElem_take (as.data.drop i) (by
                       simp
                       calc n
@@ -161,72 +166,58 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
                           refine Nat.sub_lt_sub_right ?_ b
                           exact Nat.le_add_right i z
                       ) (by linarith)
-                  rw [← hnt]
-                  exact List.getElem_drop' as.data
-                have h7 : (slice as.data i z)[n]'h5 = as.data[n] := Eq.symm (is_prefix_eq as.data (slice as.data i z) hp h5)
-                rw [← h6, ← h7]
-            · have h₆ : (slice as.data i z).length + tail.length = as.data.length := by {
+                  ]
+                  exact List.getElem_drop' as.data,
+
+                  is_prefix_eq as.data (slice as.data i z) hp h5
+                ]
+            · have h₆ : z + tail.length = as.data.length := by {
+                rw [← hz]
                 nth_rewrite 2 [← hp']
                 exact Eq.symm (List.length_append (slice as.data i z) tail)
               }
-              rw [hz] at h₆
 
-              have h₅ : n - (z + 1) < tail.length - 1 := by
-                calc n - (z + 1)
+              have h₅ := calc n - (z + 1)
                   _ < as.size - (z + 1) := Nat.sub_lt_sub_right (by linarith[hs]) h₂
                   _ = as.data.length - (z + 1) := by simp
                   _ = z + tail.length - (z + 1) := by rw[← h₆]
                   _ = tail.length - 1 := Nat.add_sub_add_left z tail.length 1
 
-              have h1 : (List.take (z + 1) (List.drop i as.data) ++ tail.tail)[n]'(by simp; exact h₁) =
-                  tail.tail[n - (List.take (z + 1) (List.drop i as.data)).length]'(by simp; rw[hm]; exact h₅) := by {
+              rw [show (List.take (z + 1) (List.drop i as.data) ++ tail.tail)[n]'(by simp; exact h₁) =
+                  tail.tail[n - (List.take (z + 1) (List.drop i as.data)).length]'(by simp; rw[hm]; exact h₅) by {
                 apply List.getElem_append_right
                 simp
                 intro h
                 push_neg at hs
                 linarith
-              }
-              rw [h1]
+              }]
+
               simp
+              rw [
+                show tail.tail[n - min (z + 1) (as.data.length - i)]'(by rw [hm, List.length_tail tail]; exact h₅) =
+                    tail.tail[n - (z + 1)]'(by rw [List.length_tail tail]; exact h₅)
+                  from getElem_congr (congrArg (HSub.hSub n) hm),
 
-              have ht : tail.tail[n - min (z + 1) (as.data.length - i)]'(by rw [hm, List.length_tail tail]; exact h₅) =
-                  tail.tail[n - (z + 1)]'(by rw [List.length_tail tail]; exact h₅) := getElem_congr (congrArg (HSub.hSub n) hm)
-              rw [ht]
-              clear ht
+                show as.data[n] = (slice as.data i z ++ tail)[n]'(by simp; rw [hz, h₆]; exact h₂)
+                  from List.getElem_of_eq hp'.symm h₂
+              ]
 
-              have ht : as.data[n] = (slice as.data i z ++ tail)[n]'(by
-                  simp
-                  rw [hz, h₆]
-                  exact h₂) :=
-                List.getElem_of_eq hp'.symm h₂
-              rw [ht]
-              clear ht
+              have hmw : n - (z + 1) < tail.tail.length := by rw [List.length_tail tail]; exact h₅
 
-              have hmw : n - (z + 1) < tail.tail.length := by
-                  rw [List.length_tail tail]
-                  exact h₅
-
-              have ht : tail.tail[n - (z + 1)] = tail[n - z] := by {
-                have hi : tail.tail[n - (z + 1)] = tail.tail[n - z - 1] := by rfl
-                rw [hi]
-                have hj : tail[n - z] = tail[n - z - 1 + 1] := by {
+              rw [show tail.tail[n - (z + 1)]'hmw = tail[n - z] by {
+                rw [show tail[n - z] = tail[n - z - 1 + 1] by {
                   apply get_add_sub
                   exact tsub_pos_iff_not_le.mpr hs
-                }
-                rw [hj]
-                clear hj
-                have h₂ : 0 < tail.length := by linarith
+                }]
                 have hin : n - (z + 1) = n - z - 1 := by rfl
                 apply List.get_tail _ (n - z - 1) (by rw[List.length_tail tail, ←hin]; exact h₅) (by
                   rw [← hin]
                   calc n - (z + 1) + 1
                     _ < tail.length - 1 + 1 := by linarith
-                    _ = tail.length := Nat.sub_add_cancel h₂)
-              }
-              rw [ht]
-              clear ht
-
-              rw [List.getElem_append_right (slice as.data i z) tail (by push_neg; rw [hz]; linarith)]
+                    _ = tail.length := Nat.sub_add_cancel (by linarith))
+              },
+                List.getElem_append_right (slice as.data i z) tail (by push_neg; rw [hz]; linarith)
+              ]
               exact getElem_congr (congrArg (HSub.hSub n) (hz.symm))
         ) b
       else
@@ -234,26 +225,19 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
           constructor
           · exact hb
           · constructor
-            ·
-              unfold slice
+            · unfold slice
               simp
               constructor
               · exact hp
               · exact List.take_prefix z (List.drop i as.data)
             · intro x hp'
-              have ht : (slice as.data i z).length = z := by
-                unfold slice
-                simp
-                exact Nat.le_sub_of_add_le' hb
-              rw [ht]
+              rw [hz]
               contrapose! he
-              have hle : as[z] = x[z] := is_prefix_eq _ _ hp'.1 he
-              rw [hle]
-              let hp'2 := hp'.2
               let ls := List.drop i as.data
-              have h3 : ls[z]'(List.lt_length_drop as.data b) = x[z] := is_prefix_eq ls x hp'2 he
-              have h4 : ls[z]'(List.lt_length_drop as.data b) = as[i + z] := List.getElem_drop' as.data
-              rw [← h4, h3]
+              calc as[z]
+                _ = x[z] := is_prefix_eq _ _ hp'.1 he
+                _ = ls[z]'(List.lt_length_drop as.data b) := is_prefix_eq ls x hp'.2 he |>.symm
+                _ = as[i + z] := List.getElem_drop' as.data
         }
     else
       {z := z, h := by
@@ -273,11 +257,9 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
             refine List.prefix_take_iff.mpr ?right.h.a
             constructor
             · exact hp'.2
-            · have h1 : x.length ≤ (as.data.drop i).length := List.IsPrefix.length_le hs
-              have h2 : (as.data.drop i).length ≤ z := by
-                simp
-                linarith
-              linarith
+            · calc x.length
+                _ ≤ (as.data.drop i).length := List.IsPrefix.length_le hs
+                _ ≤ z := by simp; linarith
       }
 
 def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : PartialZArray as) (he : i = zarray.table.data.length) (hi : 0 < i) (hl : 0 < l) (hs : size + i = as.data.length) (hr : r ≤ as.data.length) (hg : l ≤ r) (hpre : slice as.data l (r - l) <+: as.data) (hlil : l ≤ i): ZArray (α := α) as :=
@@ -285,12 +267,11 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
     | 0 => ⟨zarray, by linarith[hs]⟩
     | n + 1 => (
 
-      have hib : i - l < zarray.table.size := by
-        calc i - l
-          _ < i := Nat.sub_lt hi hl
-          _ = zarray.table.size := he
-      let t := min (r - i) (zarray.table[i - l]'(hib))
+      have hib := calc i - l
+        _ < i := Nat.sub_lt hi hl
+        _ = zarray.table.size := he
 
+      let t := min (r - i) (zarray.table[i - l]'(hib))
       let z := if i < r then t else 0
 
       let ⟨z, hz⟩ := loop_extend as i z (by
@@ -388,28 +369,25 @@ def loop_build_table [BEq α] [DecidableEq α] (size i l r: ℕ) (zarray : Parti
           linarith
         )
       let new_table := zarray.table.push z
-      have hnew_table_size : new_table.data.length = zarray.table.data.length + 1 := Array.size_push zarray.table z
 
       let new_zarray := ⟨new_table, by
         intro j hb'
         by_cases h : j < zarray.table.data.length
-        · have hje : new_table.get ⟨j, hb'⟩ = zarray.table.get ⟨j, h⟩ := by
-            apply Array.get_push_lt
-          rw [hje]
+        · rw [show new_table.get ⟨j, hb'⟩ = zarray.table.get ⟨j, h⟩ by apply Array.get_push_lt]
           exact zarray.is_z_function h
         · simp
-          have hiv : j = i := by
-            push_neg at h
-            rw [he]
-            rw [hnew_table_size] at hb'
-            linarith
-          have hlast : new_table[j] = z := by
-            rw [Array.get_push]
-            simp
-            intro h'
-            contradiction
-          rw [hlast]
-          rw [hiv]
+          rw [
+            show new_table[j] = z by {
+              rw [Array.get_push]
+              simp
+              intro h'
+              contradiction },
+            show j = i by {
+              push_neg at h
+              rw [he]
+              rw [show new_table.data.length = zarray.table.data.length + 1 from Array.size_push zarray.table z] at hb'
+              linarith }
+          ]
           exact hz
         ⟩
 
