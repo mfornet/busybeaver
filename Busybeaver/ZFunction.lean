@@ -12,7 +12,7 @@ def longest (as : List α) (p : List α → Prop) : Prop :=
   p as ∧ ∀ x, p x → x.length ≤ as.length
 
 lemma is_prefix_eq [BEq α] (as bs: List α) (hp : bs <+: as) (hb : i < bs.length) :
-  as[i]'(hb.trans_le hp.length_le) = bs[i] := by
+    as[i]'(hb.trans_le hp.length_le) = bs[i] := by
   exact Eq.symm (List.IsPrefix.getElem hp hb)
 
 def slice (as : List α) (start size : ℕ) : List α :=
@@ -29,7 +29,7 @@ structure PartialZArray [BEq α] (as : Array α) where
 def PartialZArray.init [BEq α] (as : Array α) : PartialZArray as :=
   let table := (Array.mkEmpty as.size).push as.size
   let he : table = #[as.size] := rfl
-  ⟨table, (by
+  ⟨table, by
     rw [he]
     intro i b
     simp at b
@@ -41,7 +41,7 @@ def PartialZArray.init [BEq α] (as : Array α) : PartialZArray as :=
     · intro x hp
       simp
       exact List.IsPrefix.length_le hp
-  )⟩
+  ⟩
 
 structure ZArray [BEq α] (as : Array α) where
   z_array : PartialZArray as
@@ -132,10 +132,10 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
               rw [h2]
 
               by_cases h3 : n = z
-              · have h4 : as.data[z] = as.data[n] := getElem_congr (id (Eq.symm h3))
-                have h5 : as.data[i + z] = as.data[i + n] := getElem_congr (congrArg (HAdd.hAdd i) (id (Eq.symm h3)))
+              · have h4 : as.data[z] = as.data[n] := getElem_congr h3.symm
+                have h5 : as.data[i + z] = as.data[i + n] := getElem_congr (congrArg (HAdd.hAdd i) h3.symm)
                 rw [← h4, ← h5]
-                exact id (Eq.symm he)
+                exact he.symm
               · push_neg at h3
                 have h4 : n < z := Nat.lt_of_le_of_ne hs h3
                 have h5 : n < (slice as.data i z).length := by
@@ -190,10 +190,10 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
               clear ht
 
               have ht : as.data[n] = (slice as.data i z ++ tail)[n]'(by
-                simp
-                rw [hz, h₆]
-                exact h₂) := by
-                  exact List.getElem_of_eq (id (Eq.symm hp')) h₂
+                  simp
+                  rw [hz, h₆]
+                  exact h₂) :=
+                List.getElem_of_eq hp'.symm h₂
               rw [ht]
               clear ht
 
@@ -220,7 +220,7 @@ def loop_extend [BEq α] [DecidableEq α] (as: Array α) (i z : ℕ) (hp : (slic
               clear ht
 
               rw [List.getElem_append_right (slice as.data i z) tail (by push_neg; rw [hz]; linarith)]
-              exact getElem_congr (congrArg (HSub.hSub n) (id (Eq.symm hz)))
+              exact getElem_congr (congrArg (HSub.hSub n) (hz.symm))
         ) b
       else
         {z := z, h := by
@@ -424,7 +424,7 @@ def z_function [BEq α] [DecidableEq α] (as : Array α) : ZArray as :=
   if he : 0 = as.size
     then ZArray.empty as he
   else
-    loop_build_table (as.size - 1) 1 1 1 (PartialZArray.init as) (rfl) (by trivial) (by trivial) (Nat.succ_pred_eq_of_ne_zero fun a ↦ he (id (Eq.symm a))) (Nat.one_le_iff_ne_zero.mpr fun a ↦ he (id (Eq.symm a))) (by trivial) (by unfold slice; simp) (by trivial)
+    loop_build_table (as.size - 1) 1 1 1 (PartialZArray.init as) rfl (by trivial) (by trivial) (Nat.succ_pred_eq_of_ne_zero fun a ↦ he a.symm) (Nat.one_le_iff_ne_zero.mpr fun a ↦ he a.symm) (by trivial) (by unfold slice; simp) (by trivial)
 
 #eval! (z_function #[1, 2, 1, 2, 1, 2, 3, 1, 2, 1, 3]).z_array.table
 
