@@ -373,7 +373,7 @@ def decide (M: Machine l s) (q: Label l): (∃L, M.ZVisits q L) ∨ (¬M.halts �
     have hcurcard: cur.card < l + 1 := by calc cur.card
       _ < (Finset.univ (α:=Label l)).card := Finset.card_lt_card hcur'
       _ = l + 1 := by simp
-    apply absurd hcurcard
+    absurd hcurcard
     simp
     exact Nat.le_of_eq _h.symm
   }

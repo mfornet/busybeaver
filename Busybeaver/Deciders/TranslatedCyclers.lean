@@ -431,7 +431,7 @@ def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick
     | [] => by { -- Contradiction by the first if
       exfalso
       simp at hlr
-      apply absurd hlr
+      absurd hlr
       exact List.ne_nil_of_mem hq
     }
     | head :: tail =>

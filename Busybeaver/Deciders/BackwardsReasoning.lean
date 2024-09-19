@@ -17,7 +17,7 @@ theorem halting_trans.all_unreachable {M: Machine l s} (h: ∀T ∈ M.halting_tr
 by {
   intro ⟨n, C, Clast, Creach⟩
   unfold unreachable_trans at h
-  apply absurd Creach
+  absurd Creach
   apply h (C.state, C.tape.head)
   · simp [halting_trans]
     simp [LastState] at Clast
