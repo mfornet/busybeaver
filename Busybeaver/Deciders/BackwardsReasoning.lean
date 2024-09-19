@@ -121,11 +121,6 @@ def backward_step (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConf
   Finset.eraseNone.toFun <|
     Finset.univ (α:=Label l × Symbol s) |>.image (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
 
-unsafe def startCfg := Quot.unquot tmpMach.symbolic_halting.val |>.get! 0
-unsafe def nxtCfg := Quot.unquot (backward_step tmpMach startCfg).val |>.get! 0
-
-#eval backward_step tmpMach nxtCfg
-
 def SymbolicConfig.matchesConfig (C: SymbolicConfig l s) (C': Config l s): Prop :=
   C.state == C'.state ∧ (∀i, C.tape.val.nth i = ⊤ ∨ C.tape.val.nth i = C'.tape.nth i)
 
@@ -241,7 +236,12 @@ def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
   let rec loop (n: ℕ) (cfg: SymbolicConfig l s): Bool :=
     match n with
     | 0 => .false
-    | n + 1 => Finset.all (backward_step M cfg) (λ C ↦ loop n C)
+    | n + 1 => 
+      if cfg.state = 0 ∧ cfg.tape.head = 0 then
+        dbg_trace "Reached starting configuration"
+        .false
+      else
+        Finset.all (backward_step M cfg) (λ C ↦ loop n C)
   if h: Finset.all M.symbolic_halting (loop bound) then
     .loops_prf (by {
       simp at h
