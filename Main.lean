@@ -1,9 +1,11 @@
 import Busybeaver
 import Busybeaver.Basic
 import Busybeaver.Problem
+
 import Busybeaver.Deciders.Cyclers
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.TranslatedCyclers
+
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Parse
 
@@ -33,16 +35,19 @@ open Lean
 inductive DeciderConfig where
 | translatedCycler : ℕ → DeciderConfig
 | cycler : ℕ → DeciderConfig
+| explore : ℕ → DeciderConfig
 deriving FromJson, ToJson
 
 instance: ToString DeciderConfig where
   toString := λ
   | .translatedCycler n => s!"Translated cycler {n}"
   | .cycler n => s!"Cycler {n}"
+  | .explore n => s!"Explore {n}"
 
 def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
 | .translatedCycler n => do let _ ← translatedCyclerDecider n M
 | .cycler n => looperDecider n M
+| .explore n => boundedExplore n M
 
 @[inline]
 def toDecider (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
