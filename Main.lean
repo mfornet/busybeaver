@@ -25,7 +25,7 @@ inductive DeciderConfig where
 | translatedCycler : ℕ → DeciderConfig
 | cycler : ℕ → DeciderConfig
 | explore : ℕ → DeciderConfig
-| backwardReasoning : ℕ → DeciderConfig
+| backwardsReasoning : ℕ → DeciderConfig
 deriving FromJson, ToJson
 
 instance: ToString DeciderConfig where
@@ -33,13 +33,13 @@ instance: ToString DeciderConfig where
   | .translatedCycler n => s!"Translated cycler {n}"
   | .cycler n => s!"Cycler {n}"
   | .explore n => s!"Explore {n}"
-  | .backwardReasoning n => s!"Backward Reasoning {n}"
+  | .backwardsReasoning n => s!"Backwards Reasoning {n}"
 
 def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
 | .translatedCycler n => do let _ ← translatedCyclerDecider n M
 | .cycler n => looperDecider n M
 | .explore n => boundedExplore n M
-| .backwardReasoning n => backwardsReasoningDecider n M
+| .backwardsReasoning n => backwardsReasoningDecider n M
 
 @[inline]
 def toDecider (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
@@ -61,7 +61,7 @@ def configFromFile (path: String): IO (Option <| List DeciderConfig) := do
 def defaultConfig: List DeciderConfig := [
   .translatedCycler 200,
   .cycler 100,
-  .backwardReasoning 100,
+  .backwardsReasoning 100,
 ]
 
 def determineConfig: (Option String) → IO (List DeciderConfig)
