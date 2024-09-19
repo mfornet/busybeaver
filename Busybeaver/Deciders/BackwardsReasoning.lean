@@ -134,19 +134,19 @@ by {
   · simp [Turing.Dir.other, Turing.Tape.move] at h
     specialize hCC't 1
     simp [Turing.Tape.nth] at hCC't
-    rcases hCC't with _ | heq
-    · refine absurd ?_ h.2
-      trivial
-    · refine absurd ?_ h.1
+    rcases hCC't with heq | heq
+    · absurd h.2
+      exact heq
+    · absurd h.1
       rw [heq, hC't]
       simp [Turing.Tape.move, Turing.Tape.write]
   · simp [Turing.Dir.other, Turing.Tape.move] at h
-    specialize hCC't (Int.negSucc 0)
+    specialize hCC't (.negSucc 0)
     simp [Turing.Tape.nth] at hCC't
-    rcases hCC't with _ | heq
-    · refine absurd ?_ h.2
-      trivial
-    · refine absurd ?_ h.1
+    rcases hCC't with heq | heq
+    · absurd h.2
+      exact heq
+    · absurd h.1
       rw [heq, hC't]
       simp [Turing.Tape.move, Turing.Tape.write]
 }

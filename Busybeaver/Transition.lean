@@ -32,9 +32,11 @@ by {
   intro ⟨n, C, Clast, Creach⟩
 
   simp [Machine.LastState] at Clast
+
+  simp at h
   simp [Machine.trans_unreachable_from, Machine.trans_reachable_from] at h
 
-  specialize h C.state C.tape.head Clast C n Creach
+  specialize h _ _ Clast C n Creach
 
   simp at h
 }
