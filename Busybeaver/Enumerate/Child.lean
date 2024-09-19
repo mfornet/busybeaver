@@ -4,7 +4,7 @@ A definition of an order for turing machines.
 import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Problem
-import Busybeaver.Deciders.BackwardsReasoning
+import Busybeaver.Transition
 
 namespace TM.Machine
 

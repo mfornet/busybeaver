@@ -1,5 +1,8 @@
 import Busybeaver.Basic
 import Busybeaver.Reachability
+
+import Busybeaver.Transition
+
 import Busybeaver.ClosedSet
 import Busybeaver.Enumerate.Child
 import Busybeaver.Enumerate.Basic
@@ -7,7 +10,6 @@ import Busybeaver.Enumerate.Symmetry
 import Busybeaver.Enumerate.Translate
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Quotient
-import Busybeaver.Deciders.BackwardsReasoning
 
 import Mathlib.Algebra.BigOperators.Group.Finset
 

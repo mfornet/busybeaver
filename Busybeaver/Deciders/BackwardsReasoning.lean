@@ -1,33 +1,11 @@
 import Busybeaver.Basic
 import Busybeaver.Reachability
+import Busybeaver.Transition
 
 -- TODO: remove
 import Busybeaver.Parse
 
 namespace TM.Machine
-
-/--
-Holds when the machine cannot take the transition.
--/
-def unreachable_trans (M: Machine l s) (lab: Label l) (sym: Symbol s) (A: Config l s) :=
-  ∀ (n: ℕ) (C: Config l s), C.state = lab → C.tape.head = sym → ¬(A -[M]{n}-> C)
-
-/--
-If none of the halting transitions are reachable, then the machine does not halt.
--/
-theorem halting_trans.all_unreachable {M: Machine l s} (h: ∀T ∈ M.halting_trans, M.unreachable_trans T.1 T.2 default):
-  ¬(M.halts default) :=
-by {
-  intro ⟨n, C, Clast, Creach⟩
-  unfold unreachable_trans at h
-  absurd Creach
-  apply h (C.state, C.tape.head)
-  · simp [halting_trans]
-    simp [LastState] at Clast
-    exact Clast
-  · rfl
-  · rfl
-}
 
 /-- Underspecified tape for backward steps -/
 abbrev SymbolicTape s := Turing.Tape (WithTop (Symbol s))
@@ -175,9 +153,8 @@ by {
 
 theorem backward_step.unreachable {C: SymbolicConfig l s} {sym: Symbol s}
   (h: backward_step M C = ∅):
-  unreachable_trans M C.state C.tape.head A :=
+  M.trans_reachable_from C.state C.tape.head A :=
 by {
-  intro n C' hCs hCh hdC'
   sorry
 }
 
@@ -212,45 +189,36 @@ def Finset.all (S: Finset α): (α → Bool) → Bool := Multiset.all S.val
 lemma Finset.all.true {S: Finset α}: Finset.all S f = true ↔ ∀ a ∈ S, f a = true :=
   by simp [Finset.all]
 
-lemma halting_trans.empty_loops {M: Machine l s} (h: M.halting_trans = ∅): ¬(M.halts default) :=
-by {
-  apply all_unreachable
-  simp [h]
-}
-
-lemma halting_trans.eq_zero_nonhalts {M: Machine l s} (hM: M.n_halting_trans = 0): ¬M.halts default := by {
-  simp [Machine.n_halting_trans] at hM
-  exact empty_loops hM
-}
-
 def backwardReason (bound: ℕ) (M: Machine l s) (C: SymbolicConfig l s): Bool :=
 match bound with
 | 0 => .false
 | n + 1 => Finset.all (backward_step M C) (λ C ↦ backwardReason n M C)
+
+theorem backwardReason.correct (h: backwardReason bound M C = true): M.trans_unreachable_from C.state C.tape.head A :=
+by {
+  sorry
+}
 
 end Machine
 
 open Machine
 
 def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
-  let rec loop (n: ℕ) (cfg: SymbolicConfig l s): Bool :=
-    match n with
-    | 0 => .false
-    | n + 1 => 
-      if cfg.state = 0 ∧ cfg.tape.head = 0 then
-        dbg_trace "Reached starting configuration"
-        .false
-      else
-        Finset.all (backward_step M cfg) (λ C ↦ loop n C)
-  if h: Finset.all M.symbolic_halting (loop bound) then
+  if h: Finset.all M.symbolic_halting (backwardReason bound M) then
     .loops_prf (by {
       simp at h
-      apply halting_trans.all_unreachable
+      apply Machine.halting_trans.all_unreachable
       intro ⟨lab, sym⟩ hls
       simp
       simp [halting_trans] at hls
 
-      sorry
+      let labTrans := (SymbolicConfig.from_trans lab sym)
+
+      simp [symbolic_halting] at h
+      specialize h labTrans lab sym hls
+      simp at h
+
+      exact backwardReason.correct h
     })
   else
     .unknown ()
