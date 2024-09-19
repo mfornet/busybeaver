@@ -6,7 +6,72 @@ namespace TM.Machine
 
 variable {M: Machine l s}
 
--- def equi_halts (M M': Machine l s) (c₁ c₂: Config l s): Prop := M.halts c₁ ↔ M'.halts c₂
+def swap [DecidableEq α] (q q': α) (lab: α): α :=
+  if lab = q then q' else if lab = q' then q else lab
+
+namespace swap
+
+variable [DecidableEq α] {q q' lab: α}
+
+@[simp]
+lemma id: swap q q q' = q' :=
+by {
+  simp [swap]
+  split <;> simp_all
+}
+
+@[simp]
+lemma left: swap q q' q = q' :=
+by simp [swap]
+
+@[simp]
+lemma right: swap q q' q' = q :=
+by simp [swap]
+
+@[simp]
+lemma swap_swap: swap q q' (swap q q' lab) = lab :=
+  by {
+    by_cases hq: q = q' <;> {
+      simp [swap]
+      repeat split <;> simp_all
+    }
+  }
+
+lemma involutive: Function.Involutive (swap q q') :=
+by {
+  intro x
+  exact swap_swap
+}
+
+@[simp]
+lemma left_eq: swap q q' lab = q ↔ lab = q' :=
+by {
+  simp [swap]
+  split
+  · simp_all
+    exact eq_comm
+  split
+  · simp_all
+  · simp_all
+}
+
+@[simp]
+lemma right_eq: swap q q' lab = q' ↔ lab = q :=
+by {
+  by_cases hqq: q = q'
+  · simp_all
+  simp [swap]
+  split <;> simp_all
+}
+
+@[simp]
+lemma ne (hq: lab ≠ q) (hq': lab ≠ q'): swap q q' lab = lab :=
+by {
+  simp [swap]
+  repeat split <;> simp_all
+}
+
+end swap
 
 def equi_halts (α β: (Machine l s × Config l s)): Prop := α.1.halts α.2 ↔ β.1.halts β.2
 notation α " =H " β => equi_halts α β

@@ -5,7 +5,6 @@ We prove here that translated machine are equivalent to their original (through 
 -/
 import Busybeaver.Basic
 import Busybeaver.Enumerate.Basic
-import Busybeaver.Enumerate.Perm
 
 open TM.Machine
 
