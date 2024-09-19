@@ -549,9 +549,9 @@ inductive HaltM {l s: ℕ} (M: TM.Machine l s) (α: Type u)
 | unknown: α → HaltM M α
 | halts_prf n C : M.LastState C ∧ (default -[M]{n}-> C) → HaltM M α
 | loops_prf : ¬(M.halts init) → HaltM M α
-deriving Repr
 
 namespace HaltM
+
 variable {l s: ℕ}
 
 instance (M: TM.Machine l s): Monad (HaltM M) where

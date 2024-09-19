@@ -75,17 +75,11 @@ variable {l s: ℕ }
 section PrettyPrint
 open Std.Format Lean
 
-private def right_repr (l: Turing.ListBlank (Symbol s)) (bound: ℕ): List Format := match bound with
-| 0 => []
-| n + 1 => repr l.head :: (right_repr l.tail n)
-
-private def left_repr (l: Turing.ListBlank (Symbol s)) (bound: ℕ): List Format := match bound with
-| 0 => []
-| n + 1 => left_repr l.tail n ++ [repr l.head]
-
--- TODO: maybe a smarter way to define it will be needed
-instance: Repr (Config l s) := ⟨λ cfg _ ↦
-  Std.Format.joinSep (left_repr cfg.tape.left 10) " " ++ s!" {cfg.state}>{cfg.tape.head} " ++ Std.Format.joinSep (right_repr cfg.tape.right 10) " "⟩
+unsafe instance: Repr (Config l s) := ⟨λ cfg _ ↦
+  let leftRepr := Quot.unquot cfg.tape.left |>.reverse.map repr
+  let rightRepr := Quot.unquot cfg.tape.right |>.map repr
+  Std.Format.joinSep leftRepr " " ++ s!" {cfg.state}>{cfg.tape.head} " ++ Std.Format.joinSep
+  rightRepr " "⟩
 
 instance: Repr (Stmt l s) where
   reprPrec := λ s _ ↦ match s with
