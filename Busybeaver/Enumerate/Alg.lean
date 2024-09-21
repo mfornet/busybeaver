@@ -196,10 +196,10 @@ def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match 
 | .halts_prf n _ _ => { val := n, undec := {}}
 | .loops_prf _ => {val := 0, undec := {}}
 
-private def used_states (M: Machine l s): (Finset (Label l)) :=
+def used_states (M: Machine l s): (Finset (Label l)) :=
   Finset.univ (α:=Label l) |>.filter (λ l ↦ (∃sym, M l sym ≠ .halt) ∨ (∃ lab sym sym' dir, M lab sym = .next sym' dir l))
 
-private lemma used_states.mono (h: A.state ∈ used_states M) (hAB: A -[M]{n}-> B): B.state ∈ used_states M :=
+lemma used_states.mono (h: A.state ∈ used_states M) (hAB: A -[M]{n}-> B): B.state ∈ used_states M :=
 by induction hAB with
 | refl => exact h
 | @succ A B _ _ hAB _ IH => {
@@ -213,7 +213,7 @@ by induction hAB with
   exists dir
 }
 
-private lemma used_states.mono_default (h: default ∈ used_states M) (hAB: default -[M]{n}-> B):
+lemma used_states.mono_default (h: default ∈ used_states M) (hAB: default -[M]{n}-> B):
 B.state ∈ used_states M :=
 by {
   simp [default] at *
@@ -222,10 +222,10 @@ by {
   exact h
 }
 
-private def used_symbols (M: Machine l s): Finset (Symbol s) :=
+def used_symbols (M: Machine l s): Finset (Symbol s) :=
   Finset.univ (α:=Symbol s) |>.filter (λ s ↦ (∃lab, M lab s ≠ .halt) ∨ (∃lab sym dir lab', M lab sym = .next s dir lab'))
 
-private lemma used_symbols.mono (hA: ∀ i, A.tape.nth i ∈ used_symbols M) (hAB: A -[M]{n}-> B): ∀ j, B.tape.nth j ∈ used_symbols M :=
+lemma used_symbols.mono (hA: ∀ i, A.tape.nth i ∈ used_symbols M) (hAB: A -[M]{n}-> B): ∀ j, B.tape.nth j ∈ used_symbols M :=
 by induction hAB with
 | refl => exact hA
 | @succ A B _ _ hAB _ IH => {
@@ -248,7 +248,7 @@ by induction hAB with
     · exact hA (i + 1)
 }
 
-private lemma used_symbols.mono_default (h: default ∈ used_symbols M) (hB: default -[M]{n}-> B):
+lemma used_symbols.mono_default (h: default ∈ used_symbols M) (hB: default -[M]{n}-> B):
 B.tape.head ∈ used_symbols M := by {
   simp [default] at *
   refine used_symbols.mono ?_ hB 0
@@ -257,17 +257,17 @@ B.tape.head ∈ used_symbols M := by {
   split <;> exact h
 }
 
-private def usable_states (M: Machine l s): Finset (Label l) :=
+def usable_states (M: Machine l s): Finset (Label l) :=
   used_states M ∪ if hM: (Finset.univ \ used_states M).Nonempty then {(Finset.univ \ (used_states M)).min' hM} else ∅
 
-private def usable_symbols (M: Machine l s): Finset (Symbol s) :=
+def usable_symbols (M: Machine l s): Finset (Symbol s) :=
   used_symbols M ∪ if hM: (Finset.univ \ used_symbols M).Nonempty then {(Finset.univ \ (used_symbols M)).min' hM} else ∅ 
 
-private def possible_statements (M: Machine l s): Finset (Stmt l s) :=
+def possible_statements (M: Machine l s): Finset (Stmt l s) :=
   usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image
     λ ⟨sym, dir, lab⟩ ↦ .next sym dir lab
 
-private lemma possible_statements.all_next {M: Machine l s}:
+lemma possible_statements.all_next {M: Machine l s}:
   ∀ S ∈ possible_statements M, ∃ sym dir lab, S = .next sym dir lab :=
 by {
   intro S hS
@@ -276,10 +276,10 @@ by {
   use sym, state, dir, hS.2.symm
 }
 
-private def update_with (M: Machine l s) (lab: Label l) (sym: Symbol s) (S: Stmt l s): Machine l s :=
+def update_with (M: Machine l s) (lab: Label l) (sym: Symbol s) (S: Stmt l s): Machine l s :=
   λ lab' sym' ↦ if lab' = lab ∧ sym' = sym then S else M lab' sym'
 
-private lemma update_with.le_halt_trans {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
+lemma update_with.le_halt_trans {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
   (update_with M lab sym (.next sym' dir lab')).n_halting_trans = M.n_halting_trans - 1:=
 by {
   simp [Machine.n_halting_trans]
@@ -297,19 +297,19 @@ by {
   · simp_all
 }
 
-private lemma update_with.le_halt_trans' {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt) (hS: S = .next sym' dir lab'):
+lemma update_with.le_halt_trans' {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt) (hS: S = .next sym' dir lab'):
   (update_with M lab sym S).n_halting_trans = M.n_halting_trans - 1:=
 by {
   rw [hS]
   exact update_with.le_halt_trans h
 }
 
-private def next_machines (M: Machine l s) (lab: Label l) (sym: Symbol s): Finset (Machine l s) :=
+def next_machines (M: Machine l s) (lab: Label l) (sym: Symbol s): Finset (Machine l s) :=
   usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image
     λ ⟨S, D, L⟩ ↦ update_with M lab sym (.next S D L)
 
 @[simp]
-private lemma next_machines.halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
+lemma next_machines.halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
   ∀ M' ∈ next_machines M lab sym, M'.n_halting_trans = M.n_halting_trans - 1 :=
 by {
   intro M' hM'

@@ -8,6 +8,7 @@ import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.TranslatedCyclers
 
 import Busybeaver.Enumerate.Alg
+import Busybeaver.Enumerate.Impl
 import Busybeaver.Parse
 
 import Busybeaver.SpaceTimeDiagram

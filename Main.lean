@@ -13,11 +13,9 @@ instance: ToString (HaltM M α) where
   | .halts_prf n _ _ => s!"halts in {n + 1}"
 
 def compute (l s: ℕ) (dec: (M: Machine l s) → HaltM M Unit): Busybeaver.BBResult l s :=
-  let res0 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute dec (Busybeaver.BBCompute.m0RB l s)))
-  let res1 := Task.spawn (λ _ ↦ (Busybeaver.BBCompute dec (Busybeaver.BBCompute.m1RB l s)))
-  Busybeaver.BBResult.join res0.get res1.get
-
-axiom task_correct {α: Type} {f: Unit → α}: (Task.spawn f |>.get) = f ()
+  let res0 := Busybeaver.BBCompute dec (Busybeaver.BBCompute.m0RB l s)
+  let res1 := Busybeaver.BBCompute dec (Busybeaver.BBCompute.m1RB l s)
+  Busybeaver.BBResult.join res0 res1
 
 section DeciderCombinator
 
@@ -155,7 +153,7 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
     if hcomp: comp.undec = ∅ then
       have _: comp.val = Busybeaver l s := by {
         simp [comp] at *
-        simp [compute, task_correct]
+        simp [compute]
         exact Eq.symm (Busybeaver.BBCompute.correct_complete hl hcomp)
       }
       IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
