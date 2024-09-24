@@ -104,3 +104,42 @@ def pmachine: Parsec MParseRes := attempt do
     }
   else
     fail s!"Not all states have the same number of statements"
+
+section MachNotation
+
+open Lean Meta Elab Term
+
+instance: ToExpr (Label l) := inferInstance
+instance: ToExpr (Symbol l) := inferInstance
+instance: ToExpr Turing.Dir where
+  toExpr D := Expr.const (match D with
+  | Turing.Dir.right => ``Turing.Dir.right
+  | Turing.Dir.left => ``Turing.Dir.left) []
+
+  toTypeExpr := Expr.const ``Turing.Dir []
+
+instance [inst: ToExpr α]: ToExpr (List α) where
+  toExpr := λ
+    | .nil => Expr.const ``List.nil []
+    | .cons head tail => mkApp2 (Expr.const ``List.cons []) (toExpr head) (toExpr tail)
+  toTypeExpr := mkApp (Expr.const ``List []) inst.toTypeExpr
+
+instance: ToExpr (Stmt l s) where
+  toExpr := λ
+    | .halt => mkApp2 (Expr.const ``Stmt.halt []) (mkNatLit l) (mkNatLit s)
+    | .next sym dir lab => mkApp5 (Expr.const ``Stmt.next []) (mkNatLit l) (mkNatLit s) (toExpr sym) (toExpr dir) (toExpr lab)
+  toTypeExpr := mkApp2 (Expr.const ``Stmt []) (mkNatLit l) (mkNatLit s)
+
+elab "mach[" content:str "]" : term => do
+  let ⟨l, s, M⟩ := pmachine.run content.getString |>.toOption.get!
+  let values : List <| List <| Stmt l s :=
+    Fin.list (l + 1) |>.map λ L ↦ Fin.list (s + 1) |>.map λ S ↦ M L S
+  let valE : Expr := toExpr values
+  let lE : Expr := mkNatLit l
+  let sE : Expr := mkNatLit s
+  let stx: Syntax ← `(
+    fun (lab: Label $(← exprToSyntax lE)) (sym: Symbol $(← exprToSyntax sE)) ↦
+      ($(← exprToSyntax valE):term)[lab]![sym]!
+  )
+  elabTerm stx <| .some <| mkApp2 (.const ``Machine []) lE sE
+end MachNotation
