@@ -407,6 +407,9 @@ instance: Trans M.EvStep M.Progress M.Progress where
     }
   }
 
+/--
+Holds if `M` halts in _exactly_ `n` steps from `A`
+-/
 def Machine.halts_in (M: Machine l s) (n: ℕ) (A: Config l s): Prop := ∃ C, M.LastState C ∧ A -[M]{n}-> C
 
 def Machine.halts (M: Machine l s) (A: Config l s): Prop := ∃ n, M.halts_in n A
@@ -500,6 +503,45 @@ lemma split (hM: M.halts_in n A) (hn: k ≤ n): ∃B, A -[M]{k}-> B :=
 by {
   obtain ⟨C, _, hC⟩ := hM
   exact hC.get_prefix hn
+}
+
+instance decidable: Decidable (M.halts_in n A) :=
+by induction n generalizing A with
+| zero => {
+  apply decidable_of_iff (M.LastState A)
+  constructor
+  · intro hA
+    use A, hA, .refl
+  · intro ⟨C, Cl, Cr⟩
+    cases Cr
+    exact Cl
+}
+| succ n IH => {
+  match hM: M.step A with
+  | none => {
+    apply isFalse
+    intro ⟨C, Cl, Cr⟩
+    absurd Cr
+
+    rw [Machine.step.none] at hM
+
+    apply no_multistep
+    simp [LastState]
+    exact hM
+  }
+  | some B => {
+    apply decidable_of_iff <| M.halts_in n B
+    constructor
+    · intro hB
+      rw [Nat.add_comm]
+      exact halts_in.orders hB <| Multistep.single hM
+    · intro ⟨C, Cl, Cr⟩
+      cases Cr
+      rename_i B' hB hBC
+      rw [hM] at hB
+      cases hB
+      use C
+  }
 }
 
 end Machine.halts_in
