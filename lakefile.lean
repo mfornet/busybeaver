@@ -22,6 +22,9 @@ lean_lib «Busybeaver» where
   moreLeancArgs := #["-g"]
   -- add any library configuration options here
 
+lean_exe «gfunc» where
+  root := `bin.GFunction
+
 private def gitConfig (opt val: String): IO Unit := do
   let _ ← IO.Process.run {
     cmd := "git",
