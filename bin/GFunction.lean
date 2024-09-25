@@ -1,7 +1,6 @@
 import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Alg
-import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Parse
 
 /-!
@@ -65,15 +64,13 @@ decreasing_by {
   exact Nat.sub_one_lt_of_lt hMn
 }
 
-unsafe def get_max (n: ℕ) (M: Machine l s): (ℕ × Machine l s) :=
-  let unquot := Quot.unquot <| compute n M
-  unquot.foldl (λ (n, M) (nA, MA) ↦ if n > nA then (n, M) else (nA, MA)) (0, default)
-
-unsafe def main : List String →  IO Unit
+unsafe def main : List String → IO Unit
 | bound :: mach :: _ => do
     let .some n := bound.toNat? | throw <| IO.userError "Failed to parse bound"
     let .success _ ⟨_, _, M⟩ := TM.Parse.pmachine mach.iter | throw <| IO.userError "Failed to parse machine"
+
     let res := Quot.unquot <| compute n M
     for (n, mach) in res.mergeSort (λ (n, _) (k, _) ↦ n ≤ k) do
       IO.println s!"{repr mach}: {n}"
+
 | _ => throw <| IO.userError "Not enough arguments: ./gfunc <bound> <root machine>"
