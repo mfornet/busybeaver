@@ -38,7 +38,7 @@ instance: ToString DeciderConfig where
 def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
 | .translatedCycler n => do let _ ← translatedCyclerDecider n M
 | .cycler n => looperDecider n M
-| .explore n => boundedExplore n M
+| .explore n => do let _ ← boundedExplore n M
 | .backwardsReasoning n => backwardsReasoningDecider n M
 
 @[inline]

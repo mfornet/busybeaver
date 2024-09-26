@@ -1,9 +1,18 @@
 import Busybeaver.Basic
 import Busybeaver.Reachability
 import Busybeaver.Transition
+import Busybeaver.Deciders.BoundExplore
 
 -- TODO: remove
 import Busybeaver.Parse
+
+/-!
+Backwards reasonning.
+
+Here again, this is heavily inspired by busycoq.
+https://github.com/meithecatte/busycoq/blob/master/verify/BackwardsReasoning.v
+-/
+
 
 namespace TM.Machine
 
@@ -60,6 +69,9 @@ unsafe instance: Repr (SymbolicConfig l s) := ⟨λ cfg _ ↦
 
 end PrettyPrint
 
+def SymbolicConfig.matchesConfig (C: SymbolicConfig l s) (C': Config l s): Prop :=
+  C.state == C'.state ∧ (∀i, C.tape.val.nth i = ⊤ ∨ C.tape.val.nth i = C'.tape.nth i)
+
 def SymbolicConfig.from_trans (lab: Label l) (sym: Symbol s): SymbolicConfig l s := {
   state := lab,
   tape := ⟨{ head := sym, left := default, right := default }, by simp⟩
@@ -68,7 +80,29 @@ def SymbolicConfig.from_trans (lab: Label l) (sym: Symbol s): SymbolicConfig l s
 def symbolic_halting (M: Machine l s): Finset (SymbolicConfig l s) :=
   M.halting_trans.image λ ⟨lab, sym⟩ ↦ SymbolicConfig.from_trans lab sym
 
-def tmpMach: Machine 4 1 := mach["1RB0LD_1LC0RE_---1LD_1LA1LD_1RA0RA"]
+lemma symbolic_halting.is_last_state {M: Machine l s} {C: Config l s} (hC: M.LastState C):
+  (SymbolicConfig.from_trans C.state C.tape.head) ∈ symbolic_halting M :=
+by {
+  simp [symbolic_halting]
+  use C.state, C.tape.head
+  constructor
+  · simp [LastState] at hC
+    exact hC
+  · rfl
+}
+
+@[simp]
+lemma SymbolicConfig.from_trans.matches {C: Config l s}:
+  SymbolicConfig.from_trans C.state C.tape.head |>.matchesConfig C :=
+by {
+  unfold from_trans
+  constructor
+  · simp only [beq_self_eq_true]
+  · simp only
+    intro i
+    simp [Turing.Tape.nth]
+    split <;> tauto
+}
 
 /--
 Tries to apply `M L S` backwards if possible, returning the resulting symbolic configuration.
@@ -95,12 +129,69 @@ def matchingConfig? (M: Machine l s) (C: SymbolicConfig l s) (L: Label l) (S: Sy
       -- This is BR contradiction case
       .none
 
+
+lemma matchingConfig?.correct {C C': Config l s} {Cs: SymbolicConfig l s}
+  (hC: C -[M]-> C') (hC': Cs.matchesConfig C'): ∃C₀ ∈ matchingConfig? M Cs C.state C.tape.head, C₀.matchesConfig C :=
+by {
+  obtain ⟨sym, dir, hM, hCt⟩ := Machine.step.some_rev hC
+  obtain ⟨Csh, Cst⟩ := hC'
+  simp at Csh
+  simp [matchingConfig?, hM, Csh]
+  conv =>
+    pattern (_ ∧ _) ∧ _
+    rw [
+      and_assoc
+    ]
+  simp
+  constructor
+  · cases dir
+    · simp [Turing.Dir.other, Turing.Tape.move]
+      simp [Turing.Tape.move] at hCt
+      specialize Cst 1
+      simp [Turing.Tape.nth] at Cst
+      rcases Cst with Cst | Cst
+      · right
+        exact Cst
+      · left
+        rw [hCt] at Cst
+        simp [Turing.Tape.write] at Cst
+        exact Cst
+    · simp [Turing.Dir.other, Turing.Tape.move]
+      simp [Turing.Tape.move] at hCt
+      specialize Cst (.negSucc 0)
+      simp [Turing.Tape.nth] at Cst
+      rcases Cst with Cst | Cst
+      · right
+        exact Cst
+      · left
+        rw [hCt] at Cst
+        simp [Turing.Tape.write] at Cst
+        exact Cst
+  · constructor
+    · simp
+    · simp
+      intro i
+      split
+      · rename_i heq
+        cases heq
+        simp
+      · rename_i heq
+        cases dir
+        · simp [Turing.Dir.other]
+          rw [hCt] at Cst
+          specialize Cst (i + 1)
+          simp [hCt, heq] at Cst
+          exact Cst
+        · simp [Turing.Dir.other]
+          rw [hCt] at Cst
+          specialize Cst (i - 1)
+          simp [hCt, heq] at Cst
+          exact Cst
+}
+
 def backward_step (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConfig l s):=
   Finset.eraseNone.toFun <|
     Finset.univ (α:=Label l × Symbol s) |>.image (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
-
-def SymbolicConfig.matchesConfig (C: SymbolicConfig l s) (C': Config l s): Prop :=
-  C.state == C'.state ∧ (∀i, C.tape.val.nth i = ⊤ ∨ C.tape.val.nth i = C'.tape.nth i)
 
 lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matchesConfig C'): ¬(A -[M]-> C') :=
 by {
@@ -151,11 +242,15 @@ by {
       simp [Turing.Tape.move, Turing.Tape.write]
 }
 
-theorem backward_step.unreachable {C: SymbolicConfig l s} {sym: Symbol s}
-  (h: backward_step M C = ∅):
-  M.trans_reachable_from C.state C.tape.head A :=
+lemma backward_step.correct {C C': Config l s} {Cs: SymbolicConfig l s}
+  (hC: C -[M]-> C') (hC': Cs.matchesConfig C'): ∃C₀ ∈ backward_step M Cs, C₀.matchesConfig C :=
 by {
-  sorry
+  simp [backward_step]
+  obtain ⟨C₀, hC₀⟩ := matchingConfig?.correct hC hC'
+  use C₀
+  constructor
+  · use C.state, C.tape.head, hC₀.1
+  · exact hC₀.2
 }
 
 def Multiset.all (S: Multiset α): (α → Bool) → Bool :=
@@ -194,31 +289,60 @@ match bound with
 | 0 => .false
 | n + 1 => Finset.all (backward_step M C) (λ C ↦ backwardReason n M C)
 
-theorem backwardReason.correct (h: backwardReason bound M C = true): M.trans_unreachable_from C.state C.tape.head A :=
+theorem backwardReason.correct {C C': Config l s} {Cs: SymbolicConfig l s}
+  (hCs: Cs.matchesConfig C') (hBw: backwardReason bound M Cs):
+  ¬C -[M]{bound}-> C' :=
 by {
-  sorry
+  intro hC
+  induction bound, M, Cs using backwardReason.induct generalizing C' with
+  | case1 => {
+    unfold backwardReason at hBw
+    cases hBw
+  }
+  | case2 M Cs₀ n IH => {
+    simp [backwardReason] at hBw
+    simp at hC
+    obtain ⟨C₀, hCC₀, hC₀⟩ := hC.split
+    apply Multistep.single' at hC₀
+
+    obtain ⟨Cbw, hCbwi, hCbwm⟩ := backward_step.correct hC₀ hCs
+
+    specialize hBw Cbw hCbwi
+    exact IH Cbw hCbwm hBw hCC₀
+  }
 }
 
 end Machine
 
 open Machine
 
-def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit :=
+def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit := do
+  let ⟨_, prf⟩ ← boundedExplore bound M
   if h: Finset.all M.symbolic_halting (backwardReason bound M) then
     .loops_prf (by {
-      simp at h
-      apply Machine.halting_trans.all_unreachable
-      intro ⟨lab, sym⟩ hls
-      simp
-      simp [halting_trans] at hls
-
-      let labTrans := (SymbolicConfig.from_trans lab sym)
-
-      simp [symbolic_halting] at h
-      specialize h labTrans lab sym hls
+      intro ⟨n, hCl⟩
       simp at h
 
-      exact backwardReason.correct h
+      have hn: bound ≤ n := halts_in.within hCl prf
+
+      obtain ⟨C, Cl, Cr⟩ := hCl
+
+      rw [
+        show n = (n - bound) + bound from
+          (Nat.sub_eq_iff_eq_add hn).mp rfl
+      ] at Cr
+
+      obtain ⟨Cp, _, hCont⟩ := Cr.split
+
+      let CsH := SymbolicConfig.from_trans C.state C.tape.head
+      have hCsH: CsH ∈ M.symbolic_halting := symbolic_halting.is_last_state Cl
+
+      specialize h CsH hCsH
+
+      apply backwardReason.correct (C':=C) (Cs:=CsH)
+      · exact SymbolicConfig.from_trans.matches
+      · exact h
+      · exact hCont
     })
   else
     .unknown ()
