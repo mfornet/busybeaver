@@ -189,9 +189,26 @@ by {
           exact Cst
 }
 
-def backward_step (M: Machine l s) (C: SymbolicConfig l s): Finset (SymbolicConfig l s):=
-  Finset.eraseNone.toFun <|
-    Finset.univ (α:=Label l × Symbol s) |>.image (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
+def backward_step (M: Machine l s) (C: SymbolicConfig l s): Multiset (SymbolicConfig l s):=
+    Finset.univ (α:=Label l × Symbol s) |>.val.filterMap (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
+
+@[simp]
+lemma Multiset.filterMap_zero {S: Multiset α}: (S.filterMap f = 0) ↔ ∀ a ∈ S, f a = .none :=
+by induction S using Multiset.induction_on with
+| empty => simp
+| cons a S IH => {
+  match fA: f a with
+  | .none => {
+    rw [Multiset.filterMap_cons_none _ _ fA]
+    simp [fA, IH]
+  }
+  | .some b => {
+    simp [Multiset.filterMap_cons_some _ _ _ fA]
+    intro hB
+    rw [fA] at hB
+    cases hB
+  }
+}
 
 lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matchesConfig C'): ¬(A -[M]-> C') :=
 by {
@@ -211,8 +228,9 @@ by {
     · cases this
 
     rename_i heq
-    specialize h A.state A.tape.head heq
-    cases h
+    specialize h A.state A.tape.head
+    rw [h] at heq
+    cases heq
   }
 
   simp [matchingConfig?, hM]
@@ -287,7 +305,7 @@ lemma Finset.all.true {S: Finset α}: Finset.all S f = true ↔ ∀ a ∈ S, f a
 def backwardReason (bound: ℕ) (M: Machine l s) (C: SymbolicConfig l s): Bool :=
 match bound with
 | 0 => .false
-| n + 1 => Finset.all (backward_step M C) (λ C ↦ backwardReason n M C)
+| n + 1 => Multiset.all (backward_step M C) (λ C ↦ backwardReason n M C)
 
 theorem backwardReason.correct {C C': Config l s} {Cs: SymbolicConfig l s}
   (hCs: Cs.matchesConfig C') (hBw: backwardReason bound M Cs):
