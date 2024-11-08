@@ -25,7 +25,7 @@ by use closed.closed, ⟨N, hN⟩, .refl
 
 lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
   intro ⟨final, hFinal⟩
-  induction final using Nat.caseStrongInductionOn generalizing I with
+  induction final using Nat.caseStrongRecOn generalizing I with
   | zero => {
     /-
     Assume that I is the final state.

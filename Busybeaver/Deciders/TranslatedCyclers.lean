@@ -450,8 +450,6 @@ def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick
   loopy [(q, ⊥)] L (by simp) (by simp) |>.map (λ ⟨(left, right), issum, ispref⟩ ↦ ⟨left, by {
     constructor
     · simp_all
-      rw [List.prefix_append_right_inj left]
-      exact ispref.1
     · exact ispref.2
   }⟩)
 

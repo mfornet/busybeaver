@@ -1028,7 +1028,7 @@ by {
       obtain ⟨left, right⟩ := h
       subst left right
       ext1
-      simp_all only [Fin.isValue, Fin.coe_fin_one]
+      simp_all only [Fin.isValue, Fin.val_eq_zero]
     next h => simp_all only [Fin.isValue, not_and, not_false_eq_true, implies_true, true_or]
 
   rename_i s

@@ -234,30 +234,25 @@ by {
   }
 
   simp [matchingConfig?, hM]
-  split
-  · simp
-  simp
-  rename_i h
-  simp at h
   cases dir
-  · simp [Turing.Dir.other, Turing.Tape.move] at h
+  · simp [Turing.Dir.other, Turing.Tape.move]
     specialize hCC't 1
     simp [Turing.Tape.nth] at hCC't
     rcases hCC't with heq | heq
-    · absurd h.2
+    · right
       exact heq
-    · absurd h.1
+    · left
       rw [heq, hC't]
-      simp [Turing.Tape.move, Turing.Tape.write]
-  · simp [Turing.Dir.other, Turing.Tape.move] at h
+      simp [Turing.Dir.other, Turing.Tape.write, Turing.Tape.move]
+  · simp [Turing.Dir.other, Turing.Tape.move]
     specialize hCC't (.negSucc 0)
     simp [Turing.Tape.nth] at hCC't
     rcases hCC't with heq | heq
-    · absurd h.2
+    · right
       exact heq
-    · absurd h.1
+    · left
       rw [heq, hC't]
-      simp [Turing.Tape.move, Turing.Tape.write]
+      simp [Turing.Dir.other, Turing.Tape.write, Turing.Tape.move]
 }
 
 lemma backward_step.correct {C C': Config l s} {Cs: SymbolicConfig l s}

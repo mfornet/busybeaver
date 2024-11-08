@@ -14,13 +14,13 @@ instance: Monad Task where
 
 def PARA_DEPTH: ℕ := 5
 
-lemma BBResult.join.rightcomm: RightCommutative (BBResult.join (l:=l) (s:=s)) := by {
-  intro A B C
-  simp [BBResult.join]
-  constructor
-  · exact Max.right_comm A.val B.val C.val
-  · exact add_right_comm A.undec B.undec C.undec
-}
+lemma BBResult.join.rightcomm: RightCommutative (BBResult.join (l:=l) (s:=s)) where
+  right_comm A B C := by {
+    simp [BBResult.join]
+    constructor
+    · exact Max.right_comm A.val B.val C.val
+    · exact add_right_comm A.undec B.undec C.undec
+  }
 
 def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
   Quotient.liftOn S (λ L ↦ List.waitAll L |>.map Quotient.mk'') (by {
@@ -32,10 +32,9 @@ def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
       simp [List.waitAll]
     }
     | @cons X L₁ L₂ hL IH => {
-      simp [List.waitAll]
+      simp [List.waitAll, Task.bind, Task.map]
       congr 1
-      rw [Quotient.eq'']
-      simp [List.isSetoid, Task.bind, Task.map]
+      simp
       injection IH
       rename_i heq
       exact Multiset.coe_eq_coe.mp heq
@@ -47,10 +46,9 @@ def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
       simp_all only
     }
     | @swap A B L => {
-      simp [List.waitAll]
+      simp [List.waitAll, Task.bind, Task.map]
       congr 1
-      rw [Quotient.eq'']
-      simp [List.isSetoid, Task.bind, Task.map]
+      simp
       exact List.Perm.swap A.get B.get L.waitAll.get
     }
   })
@@ -65,7 +63,6 @@ by {
   induction S using Quotient.inductionOn
   rename_i L
   simp [waitMultiset, Task.map]
-  congr 1
   induction L with
   | nil => {
     simp [List.waitAll]
@@ -85,7 +82,7 @@ def BBComputeP (decider: (M': Machine l s) → HaltM M' Unit) (M: Machine l s): 
         .pure { val := n, undec := {}}
       else if hMn': M.n_halting_trans > PARA_DEPTH then do
         let unquoted ← waitMultiset <| (next_machines M C.state C.tape.head).val.attach.map (λ M' ↦ loop M'.val)
-        return unquoted.foldl BBResult.join BBResult.join.rightcomm { val := n, undec := {} }
+        return unquoted.foldl BBResult.join { val := n, undec := {} }
       else
         Task.spawn <| λ _ ↦
           Finset.fold BBResult.join { val := n, undec := {} } (λ M' ↦ BBCompute decider M'.val) $

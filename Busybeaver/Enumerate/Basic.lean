@@ -197,7 +197,7 @@ by {
 
 lemma equi_halts [inst: Transformation fC fM]: (M, q) =H (fM M, fC q) :=
 by {
-  unfold equi_halts
+  unfold Machine.equi_halts
   constructor
   · intro h
     obtain ⟨n, C, hC, hn⟩ := h

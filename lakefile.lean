@@ -13,6 +13,8 @@ require mathlib from git "https://github.com/leanprover-community/mathlib4"
 
 require Cli from git "https://github.com/leanprover/lean4-cli" @ "main"
 
+require lcurses from git "https://git.sr.ht/~vigoux/lcurses" @ "master"
+
 @[default_target]
 lean_exe «beaver» where
   moreLeancArgs := #["-g"]
@@ -24,6 +26,10 @@ lean_lib «Busybeaver» where
 
 lean_exe «gfunc» where
   root := `bin.GFunction
+
+lean_exe «beavui» where
+  root := `bin.Beavui
+  moreLinkArgs := #["-l:libncurses.a", "-l:libtinfo.a"]
 
 private def gitConfig (opt val: String): IO Unit := do
   let _ ← IO.Process.run {

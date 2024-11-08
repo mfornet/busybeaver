@@ -2,30 +2,30 @@
 Parsing machines in standard format for convenience.
 -/
 import Busybeaver.Basic
-import Lean.Data.Parsec
+import Std.Internal.Parsec.String
 
-open Lean Parsec
+open Lean Std.Internal.Parsec String
 
 namespace TM.Parse
 
-def pdir: Parsec Turing.Dir := attempt do
-  let c ← anyChar
+def pdir: Parser Turing.Dir := attempt do
+  let c ← any
   match c with
   | 'L' => return .left
   | 'R' => return .right
   | _ => fail s!"Expected one of L/R"
 
-def psym: Parsec ℕ := attempt do
+def psym: Parser ℕ := attempt do
   let d ← digit
   return d.toString.toNat!
 
-def plab: Parsec ℕ := attempt do
+def plab: Parser ℕ := attempt do
   let d ← asciiLetter
   return d.toNat - Char.toNat 'A'
 
 abbrev TStmt := Option (ℕ × Turing.Dir × ℕ)
 
-def pstmt: Parsec TStmt := attempt do
+def pstmt: Parser TStmt := attempt do
   if (← peek!) == '-' then
     skip ; skip ; skip
     return .none
@@ -35,9 +35,9 @@ def pstmt: Parsec TStmt := attempt do
     let lab ← plab
     return .some (sym, dir, lab)
 
-def pStateCode: Parsec <| Array TStmt := many1 pstmt
+def pStateCode: Parser <| Array TStmt := many1 pstmt
 
-def sep1 (el: Parsec α) (sep: Parsec β): Parsec (Array α) :=
+def sep1 (el: Parser α) (sep: Parser β): Parser (Array α) :=
   do manyCore (attempt do let _ ← sep; el) #[← el]
 
 structure MParseRes where
@@ -46,7 +46,7 @@ structure MParseRes where
   M : Machine l s
 deriving Inhabited
 
-def pmachine: Parsec MParseRes := attempt do
+def pmachine: Parser MParseRes := attempt do
   let code ← sep1 pStateCode (pchar '_')
   if hcs: code.size = 0 then
     fail "Empty code"

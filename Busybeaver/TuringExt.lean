@@ -62,7 +62,7 @@ lemma append_assoc' {L₁ L₂: List Γ} {L: ListBlank Γ}: L₁ ++ L₂ ++ L = 
 
 instance instDecidableEq [DecidableEq Γ]: DecidableEq (Turing.ListBlank Γ) := by {
   simp [Turing.ListBlank, Turing.BlankRel.setoid]
-  refine @instDecidableEqQuotientOfDecidableEquiv _ _ ?_
+  refine @Quotient.decidableEq _ _ ?_
   intro a b
   simp [instHasEquivOfSetoid, Setoid.r]
   apply inferInstance
