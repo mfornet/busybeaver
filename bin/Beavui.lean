@@ -48,16 +48,19 @@ def main : List String → IO UInt32
   let mut off := 0
 
   while true do
+    -- Get width and height
+    let height := root.getmaxy.toNat
+    let width := root.getmaxx.toNat
+
     match (← root.getch) with
     | 'j' => off := off + 1
     | 'k' => off := off - 1
+    | 'g' => off := 0
+    | 'd' => off := off + (height / 2)
+    | 'u' => off := off - (height / 2)
     | _ => break
 
-    -- Get width
-    let width := root.getmaxy
-    let height := root.getmaxx
-
-    displayIn root pairs width.toNat 0 height.toNat <| cfgs.get? off
+    displayIn root pairs width 0 height <| cfgs.get? off
 
     root.refresh
 
@@ -65,9 +68,12 @@ def main : List String → IO UInt32
   return 0
 | _ => do return 1
 where
-  getChar {s: ℕ} (s: Symbol s): Char :=
+  getChar {s: ℕ} (s: Symbol s) (head: Bool := false): Char :=
     let v := (toString s).get! 0
-    v
+    if v == '0' && !head then
+      ' '
+    else
+      v
   -- Assumes that we start drawing on cell 0
   drawLine {l s: ℕ} (pairs: Array Pair) (win: Window) (width cur: ℕ) (cfg: Config l s) (off: Int): IO Unit := do
     let head_pair := pairs[↑cfg.state % pairs.size]!
@@ -75,10 +81,10 @@ where
     let midpoint := width / 2
     for i in List.range width do
       let cell : Int := Int.ofNat i - midpoint
-      win.move (UInt32.ofNat i) (UInt32.ofNat cur)
+      win.move (UInt32.ofNat cur) (UInt32.ofNat i)
       if cell == off then
         -- Print head
-        win.insch (getChar head) {pair:=head_pair}
+        win.insch (getChar head true) {pair:=head_pair}
       else if cell < off then
         let sym := left.nth (cell - off).natAbs
         win.insch <| getChar sym
