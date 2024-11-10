@@ -95,7 +95,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "94edbca3c1017ec9b7c12dac22d503f589969abb",
+   "rev": "a81260a11ce8d57270d8f43c285d9c4308ba5900",
    "name": "lcurses",
    "manifestFile": "lake-manifest.json",
    "inputRev": "master",
