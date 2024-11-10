@@ -46,22 +46,31 @@ def main : List String → IO UInt32
   let cfgs := Configs.init M
 
   let mut off := 0
+  let mut xoff: Int := 0
 
   while true do
     -- Get width and height
     let height := root.getmaxy.toNat
     let width := root.getmaxx.toNat
 
-    displayIn root pairs width 0 height <| cfgs.get? off
+    displayIn root pairs width 0 height xoff <| cfgs.get? off
 
     root.refresh
 
     match (← root.getch) with
+    -- Up / down
     | 'j' => off := off + 1
     | 'k' => off := off - 1
     | 'g' => off := 0
     | 'd' => off := off + (height / 2)
     | 'u' => off := off - (height / 2)
+
+    -- Control left/right
+    | 'l' => xoff := xoff - 1
+    | 'h' => xoff := xoff + 1
+    | 'c' => xoff := 0
+
+    -- Exit and specials
     | 'q' => break
     | _ => pure ()
 
@@ -85,10 +94,10 @@ where
       win.move (UInt32.ofNat cur) (UInt32.ofNat i)
       win.insch (getChar (head:=is_head) <| cfg.tape.nth cell) <| if is_head then {pair:=head_pair} else {}
 
-  displayIn {l s: ℕ} {M: Machine l s} (win: Window) (pairs: Array Pair) (width cur height: ℕ) (configs: Configs M): IO Unit :=
+  displayIn {l s: ℕ} {M: Machine l s} (win: Window) (pairs: Array Pair) (width cur height: ℕ) (xoff: Int) (configs: Configs M): IO Unit :=
     match (height - cur), configs with
     | 0, _ | _, .nil => pure ()
     | n + 1, .cons cfg off nxt => do
       -- Display one line
-      drawLine pairs win width cur cfg off
-      displayIn win pairs width (cur + 1) height nxt.get
+      drawLine pairs win width cur cfg (off + xoff)
+      displayIn win pairs width (cur + 1) height xoff nxt.get
