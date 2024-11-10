@@ -52,17 +52,18 @@ def main : List String → IO UInt32
     let height := root.getmaxy.toNat
     let width := root.getmaxx.toNat
 
+    displayIn root pairs width 0 height <| cfgs.get? off
+
+    root.refresh
+
     match (← root.getch) with
     | 'j' => off := off + 1
     | 'k' => off := off - 1
     | 'g' => off := 0
     | 'd' => off := off + (height / 2)
     | 'u' => off := off - (height / 2)
-    | _ => break
-
-    displayIn root pairs width 0 height <| cfgs.get? off
-
-    root.refresh
+    | 'q' => break
+    | _ => pure ()
 
   endwin
   return 0
@@ -77,21 +78,12 @@ where
   -- Assumes that we start drawing on cell 0
   drawLine {l s: ℕ} (pairs: Array Pair) (win: Window) (width cur: ℕ) (cfg: Config l s) (off: Int): IO Unit := do
     let head_pair := pairs[↑cfg.state % pairs.size]!
-    let { left, head, right } := cfg.tape
     let midpoint := width / 2
     for i in List.range width do
-      let cell : Int := Int.ofNat i - midpoint
+      let cell : Int := Int.ofNat i - (off + midpoint)
+      let is_head := cell == 0
       win.move (UInt32.ofNat cur) (UInt32.ofNat i)
-      if cell == off then
-        -- Print head
-        win.insch (getChar head true) {pair:=head_pair}
-      else if cell < off then
-        let sym := left.nth (cell - off).natAbs
-        win.insch <| getChar sym
-      else
-        -- Print right
-        let sym := right.nth (cell - off).toNat
-        win.insch <| getChar sym
+      win.insch (getChar (head:=is_head) <| cfg.tape.nth cell) <| if is_head then {pair:=head_pair} else {}
 
   displayIn {l s: ℕ} {M: Machine l s} (win: Window) (pairs: Array Pair) (width cur height: ℕ) (configs: Configs M): IO Unit :=
     match (height - cur), configs with
