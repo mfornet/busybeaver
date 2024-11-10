@@ -9,7 +9,7 @@ package «busybeaver» where
   -- add any additional package configuration options here
   moreLeancArgs := #["-g"]
 
-require mathlib from git "https://github.com/leanprover-community/mathlib4"
+require mathlib from git "https://github.com/leanprover-community/mathlib4" @ "stable"
 
 require Cli from git "https://github.com/leanprover/lean4-cli" @ "main"
 
