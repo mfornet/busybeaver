@@ -62,8 +62,8 @@ def main : List String → IO UInt32
     | 'j' => off := off + 1
     | 'k' => off := off - 1
     | 'g' => off := 0
-    | 'd' => off := off + (height / 2)
-    | 'u' => off := off - (height / 2)
+    | 'J' => off := off + (height / 2)
+    | 'K' => off := off - (height / 2)
 
     -- Control left/right
     | 'l' => xoff := xoff - 1
