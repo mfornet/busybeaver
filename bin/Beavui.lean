@@ -67,7 +67,9 @@ def main : List String → IO UInt32
 
     -- Control left/right
     | 'l' => xoff := xoff - 1
+    | 'L' => xoff := xoff - 10
     | 'h' => xoff := xoff + 1
+    | 'H' => xoff := xoff + 10
     | 'c' => xoff := 0
 
     -- Exit and specials
