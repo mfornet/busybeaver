@@ -126,7 +126,7 @@ abbrev Line (l s) := Config l s × Turing.Dir
 
 def getLines (depth: ℕ) (cfg: Config l s) (M: Machine l s): List <| Line l s := match depth with
 | 0 => []
-| n + 1 => match hM: M cfg.state cfg.tape.head with
+| n + 1 => match hM: M.get cfg.state cfg.tape.head with
   | .halt => []
   | .next _ dir _ =>
     let ncfg : Config l s := M.step cfg |>.get (by simp [Option.isSome, Machine.step, hM])

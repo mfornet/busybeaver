@@ -59,9 +59,10 @@ namespace TM.Machine
 
 variable {M: Machine l s}
 
-def symm (M: Machine l s): Machine l s := λ lab sym ↦ match M lab sym with
-| .halt => .halt
-| .next sym dir nlab => .next sym dir.other nlab
+def symm (M: Machine l s): Machine l s :=
+  M.map <| λ _ ↦ λ
+    | .halt => .halt
+    | .next sym dir nlab => .next sym dir.other nlab
 
 namespace symm
 
@@ -69,10 +70,7 @@ namespace symm
 lemma involutive: Function.Involutive (α:=Machine l s) Machine.symm :=
 by {
   intro x
-  apply funext
-  intro lab
-  apply funext
-  intro sym
+  ext lab sym
   simp [symm]
   split
   · rename_i heq
@@ -128,10 +126,10 @@ lemma same_runtime (hM: M.halts_in n C): M.symm.halts_in n (config_reverse C) :=
   Transformation.same_halt_time hM
 
 noncomputable def GoingTo (l s : ℕ) (dir: Turing.Dir) :=
-  Finset.univ (α:=Terminating l s) |>.filter (λ M ↦ ∃ sym nlab, M.M default default = .next sym dir nlab)
+  Finset.univ (α:=Terminating l s) |>.filter (λ M ↦ ∃ sym nlab, M.M.get default default = .next sym dir nlab)
 
 noncomputable def DirectHalts (l s: ℕ) :=
-  Finset.univ (α:=Terminating l s) |>.filter (λ M ↦ M.M default default = .halt)
+  Finset.univ (α:=Terminating l s) |>.filter (λ M ↦ M.M.get default default = .halt)
 
 lemma right_eq_left: Busybeaver' l s (GoingTo l s .right) = Busybeaver' l s (GoingTo l s .left) :=
 by {
@@ -159,7 +157,7 @@ by {
   apply Finset.ext
   intro M
   simp [GoingTo, DirectHalts]
-  cases M.M default default <;> simp_all [Turing.Dir.eq_left_or_eq_right.symm]
+  cases M.M.get default default <;> simp_all [Turing.Dir.eq_left_or_eq_right.symm]
 }
 
 /-

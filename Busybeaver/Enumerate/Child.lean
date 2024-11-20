@@ -9,7 +9,7 @@ import Busybeaver.Transition
 namespace TM.Machine
 
 def is_child (M M': Machine l s): Prop :=
-  ∀ lab sym, M' lab sym = .halt ∨ M' lab sym = M lab sym
+  ∀ lab sym, M'.get lab sym = .halt ∨ M'.get lab sym = M.get lab sym
 
 notation M' " ≤c " M => is_child M M'
 
@@ -136,7 +136,7 @@ by {
   · exact halt_trans_sub h
   intro hM
   apply h'
-  funext lab sym
+  ext lab sym
   rcases h lab sym with hsl | hsl
   swap
   · exact hsl
@@ -150,7 +150,7 @@ by {
 }
 
 lemma ne_exists_halt_trans (h: M ≤c M') (h': M ≠ M'):
-  ∃sym lab sym' dir lab', M sym lab = .halt ∧ M' sym lab = .next sym' dir lab' :=
+  ∃sym lab sym' dir lab', M.get sym lab = .halt ∧ M'.get sym lab = .next sym' dir lab' :=
 by {
   suffices ∃t ∈ M.halting_trans, t ∉ M'.halting_trans by {
     simp [Machine.halting_trans] at this
@@ -159,7 +159,7 @@ by {
     simp
     constructor
     · exact hl
-    cases hM' : M' sym lab with
+    cases hM' : M'.get sym lab with
     | halt => contradiction
     | next sym' dir lab' => {
       exists sym'
@@ -237,9 +237,9 @@ by {
 If two TMs have different next statements, their terminating_children are disjoint.
 -/
 lemma disjoint_of_different_transition
-  (hMM': M lab sym ≠ M' lab sym)
-  (hM: M lab sym ≠ .halt)
-  (hM': M' lab sym ≠ .halt): Disjoint (terminating_children M) (terminating_children M') :=
+  (hMM': M.get lab sym ≠ M'.get lab sym)
+  (hM: M.get lab sym ≠ .halt)
+  (hM': M'.get lab sym ≠ .halt): Disjoint (terminating_children M) (terminating_children M') :=
 by {
   rw [Finset.disjoint_iff_inter_eq_empty, Finset.eq_empty_iff_forall_not_mem]
   intro M₀ hM₀

@@ -12,7 +12,7 @@ instance: Monad Task where
   pure := Task.pure
   bind := Task.bind
 
-def PARA_DEPTH: ℕ := 5
+def PARA_DEPTH: ℕ := 3
 
 lemma BBResult.join.rightcomm: RightCommutative (BBResult.join (l:=l) (s:=s)) where
   right_comm A B C := by {
@@ -80,13 +80,14 @@ def BBComputeP (decider: (M': Machine l s) → HaltM M' Unit) (M: Machine l s): 
     | .halts_prf n C hC =>
       if hMn: M.n_halting_trans <= 1 then
         .pure { val := n, undec := {}}
-      else if hMn': M.n_halting_trans > PARA_DEPTH then do
-        let unquoted ← waitMultiset <| (next_machines M C.state C.tape.head).val.attach.map (λ M' ↦ loop M'.val)
+      else
+      let next := (next_machines M C.state C.tape.head).val.attach
+      if hMn': M.n_halting_trans > PARA_DEPTH then do
+        let unquoted ← waitMultiset <| next.map (λ M' ↦ loop M'.val)
         return unquoted.foldl BBResult.join { val := n, undec := {} }
       else
         Task.spawn <| λ _ ↦
-          Finset.fold BBResult.join { val := n, undec := {} } (λ M' ↦ BBCompute decider M'.val) $
-          (next_machines M C.state C.tape.head).attach
+          next.map (λ M' ↦ BBCompute decider M'.val) |>.foldl BBResult.join { val := n, undec := {} }
     | .unknown _ => .pure { val := 0, undec := {M} } -- This machine is undecided, no need to go further
   termination_by M.n_halting_trans
   decreasing_by {
@@ -129,21 +130,21 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
     · absurd hntrans
       simp
       trivial
-    split
-    swap
-    · simp [Task.spawn]
+    split <;> {
+      simp [instMonadTask, Task.bind, Finset.fold, Multiset.fold]
+      rw [Multiset.foldr_swap]
+      congr 1
+      · funext A B
+        simp [BBResult.join]
+        constructor
+        · exact Nat.max_comm B.val A.val
+        · exact AddCommMagma.add_comm B.undec A.undec
 
-    simp [instMonadTask, Task.bind, Finset.fold, Multiset.fold]
-    rw [Multiset.foldr_swap]
-    congr 1
-    · funext A B
-      simp [BBResult.join]
-      constructor
-      · exact Nat.max_comm B.val A.val
-      · exact AddCommMagma.add_comm B.undec A.undec
-
-    congr 1
-    funext M₀
-    exact IH M₀
+      try {
+        congr 1
+        funext M₀
+        exact IH M₀
+      }
+    }
   }
 }

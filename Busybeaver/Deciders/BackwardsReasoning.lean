@@ -108,7 +108,7 @@ by {
 Tries to apply `M L S` backwards if possible, returning the resulting symbolic configuration.
 -/
 def matchingConfig? (M: Machine l s) (C: SymbolicConfig l s) (L: Label l) (S: Symbol s): Option (SymbolicConfig l s) :=
-  match M L S with
+  match M.get L S with
   | .halt => .none
   | .next sym' dir lab' =>
     /-

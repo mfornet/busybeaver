@@ -9,10 +9,44 @@ import Busybeaver.Reachability
 
 namespace TM
 
-def Machine.halting_trans (M: Machine l s) := (Finset.univ (α:=Label l × Symbol s)).filter (λ pair ↦ M pair.1 pair.2 = .halt)
+--- Computes the set of halting transitions of a given machine
+---
+--- This version is easy to reason about but fairly inneficient, see [Machine.halting_trans_impl]
+--- for as better definition
+def Machine.halting_trans (M: Machine l s) :=
+  (Finset.univ (α:=Label l × Symbol s)).filter (λ pair ↦ M.get pair.1 pair.2 = .halt)
+
+private def Machine.halting_trans_impl (M: Machine l s): Finset <| Label l × Symbol s :=
+  List.toFinset <|
+    List.finRange M.vals.size |>.filterMap λ idx ↦ match M.vals[idx] with
+      | .halt => .some <| M.get_lab_sym idx
+      | .next _ _ _ => .none
+
+@[csimp]
+lemma Machine.halting_trans.impl : @Machine.halting_trans = @Machine.halting_trans_impl :=
+by {
+  funext l s M
+  ext c
+  simp [Machine.halting_trans, Machine.halting_trans_impl]
+  constructor
+  · intro heq
+    obtain ⟨lab, sym⟩ := c
+    use M.get_index lab sym
+    simp [Machine.get] at heq
+    rw [heq]
+    simp
+  · intro ⟨a, ha⟩
+    split at ha
+    · simp at ha
+      symm at ha
+      cases ha
+      simp [Machine.get]
+      trivial
+    · cases ha
+}
 
 @[simp]
-lemma Machine.halting_trans.mem_iff {M: Machine l s}: (lab, sym) ∈ M.halting_trans ↔ M lab sym = .halt :=
+lemma Machine.halting_trans.mem_iff {M: Machine l s}: (lab, sym) ∈ M.halting_trans ↔ M.get lab sym = .halt :=
   by simp [Machine.halting_trans]
 
 def Machine.n_halting_trans (M: Machine l s) := M.halting_trans.card

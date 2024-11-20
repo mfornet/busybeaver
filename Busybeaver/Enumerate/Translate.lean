@@ -81,18 +81,15 @@ end Turing.Tape
 namespace TM.Machine
 
 def translated (M: Machine l s) (S S': Symbol s): Machine l s :=
-  λ lab sym ↦ match M lab (swap S S' sym) with
+  M.map' <| λ lab sym _ ↦ match M.get lab (swap S S' sym) with
   | .halt => .halt
   | .next sym' dir lab' => .next (swap S S' sym') dir lab'
 
 @[simp]
 lemma translated.involutive {M: Machine l s}: (M.translated S S').translated S S' = M :=
 by {
-  apply funext
-  intro lab
-  apply funext
-  intro symo
-  unfold translated
+  ext lab sym
+  simp [translated]
   split <;> {
     rename_i heq
     split at heq <;> {

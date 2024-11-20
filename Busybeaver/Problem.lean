@@ -38,7 +38,7 @@ instance Terminating.inhabited: Inhabited (Terminating l s) := ⟨default, 0, by
   swap
   · apply Machine.Multistep.refl
   unfold Machine.LastState
-  simp
+  simp [Machine.get]
 }⟩
 
 def Busybeaver' (l s: ℕ) (S: Finset (Terminating l s)): ℕ :=

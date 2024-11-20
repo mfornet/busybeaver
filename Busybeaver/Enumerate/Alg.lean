@@ -199,7 +199,7 @@ def BBResult.from_haltm {M: Machine l s} (h: HaltM M α): BBResult l s := match 
 | .loops_prf _ => {val := 0, undec := {}}
 
 def used_states (M: Machine l s): (Finset (Label l)) :=
-  Finset.univ (α:=Label l) |>.filter (λ l ↦ (∃sym, M l sym ≠ .halt) ∨ (∃ lab sym sym' dir, M lab sym = .next sym' dir l))
+  Finset.univ (α:=Label l) |>.filter (λ l ↦ (∃sym, M.get l sym ≠ .halt) ∨ (∃ lab sym sym' dir, M.get lab sym = .next sym' dir l))
 
 lemma used_states.mono (h: A.state ∈ used_states M) (hAB: A -[M]{n}-> B): B.state ∈ used_states M :=
 by induction hAB with
@@ -225,7 +225,7 @@ by {
 }
 
 def used_symbols (M: Machine l s): Finset (Symbol s) :=
-  Finset.univ (α:=Symbol s) |>.filter (λ s ↦ (∃lab, M lab s ≠ .halt) ∨ (∃lab sym dir lab', M lab sym = .next s dir lab'))
+  Finset.univ (α:=Symbol s) |>.filter (λ s ↦ (∃lab, M.get lab s ≠ .halt) ∨ (∃lab sym dir lab', M.get lab sym = .next s dir lab'))
 
 lemma used_symbols.mono (hA: ∀ i, A.tape.nth i ∈ used_symbols M) (hAB: A -[M]{n}-> B): ∀ j, B.tape.nth j ∈ used_symbols M :=
 by induction hAB with
@@ -278,28 +278,32 @@ by {
   use sym, state, dir, hS.2.symm
 }
 
-def update_with (M: Machine l s) (lab: Label l) (sym: Symbol s) (S: Stmt l s): Machine l s :=
-  λ lab' sym' ↦ if lab' = lab ∧ sym' = sym then S else M lab' sym'
+/- def update_with (M: Machine l s) (lab: Label l) (sym: Symbol s) (S: Stmt l s): Machine l s := -/
+/-   λ lab' sym' ↦ if lab' = lab ∧ sym' = sym then S else M.get lab' sym' -/
 
-lemma update_with.le_halt_trans {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
-  (update_with M lab sym (.next sym' dir lab')).n_halting_trans = M.n_halting_trans - 1:=
+lemma update_with.le_halt_trans {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M.get lab sym = .halt):
+  (M.update_with lab sym (.next sym' dir lab')).n_halting_trans = M.n_halting_trans - 1:=
 by {
   simp [Machine.n_halting_trans]
   rw [← Finset.card_erase_of_mem (s:=M.halting_trans) (a:=(lab, sym)) (by {
     simp [halting_trans]
     exact h
   })]
-  simp [Machine.n_halting_trans, update_with, halting_trans]
   congr
   apply Finset.ext
   intro ⟨L, S⟩
   simp
   split
-  · simp_all
-  · simp_all
+  · simp_all only [not_true_eq_false, imp_false, and_true, iff_false, ne_eq]
+    simp only [reduceCtorEq, not_false_eq_true]
+  · simp_all only [not_and, iff_and_self]
+    intro _ hl hS
+    cases hl
+    cases hS
+    simp_all only [not_true_eq_false, imp_false]
 }
 
-lemma update_with.le_halt_trans' {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt) (hS: S = .next sym' dir lab'):
+lemma update_with.le_halt_trans' {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M.get lab sym = .halt) (hS: S = .next sym' dir lab'):
   (update_with M lab sym S).n_halting_trans = M.n_halting_trans - 1:=
 by {
   rw [hS]
@@ -311,7 +315,7 @@ def next_machines (M: Machine l s) (lab: Label l) (sym: Symbol s): Finset (Machi
     λ ⟨S, D, L⟩ ↦ update_with M lab sym (.next S D L)
 
 @[simp]
-lemma next_machines.halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M lab sym = .halt):
+lemma next_machines.halttrans_le {M: Machine l s} {lab: Label l} {sym: Symbol s} (h: M.get lab sym = .halt):
   ∀ M' ∈ next_machines M lab sym, M'.n_halting_trans = M.n_halting_trans - 1 :=
 by {
   intro M' hM'
@@ -387,14 +391,14 @@ by {
     exact h.symm
 }
 
-lemma update_with.is_child (hUpd: M sym lab = .halt): M ≤c (update_with M sym lab (.next sym' dir lab')) :=
+lemma update_with.is_child (hUpd: M.get sym lab = .halt): M ≤c (update_with M sym lab (.next sym' dir lab')) :=
 by {
   intro nlab nsym
-  simp [update_with]
-  split <;> simp [*] at *
+  simp
+  split <;> simp_all
 }
 
-lemma next_machines.is_child (hM: M sym lab = .halt) (hMn: Mn ∈ next_machines M sym lab): M ≤c Mn :=
+lemma next_machines.is_child (hM: M.get sym lab = .halt) (hMn: Mn ∈ next_machines M sym lab): M ≤c Mn :=
 by {
   simp [next_machines] at hMn
   obtain ⟨S, D, L, _, hMn⟩ := hMn
@@ -518,7 +522,7 @@ lemma next_machines.terminates_children (hM': M ≤c M')
     (hlabz: default ∈ used_states M) (hsymz: default ∈ used_symbols M)
     (hlabC: C.state ∈ used_states M) (hheadC: C.tape.head ∈ used_symbols M):
     (M'.LastState C) ∨ (∃Mc ∈ next_machines M C.state C.tape.head, ∃Mh, (Mh ~m M') ∧ Mc ≤c Mh) :=
-by match hM'C: M' C.state C.tape.head with
+by match hM'C: M'.get C.state C.tape.head with
 | .halt => {
   left
   simp [Machine.LastState]
@@ -661,7 +665,7 @@ by match hM'C: M' C.state C.tape.head with
   · constructor
   · intro lab' sym'
     specialize hM' lab' sym'
-    simp [update_with]
+    simp
     split
     · simp
       rename_i heq
@@ -774,10 +778,10 @@ by induction M using BBCompute.induct decider with
   This is the case disjunction mentionned above.
   -/
   have hTerm: terminating_children M =
-    (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M C.state C.tape.head ≠ .halt) := by {
+    (terminating_children M).filter (λ M ↦ M.M.get C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M.get C.state C.tape.head ≠ .halt) := by {
     apply Finset.ext
     intro M
-    cases hM: M.M C.state C.tape.head <;> simp_all
+    cases hM: M.M.get C.state C.tape.head <;> simp_all
   }
   rw [hTerm]
   simp
@@ -786,7 +790,7 @@ by induction M using BBCompute.induct decider with
   First case, the child machine has the same halting transition as M, that is, it halts.
   In this case in terminates in the same number of steps as M
   -/
-  have hSameM : Busybeaver' l s ((terminating_children M).filter (λ M ↦ M.M C.state C.tape.head =
+  have hSameM : Busybeaver' l s ((terminating_children M).filter (λ M ↦ M.M.get C.state C.tape.head =
   .halt)) = nh := by {
     apply Busybeaver'.eq_of_all_eq
     · exists ⟨M, nh, by {
@@ -880,7 +884,7 @@ by induction M using BBCompute.induct decider with
       obtain ⟨S, D, L, _, hchilds⟩ := hchilds
       specialize hM'childs C.state C.tape.head
       rw [← hchilds] at hM'childs
-      simp [update_with] at hM'childs
+      simp at hM'childs
       rw [← hM'childs]
       simp
   · intro M' hM'
@@ -906,7 +910,7 @@ by induction M using BBCompute.induct decider with
     use Mc
 }
 
-def m1RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 1 .right 1 else .halt
+def m1RB (l s): Machine l s := (default: Machine l s).update_with 0 0 (.next 1 .right 1)
 
 lemma correct_1RB (h: (BBCompute decider (m1RB l s)).undec = ∅): (BBCompute decider (m1RB l s)).val = Busybeaver' l s
 (terminating_children (m1RB l s)) :=
@@ -919,7 +923,7 @@ by {
   }
 }
 
-def m0RB (l s): Machine l s := λ lab sym ↦ if lab = 0 ∧ sym = 0 then .next 0 .right 1 else .halt
+def m0RB (l s): Machine l s := (default: Machine l s).update_with 0 0 (.next 0 .right 1)
 
 lemma correct_0RB (h: (BBCompute decider (m0RB l s)).undec = ∅):
   (BBCompute decider (m0RB l s)).val = Busybeaver' l s (terminating_children (m0RB l s)) :=
@@ -1022,14 +1026,12 @@ by {
     simp [m0RB]
     simp_all only [ne_eq, Fin.one_eq_zero_iff, add_left_eq_self, not_false_eq_true, Fin.isValue]
     split
-    next
-      h =>
-      simp_all only [Fin.isValue, not_true_eq_false, imp_false, Stmt.next.injEq, and_self, and_true, false_or]
-      obtain ⟨left, right⟩ := h
-      subst left right
-      ext1
-      simp_all only [Fin.isValue, Fin.val_eq_zero]
-    next h => simp_all only [Fin.isValue, not_and, not_false_eq_true, implies_true, true_or]
+    · rename_i hls
+      simp_all
+      cases hls.2
+      exact (Fin.fin_one_eq_zero sym).symm
+    · rename_i hls
+      simp_all
 
   rename_i s
   by_cases hsym: sym = default

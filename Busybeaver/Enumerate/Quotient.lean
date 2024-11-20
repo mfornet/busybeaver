@@ -115,6 +115,7 @@ theorem decide {M: Machine l s} (decider: ∀(M': EqTM l s), EqTM.halts M' ∨ �
 
 end Isomorph
 
+/-
 def StateOrderedBetween (M: Machine l s) (A B: Config l s) := ∀ C n k, (A -[M]{n}-> C) ∧ (C -[M]{k}-> B) → A.state ≤ C.state ∧ C.state ≤ B.state
 
 def StateOrdered (M: Machine l s) := ∀B, M.StateOrderedBetween default B
@@ -178,3 +179,4 @@ def lifted (M: Machine l s) (hl': l ≤ l'): Machine l' s :=
     .halt
 
 end Visits
+-/

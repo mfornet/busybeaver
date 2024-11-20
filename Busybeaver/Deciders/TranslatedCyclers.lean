@@ -71,7 +71,7 @@ instance: Repr (TickingConfig l s) := ⟨λ cfg _ ↦
 end PrettyPrint
 
 def step_tick (M: Machine l s) (C: TickingConfig l s): Option (TickingConfig l s × Tick l s) :=
-  match M C.state (WithBot.unbot' default C.tape.head)  with
+  match M.get C.state (WithBot.unbot' default C.tape.head)  with
   | .halt => .none
   | .next sym' dir lab' =>
     .some ({state := lab', tape := (C.tape.write ↑sym').move dir }, (C.state, C.tape.head))
@@ -114,7 +114,7 @@ by {
 }
 
 @[simp]
-lemma step_tick.none {M: Machine l s}: step_tick M C = .none ↔ M C.state (WithBot.unbot' default C.tape.head) = .halt :=
+lemma step_tick.none {M: Machine l s}: step_tick M C = .none ↔ M.get C.state (WithBot.unbot' default C.tape.head) = .halt :=
 by {
   simp [step_tick]
   split <;> simp_all

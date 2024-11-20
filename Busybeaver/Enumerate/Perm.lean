@@ -6,19 +6,17 @@ namespace TM.Machine
 
 variable {M: Machine l s}
 
-def perm (M: Machine l s) (q q': Label l): Machine l s := λ lab sym ↦ match M (swap q q' lab) sym with
-| .halt => .halt
-| .next sym dir nlab => .next sym dir (swap q q' nlab)
+def perm (M: Machine l s) (q q': Label l): Machine l s :=
+  M.map' <| λ lab sym _ ↦ match M.get (swap q q' lab) sym with
+    | .halt => .halt
+    | .next sym dir nlab => .next sym dir (swap q q' nlab)
 
 namespace perm
 
 @[simp]
 lemma refl: (M.perm q q').perm q q' = M :=
 by {
-  apply funext
-  intro lab
-  apply funext
-  intro sym
+  ext lab sym
   simp [perm]
   · split
     · rename_i heq

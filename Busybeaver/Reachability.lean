@@ -20,7 +20,7 @@ lemma deterministic (hB: A -[M]-> B) (hC: A -[M]-> C): B = C := by {
 }
 
 @[simp]
-lemma some (h: M q T.head = .next sym' dir q'): M.step ⟨q, T⟩ = some ⟨q', T.write sym' |>.move dir⟩ :=
+lemma some (h: M.get q T.head = .next sym' dir q'): M.step ⟨q, T⟩ = some ⟨q', T.write sym' |>.move dir⟩ :=
 by {
   simp [Machine.step]
   split
@@ -34,7 +34,7 @@ by {
 }
 
 @[simp]
-lemma some' (h: M q sym = .next sym' dir q') (hsym: sym = T.head) (hT: T' = (T.write sym' |>.move dir)): M.step ⟨q, T⟩ = .some ⟨q', T'⟩ :=
+lemma some' (h: M.get q sym = .next sym' dir q') (hsym: sym = T.head) (hT: T' = (T.write sym' |>.move dir)): M.step ⟨q, T⟩ = .some ⟨q', T'⟩ :=
 by {
   rw [hsym] at h
   rw [hT]
@@ -42,7 +42,7 @@ by {
 }
 
 @[simp]
-lemma some_rev (h: M.step B = .some C): ∃ sym dir, M B.state B.tape.head = .next sym dir C.state ∧ C.tape = (B.tape.write sym |>.move dir) :=
+lemma some_rev (h: M.step B = .some C): ∃ sym dir, M.get B.state B.tape.head = .next sym dir C.state ∧ C.tape = (B.tape.write sym |>.move dir) :=
 by {
   simp [step] at h
   split at h
@@ -54,7 +54,7 @@ by {
 }
 
 @[simp]
-lemma none: (M.step c = .none) ↔ M c.state c.tape.head = .halt :=
+lemma none: (M.step c = .none) ↔ M.get c.state c.tape.head = .halt :=
  by {
   constructor
   · intro h

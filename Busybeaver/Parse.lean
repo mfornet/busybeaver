@@ -75,32 +75,36 @@ def pmachine: Parser MParseRes := attempt do
       exact hca ⟨i, hi⟩
     }
 
+    let fcode : Array <| Stmt l s := mcode.flatten
+
     return {
       l := l,
       s := s,
-      M := λ ⟨lab, hlab⟩ ⟨sym, hsym⟩ ↦
-        have hlab' : lab < mcode.size := by {
-          rw [hmc]
-          calc lab
-            _ < l + 1 := hlab
-            _ = code.size := by {
-              simp [l]
-              exact Nat.succ_pred_eq_of_ne_zero hcs
-            }
+      M := ⟨fcode, by {
+        simp [fcode]
+        conv =>
+          rhs
+          lhs
+          simp [l, Nat.sub_one_add_one hcs]
+        conv =>
+          rhs
+          rhs
+          simp [s, Nat.sub_one_add_one has]
+        rw [← Array.length_toList]
+        simp
+        suffices code.size = (List.map (List.length ∘ Array.toList) mcode.toList).length by {
+          rw [this]
+          apply List.sum_eq_card_nsmul
+          simp
+          intro a ha
+          rw [List.mem_iff_get] at ha
+          obtain ⟨n, hn⟩ := ha
+          simp at hn
+          rw [← hn, hmsc n]
         }
-        let scode := mcode[lab]'hlab'
-        scode[sym]'(by {
-          simp [scode]
-          calc sym
-            _ < s + 1 := hsym
-            _ = mcode[lab].size := by {
-              simp [s]
-              specialize hmsc ⟨lab, hlab'⟩
-              simp at hmsc
-              rw [hmsc]
-              exact Nat.succ_pred_eq_of_ne_zero has
-            }
-        })
+        simp
+        exact hmc.symm
+      }⟩
     }
   else
     fail s!"Not all states have the same number of statements"
@@ -132,9 +136,7 @@ instance: ToExpr (Stmt l s) where
 
 elab "mach[" content:str "]" : term => do
   let ⟨l, s, M⟩ := pmachine.run content.getString |>.toOption.get!
-  let values : List <| List <| Stmt l s :=
-    Fin.list (l + 1) |>.map λ L ↦ Fin.list (s + 1) |>.map λ S ↦ M L S
-  let valE : Expr := toExpr values
+  let valE : Expr := toExpr M.vals
   let lE : Expr := mkNatLit l
   let sE : Expr := mkNatLit s
   let stx: Syntax ← `(
