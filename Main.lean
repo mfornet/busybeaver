@@ -59,9 +59,9 @@ def configFromFile (path: String): IO (Option <| List DeciderConfig) := do
   return done
 
 def defaultConfig: List DeciderConfig := [
-  .translatedCycler 200,
-  .cycler 100,
-  .backwardsReasoning 100,
+  .translatedCycler 300,
+  .cycler 300,
+  .backwardsReasoning 30,
 ]
 
 def determineConfig: (Option String) → IO (List DeciderConfig)
