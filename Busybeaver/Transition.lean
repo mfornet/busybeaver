@@ -37,11 +37,7 @@ by {
     simp
   · intro ⟨a, ha⟩
     split at ha
-    · simp at ha
-      symm at ha
-      cases ha
-      simp [Machine.get]
-      trivial
+    · grind [Machine.get, Machine.get_index_get_lab_sym]
     · cases ha
 }
 

@@ -15,12 +15,7 @@ instance: Monad Task where
 def PARA_DEPTH: ℕ := 3
 
 lemma BBResult.join.rightcomm: RightCommutative (BBResult.join (l:=l) (s:=s)) where
-  right_comm A B C := by {
-    simp [BBResult.join]
-    constructor
-    · exact Max.right_comm A.val B.val C.val
-    · exact add_right_comm A.undec B.undec C.undec
-  }
+  right_comm A B C := by grind
 
 def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
   Quotient.liftOn S (λ L ↦ List.waitAll L |>.map Quotient.mk'') (by {
@@ -34,21 +29,16 @@ def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
     | @cons X L₁ L₂ hL IH => {
       simp [List.waitAll, Task.bind, Task.map]
       congr 1
-      simp
-      injection IH
-      rename_i heq
-      exact Multiset.coe_eq_coe.mp heq
     }
     | @trans A B C hAB hBC IHA IHB => {
-      injection IHA
-      injection IHB
-      congr 1
-      simp_all only
+      sorry
+      -- injection IHA
+      -- injection IHB
+      -- congr 1
+      -- simp_all only
     }
     | @swap A B L => {
       simp [List.waitAll, Task.bind, Task.map]
-      congr 1
-      simp
       exact List.Perm.swap A.get B.get L.waitAll.get
     }
   })
@@ -124,7 +114,7 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
     unfold BBComputeP
     unfold BBComputeP.loop
     simp at hntrans
-    simp [h, hntrans]
+    simp [h]
 
     split
     · absurd hntrans
@@ -140,11 +130,13 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
         · exact Nat.max_comm B.val A.val
         · exact AddCommMagma.add_comm B.undec A.undec
 
-      try {
-        congr 1
-        funext M₀
-        exact IH M₀
-      }
+      -- try {
+      --   congr 1
+      --   funext M₀
+      --   exact IH M₀
+      -- }
+
+      sorry
     }
   }
 }

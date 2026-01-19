@@ -167,7 +167,7 @@ by {
   · exact hsym
 }
 
-@[simp]
+@[simp, grind .]
 lemma Machine.get_index_get_lab_sym {M: Machine l s} {idx: Fin M.vals.size}:
   let (lab, sym) := M.get_lab_sym idx
   M.get_index lab sym = idx :=
@@ -195,7 +195,7 @@ lemma Machine.map_get {M: Machine l s} {f: Fin M.vals.size → Stmt l s → Stmt
 
 def Machine.map' (M: Machine l s) (f: Label l → Symbol s → Stmt l s → Stmt l s): Machine l s :=
   M.map <| λ idx ↦
-    let (lab, sym) := M.get_lab_sym ⟨idx, by sorry⟩
+    let (lab, sym) := M.get_lab_sym ⟨idx, by grind⟩
     f lab sym
 
 @[simp]
@@ -222,7 +222,7 @@ by {
   simp
   split
   · rfl
-  simp_all only [not_and, get_index.size_only]
+  simp_all only [not_and]
   rfl
 }
 

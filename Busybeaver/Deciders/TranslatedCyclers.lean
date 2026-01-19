@@ -30,7 +30,7 @@ We thus leverage the lemmas of Turing.Tape.move this way
 
 /- The "forgetting" pointed map -/
 def unbot_pointed [Inhabited α]: Turing.PointedMap (WithBot α) α := {
-  f := WithBot.unbot' default
+  f := WithBot.unbotD default
   map_pt' := rfl
 }
 
@@ -50,7 +50,7 @@ variable {C: TickingConfig l s}
 lemma TickingConfig.toConfig.state: C.toConfig.state = C.state := rfl
 
 @[simp]
-lemma TickingConfig.toConfig.head: C.toConfig.tape.head = WithBot.unbot' default C.tape.head := rfl
+lemma TickingConfig.toConfig.head: C.toConfig.tape.head = WithBot.unbotD default C.tape.head := rfl
 
 end ToBase
 
@@ -71,7 +71,7 @@ instance: Repr (TickingConfig l s) := ⟨λ cfg _ ↦
 end PrettyPrint
 
 def step_tick (M: Machine l s) (C: TickingConfig l s): Option (TickingConfig l s × Tick l s) :=
-  match M.get C.state (WithBot.unbot' default C.tape.head)  with
+  match M.get C.state (WithBot.unbotD default C.tape.head)  with
   | .halt => .none
   | .next sym' dir lab' =>
     .some ({state := lab', tape := (C.tape.write ↑sym').move dir }, (C.state, C.tape.head))
@@ -114,7 +114,7 @@ by {
 }
 
 @[simp]
-lemma step_tick.none {M: Machine l s}: step_tick M C = .none ↔ M.get C.state (WithBot.unbot' default C.tape.head) = .halt :=
+lemma step_tick.none {M: Machine l s}: step_tick M C = .none ↔ M.get C.state (WithBot.unbotD default C.tape.head) = .halt :=
 by {
   simp [step_tick]
   split <;> simp_all
@@ -449,8 +449,7 @@ def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick
   termination_by right.length
   loopy [(q, ⊥)] L (by simp) (by simp) |>.map (λ ⟨(left, right), issum, ispref⟩ ↦ ⟨left, by {
     constructor
-    · simp_all
-      exact (List.prefix_append_right_inj left).mpr ispref.1
+    · simp_all only [List.prefix_append_right_inj]
     · exact ispref.2
   }⟩)
 

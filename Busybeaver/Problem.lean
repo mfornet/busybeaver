@@ -72,7 +72,7 @@ lemma empty: Busybeaver' l s ∅ = 0 :=
 
 @[simp]
 lemma singleton {M: Terminating l s}: Busybeaver' l s {M} = M.n :=
-by simp [Busybeaver', Multiset.fold]
+by simp [Busybeaver']
 
 @[simp]
 lemma insert {M: Terminating l s}: Busybeaver' l s (insert M S) = Max.max M.n (Busybeaver' l s S) :=
@@ -88,15 +88,14 @@ lemma get (h: S.Nonempty): ∃M ∈ S, M.n = Busybeaver' l s S :=
 by induction h using Finset.Nonempty.cons_induction with
 | singleton a => {
   exists a
-  simp [Busybeaver', Multiset.fold]
+  simp [Busybeaver']
 }
 | cons M' S' hM' _ ex => {
   obtain ⟨MS, hMSin, hMSmax⟩ := ex
   by_cases hMSM': MS.n < M'.n
   · exists M'
     simp_all
-    exact (max_eq_left_of_lt hMSM').symm
-
+    grind
   simp at hMSM'
 
   rcases Nat.lt_or_eq_of_le hMSM' with _ | hMSM'

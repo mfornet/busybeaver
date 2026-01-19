@@ -25,8 +25,7 @@ instance Turing.BlankExtends.instDecidableRel {Γ} [Inhabited Γ] [DecidableEq �
     · intro hy
       exists ys.length
       exact List.eq_replicate_of_mem hy
-    · intro ⟨n, hn⟩
-      intro y hy
+    · intro ⟨n, hn⟩ y hy
       apply List.eq_of_mem_replicate
       rw [hn] at hy
       exact hy

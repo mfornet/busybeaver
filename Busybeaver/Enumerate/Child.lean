@@ -182,11 +182,11 @@ variable {M: Machine l s}
 
 lemma zero_transitions (hM: M.n_halting_trans = 0): terminating_children M = ∅ :=
 by {
-  apply Finset.eq_empty_of_forall_not_mem
+  apply Finset.eq_empty_of_forall_notMem
   intro M' hM'
   simp [terminating_children] at hM'
   have hMnohalts := Machine.halting_trans.eq_zero_nonhalts hM
-  simp [init] at hMnohalts
+  simp at hMnohalts
   apply hM'.halt_of_halt_parent hMnohalts
   use M'.n
   exact M'.terminates
@@ -241,7 +241,7 @@ lemma disjoint_of_different_transition
   (hM: M.get lab sym ≠ .halt)
   (hM': M'.get lab sym ≠ .halt): Disjoint (terminating_children M) (terminating_children M') :=
 by {
-  rw [Finset.disjoint_iff_inter_eq_empty, Finset.eq_empty_iff_forall_not_mem]
+  rw [Finset.disjoint_iff_inter_eq_empty, Finset.eq_empty_iff_forall_notMem]
   intro M₀ hM₀
   simp [terminating_children] at hM₀
   obtain ⟨hM₀, hM₀'⟩ := hM₀

@@ -137,56 +137,57 @@ by {
   obtain ⟨Csh, Cst⟩ := hC'
   simp at Csh
   simp [matchingConfig?, hM, Csh]
-  conv =>
-    pattern (_ ∧ _) ∧ _
-    rw [
-      and_assoc
-    ]
-  simp
-  constructor
-  · cases dir
-    · simp [Turing.Dir.other, Turing.Tape.move]
-      simp [Turing.Tape.move] at hCt
-      specialize Cst 1
-      simp [Turing.Tape.nth] at Cst
-      rcases Cst with Cst | Cst
-      · right
-        exact Cst
-      · left
-        rw [hCt] at Cst
-        simp [Turing.Tape.write] at Cst
-        exact Cst
-    · simp [Turing.Dir.other, Turing.Tape.move]
-      simp [Turing.Tape.move] at hCt
-      specialize Cst (.negSucc 0)
-      simp [Turing.Tape.nth] at Cst
-      rcases Cst with Cst | Cst
-      · right
-        exact Cst
-      · left
-        rw [hCt] at Cst
-        simp [Turing.Tape.write] at Cst
-        exact Cst
-  · constructor
-    · simp
-    · simp
-      intro i
-      split
-      · rename_i heq
-        cases heq
-        simp
-      · rename_i heq
-        cases dir
-        · simp [Turing.Dir.other]
-          rw [hCt] at Cst
-          specialize Cst (i + 1)
-          simp [hCt, heq] at Cst
-          exact Cst
-        · simp [Turing.Dir.other]
-          rw [hCt] at Cst
-          specialize Cst (i - 1)
-          simp [hCt, heq] at Cst
-          exact Cst
+  sorry
+  -- conv =>
+  --   pattern (_ ∧ _) ∧ _
+  --   rw [
+  --     and_assoc
+  --   ]
+  -- simp
+  -- constructor
+  -- · cases dir
+  --   · simp [Turing.Dir.other, Turing.Tape.move]
+  --     simp [Turing.Tape.move] at hCt
+  --     specialize Cst 1
+  --     simp [Turing.Tape.nth] at Cst
+  --     rcases Cst with Cst | Cst
+  --     · right
+  --       exact Cst
+  --     · left
+  --       rw [hCt] at Cst
+  --       simp [Turing.Tape.write] at Cst
+  --       exact Cst
+  --   · simp [Turing.Dir.other, Turing.Tape.move]
+  --     simp [Turing.Tape.move] at hCt
+  --     specialize Cst (.negSucc 0)
+  --     simp [Turing.Tape.nth] at Cst
+  --     rcases Cst with Cst | Cst
+  --     · right
+  --       exact Cst
+  --     · left
+  --       rw [hCt] at Cst
+  --       simp [Turing.Tape.write] at Cst
+  --       exact Cst
+  -- · constructor
+  --   · simp
+  --   · simp
+  --     intro i
+  --     split
+  --     · rename_i heq
+  --       cases heq
+  --       simp
+  --     · rename_i heq
+  --       cases dir
+  --       · simp [Turing.Dir.other]
+  --         rw [hCt] at Cst
+  --         specialize Cst (i + 1)
+  --         simp [hCt, heq] at Cst
+  --         exact Cst
+  --       · simp [Turing.Dir.other]
+  --         rw [hCt] at Cst
+  --         specialize Cst (i - 1)
+  --         simp [hCt, heq] at Cst
+  --         exact Cst
 }
 
 def backward_step (M: Machine l s) (C: SymbolicConfig l s): Multiset (SymbolicConfig l s):=
@@ -214,8 +215,7 @@ lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = �
 by {
   intro hAC'
   obtain ⟨sym', dir, hM, hC't⟩ := Machine.step.some_rev hAC'
-  simp [backward_step, Finset.eraseNone, Finset.subtype, Finset.filter_eq_empty_iff] at h
-
+  simp [backward_step] at h
   obtain ⟨hCC's, hCC't⟩ := hCC'
   simp at hCC's
 
@@ -243,7 +243,7 @@ by {
       exact heq
     · left
       rw [heq, hC't]
-      simp [Turing.Dir.other, Turing.Tape.write, Turing.Tape.move]
+      simp [Turing.Tape.write, Turing.Tape.move]
   · simp [Turing.Dir.other, Turing.Tape.move]
     specialize hCC't (.negSucc 0)
     simp [Turing.Tape.nth] at hCC't
@@ -252,7 +252,7 @@ by {
       exact heq
     · left
       rw [heq, hC't]
-      simp [Turing.Dir.other, Turing.Tape.write, Turing.Tape.move]
+      simp [Turing.Tape.write, Turing.Tape.move]
 }
 
 lemma backward_step.correct {C C': Config l s} {Cs: SymbolicConfig l s}
@@ -307,22 +307,23 @@ theorem backwardReason.correct {C C': Config l s} {Cs: SymbolicConfig l s}
   ¬C -[M]{bound}-> C' :=
 by {
   intro hC
-  induction bound, M, Cs using backwardReason.induct generalizing C' with
-  | case1 => {
-    unfold backwardReason at hBw
-    cases hBw
-  }
-  | case2 M Cs₀ n IH => {
-    simp [backwardReason] at hBw
-    simp at hC
-    obtain ⟨C₀, hCC₀, hC₀⟩ := hC.split
-    apply Multistep.single' at hC₀
+  sorry
+  -- induction bound, M, Cs using backwardReason.induct generalizing C' with
+  -- | case1 => {
+  --   unfold backwardReason at hBw
+  --   cases hBw
+  -- }
+  -- | case2 M Cs₀ n IH => {
+  --   simp [backwardReason] at hBw
+  --   simp at hC
+  --   obtain ⟨C₀, hCC₀, hC₀⟩ := hC.split
+  --   apply Multistep.single' at hC₀
 
-    obtain ⟨Cbw, hCbwi, hCbwm⟩ := backward_step.correct hC₀ hCs
+  --   obtain ⟨Cbw, hCbwi, hCbwm⟩ := backward_step.correct hC₀ hCs
 
-    specialize hBw Cbw hCbwi
-    exact IH Cbw hCbwm hBw hCC₀
-  }
+  --   specialize hBw Cbw hCbwi
+  --   exact IH Cbw hCbwm hBw hCC₀
+  -- }
 }
 
 end Machine

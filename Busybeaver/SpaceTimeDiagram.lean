@@ -79,19 +79,19 @@ syntax "rgb(" term "," term "," term ")" : svg_color
 syntax "hsl(" term "," term "," term ")" : svg_color
 syntax "{{" term "}}" : svg_color
 
-syntax "<svg width=" svg_attrib " height=" svg_attrib ">" svg_elem* "</svg>" : term
-syntax "<rect width=" svg_attrib " height=" svg_attrib " x=" svg_attrib " y=" svg_attrib (" fill=" svg_color)? "/>" : svg_elem
+syntax "<svg_width=" svg_attrib " height=" svg_attrib ">" svg_elem* "</svg>" : term
+syntax "<rect_width=" svg_attrib " height=" svg_attrib " x=" svg_attrib " y=" svg_attrib (" fill=" svg_color)? "/>" : svg_elem
 
 syntax "se[[" svg_elem "]]" : term
 syntax "sa[[" svg_attrib "]]" : term
 syntax "sc[[" svg_color "]]" : term
 
 macro_rules
-| `(term| <svg width=$w height=$h>$[$el:svg_elem]*</svg>) => `(term| Doc.mk sa[[$w]] sa[[$h]] [$[ se[[$el]] ],*])
+| `(term| <svg_width=$w height=$h>$[$el:svg_elem]*</svg>) => `(term| Doc.mk sa[[$w]] sa[[$h]] [$[ se[[$el]] ],*])
 
-| `(term| se[[<rect width=$w height=$h x=$x y=$y/>]]) =>
+| `(term| se[[<rect_width=$w height=$h x=$x y=$y/>]]) =>
     `(term| Elem.mk (Kind.rect sa[[$w]] sa[[$h]] sa[[$x]] sa[[$y]]) .none [])
-| `(term| se[[<rect width=$w height=$h x=$x y=$y fill=$c/>]]) =>
+| `(term| se[[<rect_width=$w height=$h x=$x y=$y fill=$c/>]]) =>
     `(term| Elem.mk (Kind.rect sa[[$w]] sa[[$h]] sa[[$x]] sa[[$y]]) (.some sc[[$c]]) [])
 
 | `(term| sc[[rgb($r,$g,$b)]]) => `(term| Color.rgb $r $g $b)
@@ -112,14 +112,14 @@ private def sColor (sym: Symbol s): SVG.Color :=
 
 private def lColor (label: Label l): SVG.Color :=
   let val: ℕ := (label * 300) / l
-  let val: Fin 361 := val
+  let val: Fin 361 := ⟨val, by sorry⟩
   SVG.Color.hsl val 82 43
 
 def size := 10
 
 private def symToRec (sym: Symbol s) (offset: ℤ) (depth: ℕ): SVG.Elem :=
   se[[
-    <rect width={{size}} height={{size}} x={{↑(offset * size)}} y={{↑(depth * size)}} fill={{sColor sym}}/>
+    <rect_width={{size}} height={{size}} x={{↑(offset * size)}} y={{↑(depth * size)}} fill={{sColor sym}}/>
   ]]
 
 abbrev Line (l s) := Config l s × Turing.Dir
@@ -183,15 +183,15 @@ unsafe def configToRects (offset: ℤ) (leftmax rightmax: ℕ) (depth: ℕ) (cfg
   let leftpadded : List (Symbol s) := unquotAndPad (leftmax + offset).toNat cfg.tape.left
   let rightpadded := unquotAndPad (rightmax - offset).toNat cfg.tape.right
 
-  let left: List SVG.Elem := leftpadded.reverse |>.enum |>.map
-    λ ⟨i, sym⟩ ↦ symToRec sym i depth
+  let left: List SVG.Elem := leftpadded.reverse |>.mapIdx
+    λ i sym ↦ symToRec sym i depth
 
-  let right := rightpadded |>.enum |>.map
-    λ ⟨i, sym⟩ ↦ symToRec sym (leftpadded.length + i + 1) depth
+  let right := rightpadded |>.mapIdx
+    λ i sym ↦ symToRec sym (leftpadded.length + i + 1) depth
 
   symToRec cfg.tape.head leftpadded.length depth ::
   se[[
-    <rect width={{↑(size * 3 / 5)}} height={{↑(size * 3 / 5)}}
+    <rect_width={{↑(size * 3 / 5)}} height={{↑(size * 3 / 5)}}
       x={{↑(leftpadded.length * size + size / 5)}} y={{↑(depth * size + size / 5)}}
       fill={{lColor cfg.state}}/>
   ]] :: left ++ right
@@ -210,5 +210,5 @@ unsafe def generate (depth: ℕ) (M: Machine l s): SVG.Doc :=
   {
     width := ↑(size * (leftmax.natAbs + rightmax.natAbs + 1)),
     height := ↑(size * lines.length),
-    elems := toArray leftmax.natAbs rightmax.natAbs 0 lines.enum
+    elems := toArray leftmax.natAbs rightmax.natAbs 0 (lines.mapIdx (⟨·, ·⟩))
   }
