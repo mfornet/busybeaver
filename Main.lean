@@ -1,5 +1,6 @@
 import Busybeaver
 import Mathlib.Data.Nat.Notation
+import Init.Data.String
 
 import Lean.Data.Json
 
@@ -87,7 +88,7 @@ unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
 
 instance: ParseableType MParseRes where
   name := s!"Machine"
-  parse? str := match TM.Parse.pmachine str.iter with
+  parse? str := match TM.Parse.pmachine (⟨str, str.startValidPos⟩) with
     | .success _ M => some M
     | .error _ _ => none
 
