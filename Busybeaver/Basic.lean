@@ -125,7 +125,7 @@ def Machine.get_lab_sym (M: Machine l s) (idx: Fin M.vals.size): Label l × Symb
   (⟨idx / (s + 1), by {
     obtain ⟨idx, hid⟩ := idx
     obtain ⟨C, hC⟩ := M
-    simp [hC] at *
+    simp at *
     simp at hid
     rw [hC] at hid
     refine (Nat.div_lt_iff_lt_mul ?_).mpr hid
@@ -133,7 +133,7 @@ def Machine.get_lab_sym (M: Machine l s) (idx: Fin M.vals.size): Label l × Symb
   }⟩, ⟨idx % (s + 1), by {
     obtain ⟨idx, hid⟩ := idx
     obtain ⟨C, hC⟩ := M
-    simp [hC] at *
+    simp at *
     simp at hid
     rw [hC] at hid
     apply Nat.mod_lt idx
@@ -163,8 +163,8 @@ by {
       Nat.add_mul_div_right sym lab (Nat.zero_lt_succ s)
     ]
     simp
-    exact Nat.div_eq_of_lt hsym
-  · exact Nat.mul_add_mod_of_lt hsym
+    exact hsym
+  · exact hsym
 }
 
 @[simp]
@@ -182,10 +182,10 @@ def Machine.get (M: Machine l s) (lab: Label l) (sym: Symbol s): Stmt l s :=
 
 def Machine.map (M: Machine l s) (f: Fin M.vals.size → Stmt l s → Stmt l s): Machine l s :=
   {
-    vals := M.vals.mapIdx f,
+    vals := M.vals.mapFinIdx (fun i a hi ↦ f ⟨i, hi⟩ a),
     wf := by {
       rw [← M.wf]
-      exact Array.size_mapIdx M.vals f
+      exact Array.size_mapFinIdx
     }
   }
 
@@ -195,7 +195,7 @@ lemma Machine.map_get {M: Machine l s} {f: Fin M.vals.size → Stmt l s → Stmt
 
 def Machine.map' (M: Machine l s) (f: Label l → Symbol s → Stmt l s → Stmt l s): Machine l s :=
   M.map <| λ idx ↦
-    let (lab, sym) := M.get_lab_sym idx
+    let (lab, sym) := M.get_lab_sym ⟨idx, by sorry⟩
     f lab sym
 
 @[simp]
@@ -269,8 +269,8 @@ instance: Repr (Machine l s) := ⟨λ M _ ↦
 end PrettyPrint
 
 instance Machine.inhabited: Inhabited $ Machine l s := ⟨{
-  vals := Array.mkArray ((l + 1) * (s + 1)) .halt,
-  wf := Array.size_mkArray ((l + 1) * (s + 1)) Stmt.halt
+  vals := Array.replicate ((l + 1) * (s + 1)) .halt,
+  wf := Array.size_replicate
 }⟩
 
 @[simp]

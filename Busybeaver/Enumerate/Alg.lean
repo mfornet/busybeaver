@@ -11,7 +11,7 @@ import Busybeaver.Enumerate.Translate
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Quotient
 
-import Mathlib.Algebra.BigOperators.Group.Finset
+import Mathlib.Data.Finset.Defs
 
 namespace TM.Busybeaver
 open TM.Machine
@@ -263,7 +263,7 @@ def usable_states (M: Machine l s): Finset (Label l) :=
   used_states M ∪ if hM: (Finset.univ \ used_states M).Nonempty then {(Finset.univ \ (used_states M)).min' hM} else ∅
 
 def usable_symbols (M: Machine l s): Finset (Symbol s) :=
-  used_symbols M ∪ if hM: (Finset.univ \ used_symbols M).Nonempty then {(Finset.univ \ (used_symbols M)).min' hM} else ∅ 
+  used_symbols M ∪ if hM: (Finset.univ \ used_symbols M).Nonempty then {(Finset.univ \ (used_symbols M)).min' hM} else ∅
 
 def possible_statements (M: Machine l s): Finset (Stmt l s) :=
   usable_symbols M ×ˢ Finset.univ (α:=Turing.Dir) ×ˢ usable_states M |>.image

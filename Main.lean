@@ -1,4 +1,5 @@
 import Busybeaver
+import Mathlib.Data.Nat.Notation
 
 import Lean.Data.Json
 
