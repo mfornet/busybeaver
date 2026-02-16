@@ -174,12 +174,12 @@ by {
         · simp [Turing.Dir.other]
           rw [hCt] at Cst
           specialize Cst (i + 1)
-          simp [hCt, heq] at Cst
+          simp [heq] at Cst
           exact Cst
         · simp [Turing.Dir.other]
           rw [hCt] at Cst
           specialize Cst (i - 1)
-          simp [hCt, heq] at Cst
+          simp [heq] at Cst
           exact Cst
 }
 

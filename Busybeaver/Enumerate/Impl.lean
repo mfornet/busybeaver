@@ -145,7 +145,7 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
             calc
               Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach
                 = Multiset.map (fun M'_1 : { x // x ∈ next } => (BBComputeP.loop decider ↑M'_1).get) next.attach := by
-                    simpa [hmap]
+                    simp [hmap]
               _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) (Multiset.map Subtype.val next.attach) := by
                     symm
                     simpa [Function.comp] using
@@ -158,7 +158,7 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
             exact Multiset.map_congr rfl hpt
       simpa only [next] using hAttachLoop
     ·
-      simp [instMonadTask, Task.bind, Finset.fold, Multiset.fold]
+      simp [Finset.fold, Multiset.fold]
       rw [Multiset.foldr_swap]
       congr 1
       · funext A B
@@ -179,7 +179,7 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
             calc
               Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach
                 = Multiset.map (fun M'_1 : { x // x ∈ next } => (BBComputeP.loop decider ↑M'_1).get) next.attach := by
-                    simpa [hmap]
+                    simp [hmap]
               _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) (Multiset.map Subtype.val next.attach) := by
                     symm
                     simpa [Function.comp] using

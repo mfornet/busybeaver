@@ -110,7 +110,7 @@ def pmachine: Parser MParseRes := attempt do
           _ = (List.map Array.size mcode.toList).length • asize := by
             exact List.sum_eq_card_nsmul (List.map Array.size mcode.toList) asize hconst
           _ = (List.map Array.size mcode.toList).length * asize := by rw [Nat.nsmul_eq_mul]
-          _ = code.size * asize := by simpa [hmc]
+          _ = code.size * asize := by simp [hmc]
       }⟩
     }
   else
