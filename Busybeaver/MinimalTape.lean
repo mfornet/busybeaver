@@ -844,7 +844,7 @@ instance [DecidableEq Γ]: SemilatticeInf (PartialHTape Γ) where
       simp_all
     }
     | finite La => {
-      sorry
+      cases B <;> cases C <;> simp [meet] at hAB hAC ⊢ <;> aesop
     }
   }
 
