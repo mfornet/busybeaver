@@ -9,12 +9,12 @@ defaultTargets = ["beaver"]
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
-rev = "v4.26.0"
+rev = "v4.27.0"
 
 [[require]]
 name = "Cli"
 git = "https://github.com/leanprover/lean4-cli"
-rev = "v4.26.0"
+rev = "v4.27.0"
 
 [[lean_lib]]
 name = "Busybeaver"

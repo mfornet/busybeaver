@@ -1,0 +1,8 @@
+- implement in the CLI the ability to run one decider against one machine
+- evaluate one machine and see its space time representation
+- evaluate one machine and listen to it (see its transcript)
+- macro machines
+- let's improve z-function
+- use grind whenever possible (simplify the system)
+- use blue print as a ROADMAP
+- use database to store how each machine can be proved, to efficiently verify them, the pipeline will find the most efficient verifier, then we store the evindence in a database and on later execution we use the evidence alone

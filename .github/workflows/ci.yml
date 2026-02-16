@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Lean
+        uses: leanprover/lean-action@v1
+
+      - name: Restore mathlib cache
+        run: lake exe cache get
+
+      - name: Build
+        run: lake build
+
+      - name: Smoke test CLI
+        run: lake exe beaver -h
+
+      - name: Generate sorry report
+        run: ci/sorry_report.sh sorry-report.txt
+
+      - name: Append summary
+        run: |
+          echo "## Sorry Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          grep "Total hasSorry warnings:" sorry-report.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Full report is available as workflow artifact \`sorry-report\`." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload sorry report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sorry-report
+          path: sorry-report.txt

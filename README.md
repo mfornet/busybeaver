@@ -1,5 +1,7 @@
 # Lean Busy Beaver
 
+[![CI](https://github.com/mfornet/busybeaver/actions/workflows/ci.yml/badge.svg)](https://github.com/mfornet/busybeaver/actions/workflows/ci.yml)
+
 This project contains an attempt at formalising results regarding Busy Beavers.
 
 The objective is to merge deciders and their proof of correctness.
