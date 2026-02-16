@@ -112,7 +112,9 @@ private def sColor (sym: Symbol s): SVG.Color :=
 
 private def lColor (label: Label l): SVG.Color :=
   let val: ℕ := (label * 300) / l
-  let val: Fin 361 := ⟨val, by sorry⟩
+  let val: Fin 361 := ⟨val % 361, by
+    exact Nat.mod_lt _ (by decide)
+  ⟩
   SVG.Color.hsl val 82 43
 
 def size := 10

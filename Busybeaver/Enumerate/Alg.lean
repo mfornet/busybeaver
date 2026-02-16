@@ -690,7 +690,6 @@ by induction S using Finset.induction with
   congr 1
   simp at IH
   sorry
-  -- simp [IH]
 }
 
 /--

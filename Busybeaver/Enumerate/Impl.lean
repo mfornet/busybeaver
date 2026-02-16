@@ -31,11 +31,7 @@ def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
       congr 1
     }
     | @trans A B C hAB hBC IHA IHB => {
-      sorry
-      -- injection IHA
-      -- injection IHB
-      -- congr 1
-      -- simp_all only
+      exact IHA.trans IHB
     }
     | @swap A B L => {
       simp [List.waitAll, Task.bind, Task.map]

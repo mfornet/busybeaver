@@ -306,7 +306,29 @@ instance Stmt.fintype: Fintype $ Stmt l s := by {
 }
 
 instance Machine.finite: Fintype $ Machine l s := by {
-  sorry
+  classical
+  let n := (l + 1) * (s + 1)
+  let e : Machine l s ≃ (Fin n → Stmt l s) := {
+    toFun := fun M i => M.vals[Fin.cast (by simpa [n] using M.wf.symm) i]
+    invFun := fun f => {
+      vals := Array.ofFn f
+      wf := by simp [n]
+    }
+    left_inv := by
+      intro M
+      cases M with
+      | mk vals wf =>
+        simp [n]
+        apply Array.ext
+        · simpa [n] using wf.symm
+        · intro i hi1 hi2
+          simp
+    right_inv := by
+      intro f
+      funext i
+      simp [n]
+  }
+  exact Fintype.ofEquiv (Fin n → Stmt l s) e.symm
 }
 
 instance Machine.decEq: DecidableEq (Machine l s) := by {
@@ -323,7 +345,19 @@ lemma Machine.ext {M M': Machine l s}: (∀ lab sym, M.get lab sym = M'.get lab 
   intro hCC'
   ext i hi hi'
   · rw [hC, hC']
-  sorry
+  let Mi : Machine l s := ⟨C, hC⟩
+  let Mi' : Machine l s := ⟨C', hC'⟩
+  let idx : Fin C.size := ⟨i, hi⟩
+  let ls := Mi.get_lab_sym idx
+  have hls : Mi'.get_lab_sym ⟨i, hi'⟩ = ls := by
+    simpa [Mi, Mi', idx, ls] using (Machine.get_lab_sym.size_only (M:=Mi) (M':=Mi') (idx:=idx))
+  have hEq := hCC' ls.1 ls.2
+  have hidx : Mi.get_index ls.1 ls.2 = idx := by
+    simpa [ls] using (Machine.get_index_get_lab_sym (M:=Mi) (idx:=idx))
+  have hidx' : Mi'.get_index ls.1 ls.2 = ⟨i, hi'⟩ := by
+    have := (Machine.get_index_get_lab_sym (M:=Mi') (idx:=⟨i, hi'⟩))
+    simpa [hls, ls] using this
+  simpa [Machine.get, Mi, Mi', idx, hidx, hidx'] using hEq
 }
 
 instance Config.inhabited: Inhabited $ Config l s := ⟨⟨default, default⟩⟩
