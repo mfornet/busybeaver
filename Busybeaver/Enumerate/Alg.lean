@@ -689,7 +689,31 @@ by induction S using Finset.induction with
     })]
   congr 1
   simp at IH
-  sorry
+  calc
+    Finset.fold op B (fun x : { x // x ∈ insert A S } => f x.1)
+      (Finset.image
+        (fun x : { x // x ∈ S } =>
+          (⟨↑x, by exact Finset.mem_insert_of_mem x.prop⟩ : { x // x ∈ insert A S }))
+        S.attach)
+      = Finset.fold op B
+          ((fun x : { x // x ∈ insert A S } => f x.1) ∘
+            (fun x : { x // x ∈ S } =>
+              (⟨↑x, by exact Finset.mem_insert_of_mem x.prop⟩ : { x // x ∈ insert A S })))
+          S.attach := by
+            simpa using (Finset.fold_image (op:=op)
+              (f := (fun x : { x // x ∈ insert A S } => f x.1))
+              (b := B)
+              (g := (fun x : { x // x ∈ S } =>
+                (⟨↑x, by exact Finset.mem_insert_of_mem x.prop⟩ : { x // x ∈ insert A S })))
+              (s := S.attach)
+              (by
+                intro x hx y hy hxy
+                simpa using congrArg Subtype.val hxy))
+    _ = Finset.fold op B (fun x : { x // x ∈ S } => f x.1) S.attach := by
+      apply Finset.fold_congr
+      intro x hx
+      rfl
+    _ = Finset.fold op B f S := IH
 }
 
 /--

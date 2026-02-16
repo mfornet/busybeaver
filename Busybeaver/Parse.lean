@@ -66,15 +66,16 @@ def pmachine: Parser MParseRes := attempt do
       λ ic ↦ ic.map λ
         | .none => .halt
         | .some (tsym, tdir, tlab) =>
-            .next (⟨tsym, by sorry⟩ : Symbol s) tdir (⟨tlab, by sorry⟩ : Label l)
+            .next
+              (⟨tsym % (s + 1), Nat.mod_lt _ (Nat.zero_lt_succ s)⟩ : Symbol s)
+              tdir
+              (⟨tlab % (l + 1), Nat.mod_lt _ (Nat.zero_lt_succ l)⟩ : Label l)
 
     have hmc: mcode.size = code.size := by simp [mcode]
     have hmsc : ∀ i: Fin mcode.size, (mcode[i.val]'i.prop).size = asize := by {
-      sorry
-      -- intro ⟨i, hi⟩
-      -- simp [mcode]
-      -- rw [hmc] at hi
-      -- exact hca ⟨i, hi⟩
+      intro i
+      have hi : i.val < code.size := by simpa [hmc] using i.prop
+      simpa [mcode] using (hca ⟨i.val, hi⟩)
     }
 
     let fcode : Array <| Stmt l s := mcode.flatten
@@ -92,21 +93,24 @@ def pmachine: Parser MParseRes := attempt do
           rhs
           rhs
           simp [s, Nat.sub_one_add_one has]
-        rw [← Array.length_toList]
-        simp
-        suffices code.size = (List.map (List.length ∘ Array.toList) mcode.toList).length by {
-          rw [this]
-          sorry
-          -- apply List.sum_eq_card_nsmul
-          -- simp
-          -- intro a ha
-          -- rw [List.mem_iff_get] at ha
-          -- obtain ⟨n, hn⟩ := ha
-          -- simp at hn
-          -- rw [← hn, hmsc n]
-        }
-        simp
-        exact hmc.symm
+        rw [← Array.sum_eq_sum_toList]
+        rw [Array.toList_map]
+        have hconst : ∀ a ∈ List.map Array.size mcode.toList, a = asize := by
+          intro a ha
+          rw [List.mem_iff_get] at ha
+          rcases ha with ⟨n, hn⟩
+          have hna : n.1 < mcode.size := by simpa using n.2
+          have hget : (List.map Array.size mcode.toList).get n = (mcode[n.1]'hna).size := by
+            rw [List.get_eq_getElem]
+            rw [List.getElem_map]
+            rw [Array.getElem_toList]
+          rw [hget] at hn
+          exact hn.symm.trans (hmsc ⟨n.1, hna⟩)
+        calc (List.map Array.size mcode.toList).sum
+          _ = (List.map Array.size mcode.toList).length • asize := by
+            exact List.sum_eq_card_nsmul (List.map Array.size mcode.toList) asize hconst
+          _ = (List.map Array.size mcode.toList).length * asize := by rw [Nat.nsmul_eq_mul]
+          _ = code.size * asize := by simpa [hmc]
       }⟩
     }
   else

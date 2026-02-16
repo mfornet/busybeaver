@@ -116,7 +116,8 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
     · absurd hntrans
       simp
       trivial
-    split <;> {
+    split
+    ·
       simp [instMonadTask, Task.bind, Finset.fold, Multiset.fold]
       rw [Multiset.foldr_swap]
       congr 1
@@ -126,13 +127,75 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
         · exact Nat.max_comm B.val A.val
         · exact AddCommMagma.add_comm B.undec A.undec
 
-      -- try {
-      --   congr 1
-      --   funext M₀
-      --   exact IH M₀
-      -- }
+      let next := (next_machines M' C.state C.tape.head).val
+      have hmap :
+        (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1)
+          = (fun M'_1 : { x // x ∈ next } => (BBComputeP.loop decider ↑M'_1).get) := by
+            funext M'_1
+            simpa [BBComputeP] using (IH M'_1)
+      have hpt : ∀ x ∈ next, (BBComputeP.loop decider x).get = BBCompute decider x := by
+        intro x hx
+        have hix : x ∈ next_machines M' C.state C.tape.head := by
+          simpa [next] using hx
+        have hIH := IH ⟨x, hix⟩
+        simpa [BBComputeP] using hIH.symm
+      have hAttachLoop :
+        Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach
+          = Multiset.map (fun a => (BBComputeP.loop decider a).get) next := by
+            calc
+              Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach
+                = Multiset.map (fun M'_1 : { x // x ∈ next } => (BBComputeP.loop decider ↑M'_1).get) next.attach := by
+                    simpa [hmap]
+              _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) (Multiset.map Subtype.val next.attach) := by
+                    symm
+                    simpa [Function.comp] using
+                      (Multiset.map_map (g := (fun a => (BBComputeP.loop decider a).get)) (f := Subtype.val) next.attach)
+              _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) next := by
+                    simp [Multiset.attach_map_val]
+      have hLoopBB :
+        Multiset.map (fun a => (BBComputeP.loop decider a).get) next
+          = Multiset.map (BBCompute decider) next := by
+            exact Multiset.map_congr rfl hpt
+      simpa only [next] using hAttachLoop
+    ·
+      simp [instMonadTask, Task.bind, Finset.fold, Multiset.fold]
+      rw [Multiset.foldr_swap]
+      congr 1
+      · funext A B
+        simp [BBResult.join]
+        constructor
+        · exact Nat.max_comm B.val A.val
+        · exact AddCommMagma.add_comm B.undec A.undec
 
-      sorry
-    }
+      let next := (next_machines M' C.state C.tape.head).val
+      have hmap :
+        (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1)
+          = (fun M'_1 : { x // x ∈ next } => (BBComputeP.loop decider ↑M'_1).get) := by
+            funext M'_1
+            simpa [BBComputeP] using (IH M'_1)
+      have hAttachLoop :
+        Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach
+          = Multiset.map (fun a => (BBComputeP.loop decider a).get) next := by
+            calc
+              Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach
+                = Multiset.map (fun M'_1 : { x // x ∈ next } => (BBComputeP.loop decider ↑M'_1).get) next.attach := by
+                    simpa [hmap]
+              _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) (Multiset.map Subtype.val next.attach) := by
+                    symm
+                    simpa [Function.comp] using
+                      (Multiset.map_map (g := (fun a => (BBComputeP.loop decider a).get)) (f := Subtype.val) next.attach)
+              _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) next := by
+                    simp [Multiset.attach_map_val]
+      have hpt : ∀ x ∈ next, (BBComputeP.loop decider x).get = BBCompute decider x := by
+        intro x hx
+        have hix : x ∈ next_machines M' C.state C.tape.head := by
+          simpa [next] using hx
+        have hIH := IH ⟨x, hix⟩
+        simpa [BBComputeP] using hIH.symm
+      have hLoopBB :
+        Multiset.map (fun a => (BBComputeP.loop decider a).get) next
+          = Multiset.map (BBCompute decider) next := by
+            exact Multiset.map_congr rfl hpt
+      simpa only [next] using (hAttachLoop.trans hLoopBB)
   }
 }
