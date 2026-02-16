@@ -1,57 +1,45 @@
-# Repository Guidelines
+# AGENTS.md
 
-This Lean 4 project aims to formally prove busy beaver values BB(n) for small n (1-5). It provides proof-carrying deciders and a TNF enumeration algorithm with correctness proofs.
+## Goal
+- Prove busy beaver results in Lean 4 with proof-carrying deciders and verified enumeration.
 
-## Project Structure
+## Start-Of-Session Checklist
+1. Run `lake build`.
+1. Scan debt: `rg -n "\bsorry\b" Busybeaver`.
+1. If reducing debt: fix easy/local obligations first, then harder global proofs.
 
-```
-Busybeaver/           # Main library
-├── Basic.lean        # Core Turing machine definitions
-├── Problem.lean      # Busy beaver problem definition
-├── Reachability.lean # TM reachability lemmas
-├── ClosedSet.lean    # Non-halting proofs via closed sets
-├── Partial.lean      # Finite tape stepping
-├── Deciders/         # Proof-carrying decider implementations
-│   ├── Cyclers.lean
-│   └── TranslatedCyclers.lean
-└── Enumerate/        # TNF enumeration with proofs
-    └── Alg.lean      # Main enumeration algorithm
-bin/                  # Executable entry points
-Main.lean             # CLI entry point for `beaver` executable
-```
+## Core Commands
+- `lake build`
+- `lake exe beaver -h`
+- `lake script run gitconfig`
 
-## Build & Development Commands
+## High-Value File Map
+- `Busybeaver/Basic.lean`: core TM definitions and indexing lemmas.
+- `Busybeaver/Reachability.lean`: multistep/reachability lemmas.
+- `Busybeaver/ClosedSet.lean`: non-halting framework (`closed_set` tactic).
+- `Busybeaver/Deciders/*.lean`: proof-carrying deciders.
+- `Busybeaver/Enumerate/Alg.lean`, `Busybeaver/Enumerate/Impl.lean`: enumeration algorithm and implementation equivalence.
 
-| Command                     | Description                             |
-| --------------------------- | --------------------------------------- |
-| `lake build`                | Build the library and executables       |
-| `lake exe beaver -h`        | Run the main CLI tool                   |
-| `lake script run gitconfig` | Configure git for contribution workflow |
+## Proof Triage Rules
+- Easy: `Fin` bounds, `simp`/`rw` cleanup, fold/map congruences, linter-only simplifications.
+- Hard: semantic bridge lemmas across different step systems, long state-evolution inductions with new invariants.
+- If user says skip nontrivial proofs, leave hard lemmas untouched and continue elsewhere.
 
-This project depends on Mathlib (stable branch). Lake will fetch dependencies automatically.
+## Working Style
+1. Solve one lemma cluster at a time.
+1. Rebuild after each nontrivial edit.
+1. Prefer stable local `have` lemmas over brittle `conv` patterns.
+1. Do not change theorem/API shape unless required.
 
-## Coding Style
+## Lean Conventions
+- Follow Mathlib style: https://leanprover-community.github.io/contribute/style.html
+- 2-space indentation.
+- Prefer `fun a ↦ b`.
+- Use `@[simp]` only for stable simplifying lemmas.
 
-- Follow standard [Mathlib conventions](https://leanprover-community.github.io/contribute/style.html)
-- Use 2-space indentation
-- Prefer `fun a ↦ b` syntax (configured in lakefile)
-- Name theorems descriptively: `lemma Finset.mem_fold_union`
-- Use `@[simp]` for simplification lemmas
+## Warning Policy
+- Fix easy warnings (`simpa`→`simp`, unused simp args) if behavior is unchanged.
+- Do not perform large refactors only to silence linters unless asked.
 
-## Commit Conventions
-
-Use [Conventional Commits](https://www.conventionalcommits.org/) with these prefixes:
-
-- `feat:` — New features or proofs
-- `fix:` — Bug fixes
-- `perf:` — Performance improvements
-- `refactor:` — Code restructuring
-- `chore:` — Maintenance tasks
-
-Optional scope in parentheses: `feat(ui): add horizontal movement`
-
-## Architecture Notes
-
-Deciders are designed as **proof-carrying functions**: they return both a decision and a correctness proof. When adding new deciders, follow the pattern in `Busybeaver/Deciders/`.
-
-For non-halting proofs, use the `closed_set` tactic from `ClosedSet.lean`.
+## Commits
+- Conventional commits: `feat:`, `fix:`, `perf:`, `refactor:`, `chore:`.
