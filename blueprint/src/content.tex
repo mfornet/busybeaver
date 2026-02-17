@@ -1,0 +1,91 @@
+\chapter{Blueprint}
+
+This blueprint tracks the formalization strategy for busy beaver results in Lean 4.
+The long-term objective is to combine executable deciders with machine-checked
+correctness proofs to derive trustworthy busy beaver bounds.
+
+\section{Project Objectives}
+
+The project is organized around four proof layers:
+
+\begin{itemize}
+  \item core Turing machine semantics and indexing,
+  \item reachability and finite execution infrastructure,
+  \item non-halting criteria and decider soundness,
+  \item verified enumeration and implementation equivalence.
+\end{itemize}
+
+\section{Formalization Map}
+
+\subsection{Core Semantics}
+
+Main files:
+\begin{itemize}
+  \item \texttt{Busybeaver/Basic.lean}
+  \item \texttt{Busybeaver/Reachability.lean}
+  \item \texttt{Busybeaver/Partial.lean}
+\end{itemize}
+
+Purpose:
+\begin{itemize}
+  \item define machine/tape/state transition semantics,
+  \item provide reusable lemmas for multi-step execution and indexing invariants.
+\end{itemize}
+
+\subsection{Non-Halting Framework}
+
+Main file:
+\begin{itemize}
+  \item \texttt{Busybeaver/ClosedSet.lean}
+\end{itemize}
+
+Purpose:
+\begin{itemize}
+  \item encode closed-set style non-halting arguments,
+  \item provide tactic support for practical certificate-oriented proofs.
+\end{itemize}
+
+\subsection{Proof-Carrying Deciders}
+
+Main directory:
+\begin{itemize}
+  \item \texttt{Busybeaver/Deciders}
+\end{itemize}
+
+Purpose:
+\begin{itemize}
+  \item define executable deciders,
+  \item prove each decider sound with respect to the abstract semantics.
+\end{itemize}
+
+\subsection{Verified Enumeration}
+
+Main files:
+\begin{itemize}
+  \item \texttt{Busybeaver/Enumerate/Alg.lean}
+  \item \texttt{Busybeaver/Enumerate/Impl.lean}
+\end{itemize}
+
+Purpose:
+\begin{itemize}
+  \item specify machine enumeration in tree normal form,
+  \item connect implementation-level enumeration to the formal specification.
+\end{itemize}
+
+\section{Current Work Plan}
+
+Near-term priorities:
+\begin{itemize}
+  \item reduce local proof debt in decider modules,
+  \item strengthen semantic bridge lemmas used by multiple deciders,
+  \item keep executable tooling aligned with proof artifacts.
+\end{itemize}
+
+\section{Expected Outputs}
+
+This blueprint is intended to track:
+\begin{itemize}
+  \item theorem statements and dependency flow,
+  \item implementation-to-specification correspondence points,
+  \item progress toward machine-checked busy beaver results.
+\end{itemize}
