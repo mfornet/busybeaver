@@ -1,0 +1,3 @@
+[submodule "Coq-BB5"]
+	path = Coq-BB5
+	url = https://github.com/ccz181078/Coq-BB5
