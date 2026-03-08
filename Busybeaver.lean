@@ -7,6 +7,7 @@ import Busybeaver.Deciders.Cyclers
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.TranslatedCyclers
 import Busybeaver.Deciders.BackwardsReasoning
+import Busybeaver.Deciders.NGramCPS
 
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Enumerate.Impl
