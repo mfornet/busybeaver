@@ -51,40 +51,6 @@ Manual equivalent:
 codex mcp add lean-lsp --env "LEAN_PROJECT_PATH=$(pwd)" -- uvx lean-lsp-mcp
 ```
 
-## Blueprint workflow
-
-This repository now includes a Lean blueprint scaffold under
-[`blueprint/src`](./blueprint/src).
-
-Install `leanblueprint`:
-
-```bash
-python3 -m pip install --user leanblueprint
-```
-
-Then build the blueprint website:
-
-```bash
-leanblueprint checkdecls
-leanblueprint web
-```
-
-The generated site is written to `blueprint/web`.
-To build the PDF, run:
-
-```bash
-leanblueprint pdf
-```
-
-For a single command that runs the local project checks plus website build:
-
-```bash
-ci/blueprint.sh
-```
-
-To publish from GitHub Actions, enable Pages once in repository settings:
-`Settings -> Pages -> Build and deployment -> Source: GitHub Actions`.
-
 ## Configuration file
 
 The binary admits a configuration file for the deciders, in JSON, the
@@ -122,8 +88,6 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
   They are designed as proof-carrying functions. Currently we have:
   [cyclers](./Busybeaver/Deciders/Cyclers.lean) and [translated
   cyclers](./Busybeaver/Deciders/TranslatedCyclers.lean).
-- [blueprint/src](./blueprint/src) contains the Lean blueprint content
-  and LaTeX entrypoints used by `leanblueprint`.
 
 # TODOs
 

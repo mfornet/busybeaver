@@ -53,4 +53,3 @@
 
 ## Commits
 - Conventional commits: `feat:`, `fix:`, `perf:`, `refactor:`, `chore:`.
-- Always merge with `master` before pushing: `git fetch origin master && git merge origin/master`.
