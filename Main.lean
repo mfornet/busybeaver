@@ -28,6 +28,7 @@ inductive DeciderConfig where
 | cycler : ℕ → DeciderConfig
 | explore : ℕ → DeciderConfig
 | backwardsReasoning : ℕ → DeciderConfig
+| nGramCPS : ℕ → DeciderConfig
 deriving FromJson, ToJson
 
 instance: ToString DeciderConfig where
@@ -36,12 +37,14 @@ instance: ToString DeciderConfig where
   | .cycler n => s!"Cycler {n}"
   | .explore n => s!"Explore {n}"
   | .backwardsReasoning n => s!"Backwards Reasoning {n}"
+  | .nGramCPS n => s!"NGram CPS {n}"
 
 def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
 | .translatedCycler n => do let _ ← translatedCyclerDecider n M
 | .cycler n => looperDecider n M
 | .explore n => do let _ ← boundedExplore n M
 | .backwardsReasoning n => backwardsReasoningDecider n M
+| .nGramCPS n => nGramCPSDecider n M
 
 @[inline]
 def toDecider (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
