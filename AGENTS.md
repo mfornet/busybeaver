@@ -41,15 +41,5 @@
 - Fix easy warnings (`simpa`→`simp`, unused simp args) if behavior is unchanged.
 - Do not perform large refactors only to silence linters unless asked.
 
-## Docs
-- All project knowledge lives in `docs/`. Read `docs/README.md` for the index.
-- Start every session by skimming the relevant docs for context.
-- After any significant work session, add or update a doc:
-  - **Session log:** `docs/sessions/YYYY-MM-DD-<topic>.md` — what was done, what succeeded, what is left as debt.
-  - **Architectural decision:** `docs/adr/NNN-<title>.md` — context, decision, consequences.
-  - **Reference/background:** top-level file in `docs/`, linked from `docs/README.md`.
-- Key reference doc: `docs/bb5-proof-overview.md` — how BB(5) was proved, all deciders, pointers into the PDF and Coq submodule.
-- Paper PDF: `papers/2509.12337.pdf`; Coq proof: `Coq-BB5/` (git submodule).
-
 ## Commits
 - Conventional commits: `feat:`, `fix:`, `perf:`, `refactor:`, `chore:`.

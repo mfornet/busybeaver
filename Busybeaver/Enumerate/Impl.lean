@@ -156,7 +156,15 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
         Multiset.map (fun a => (BBComputeP.loop decider a).get) next
           = Multiset.map (BBCompute decider) next := by
             exact Multiset.map_congr rfl hpt
-      simpa only [next] using hAttachLoop
+      calc
+        Multiset.map (fun M'_1 : { x // x ∈ (next_machines M' C.state C.tape.head).val } =>
+            BBCompute decider ↑M'_1) (next_machines M' C.state C.tape.head).val.attach
+          = Multiset.map (fun M'_1 : { x // x ∈ next } => BBCompute decider ↑M'_1) next.attach := by
+              simp [next]
+        _ = Multiset.map (fun a => (BBComputeP.loop decider a).get) next := hAttachLoop
+        _ = (waitMultiset (Multiset.map (BBComputeP.loop decider)
+            (next_machines M' C.state C.tape.head).val)).get := by
+              simp [next]
     ·
       simp [Finset.fold, Multiset.fold]
       rw [Multiset.foldr_swap]

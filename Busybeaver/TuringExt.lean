@@ -1,4 +1,4 @@
-import Mathlib.Computability.TuringMachine
+import Mathlib.Computability.TuringMachine.StackTuringMachine
 
 instance: Fintype Turing.Dir := by {
   refine @Fintype.ofEquiv Turing.Dir Bool _ ?_
@@ -59,13 +59,11 @@ instance instHAppend: HAppend (List Γ) (ListBlank Γ) (ListBlank Γ) where
 lemma append_assoc' {L₁ L₂: List Γ} {L: ListBlank Γ}: L₁ ++ L₂ ++ L = L₁ ++ (L₂ ++ L) :=
   Turing.ListBlank.append_assoc L₁ L₂ L
 
-instance instDecidableEq [DecidableEq Γ]: DecidableEq (Turing.ListBlank Γ) := by {
-  simp [Turing.ListBlank, Turing.BlankRel.setoid]
-  refine @Quotient.decidableEq _ _ ?_
+instance instDecidableEq [DecidableEq Γ]: DecidableEq (Turing.ListBlank Γ) := by
+  refine @Quotient.decidableEq _ (Turing.BlankRel.setoid Γ) ?_
   intro a b
-  simp [instHasEquivOfSetoid, Setoid.r]
-  apply inferInstance
-}
+  change Decidable (Turing.BlankRel a b)
+  infer_instance
 
 lemma cons_nth_zero {T: Turing.ListBlank Γ}: (cons A T).nth 0 = A :=
 by induction T using Turing.ListBlank.induction_on; simp
@@ -107,17 +105,18 @@ by {
 @[simp]
 lemma append_mk_nth {L: List Γ} {T: Turing.ListBlank Γ}:
   (L ++ T).nth i = if _ : i < L.length then L[i] else T.nth (i - L.length) :=
-by induction i generalizing L T with
-| zero => cases L <;> simp [instHAppend]
-| succ n IH => {
-  cases L with
-  | nil => simp [instHAppend]
-  | cons head tail => {
-    simp [instHAppend]
-    simp [instHAppend] at IH
-    apply IH
-  }
-}
+by
+  induction T using Turing.ListBlank.induction_on with
+  | h T =>
+      change (Turing.ListBlank.append L (Turing.ListBlank.mk T)).nth i =
+        if _ : i < L.length then L[i] else (Turing.ListBlank.mk T).nth (i - L.length)
+      by_cases h' : i < L.length
+      · rw [Turing.ListBlank.append_mk, Turing.ListBlank.nth_mk, List.getI_append _ _ _ h',
+          List.getI_eq_getElem _ h']
+        simp [h']
+      · have hle : L.length ≤ i := Nat.le_of_not_lt h'
+        rw [Turing.ListBlank.append_mk, Turing.ListBlank.nth_mk, List.getI_append_right _ _ _ hle]
+        simp [h']
 
 @[simp]
 lemma default_nth: (default: Turing.ListBlank Γ).nth i = default :=
@@ -133,19 +132,11 @@ lemma append_cons {T: Turing.ListBlank Γ} {L: List Γ} {g: Γ}: g :: L ++ T = T
 
 @[simp]
 lemma append_nth {T: Turing.ListBlank Γ} {L: List Γ}: (L ++ T).nth n = if h: n < L.length then L[n]'h else T.nth (n - L.length) :=
-by induction n generalizing L with
-| zero => {
-  simp
-  split
-  · rename_i heq
-    cases L <;> simp at heq
-    simp
-  · rename_i heq
-    simp at heq
-    cases heq
-    simp
-}
-| succ n _ => cases L <;> simp
+by
+  classical
+  by_cases h : n < L.length
+  · simpa [append_mk_nth, h] using (append_mk_nth (L := L) (T := T) (i := n))
+  · simpa [append_mk_nth, h] using (append_mk_nth (L := L) (T := T) (i := n))
 
 @[simp]
 lemma liftOn_mk {L: List Γ}: Turing.ListBlank.liftOn (Turing.ListBlank.mk L) f prf = f L :=
@@ -154,8 +145,11 @@ lemma liftOn_mk {L: List Γ}: Turing.ListBlank.liftOn (Turing.ListBlank.mk L) f 
 @[simp]
 lemma mk_eq_mk {L L': List Γ}: Turing.ListBlank.mk L = Turing.ListBlank.mk L' ↔ Turing.BlankRel L L' :=
 by {
-  simp [mk, Quotient.eq'' (s₁:=Turing.BlankRel.setoid Γ)]
-  rfl
+  constructor
+  · intro h
+    exact Quotient.exact' h
+  · intro h
+    exact Quotient.sound' h
 }
 
 /--

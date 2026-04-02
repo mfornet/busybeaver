@@ -102,8 +102,6 @@ def EqTM (l s: ℕ) := Quotient (α:=Machine l s) setoid
 
 def EqTM.halts (M: EqTM l s): Prop := Quotient.liftOn M (Machine.halts · default) (by {
   intro A B h
-  beta_reduce
-  simp [instHasEquivOfSetoid, Setoid.r] at h
   exact propext (equi_halts h)
 })
 
