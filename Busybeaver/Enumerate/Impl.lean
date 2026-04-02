@@ -118,7 +118,7 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
       trivial
     split
     ·
-      simp [instMonadTask, Task.bind, Finset.fold, Multiset.fold]
+      simp [Finset.fold, Multiset.fold]
       rw [Multiset.foldr_swap]
       congr 1
       · funext A B

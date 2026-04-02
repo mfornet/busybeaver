@@ -117,7 +117,7 @@ by induction S' using Finset.induction with
   simp
   conv =>
     rhs
-    rw [Max.left_comm]
+    rw [max_left_comm]
   simp [IH]
 }
 

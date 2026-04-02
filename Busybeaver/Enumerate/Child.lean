@@ -215,7 +215,7 @@ by {
 
   simp at hM'
   by_contra neq
-  push_neg at neq
+  push Not at neq
 
   have hsub := is_child.ne_halt_trans_ssub hM' neq.symm
 

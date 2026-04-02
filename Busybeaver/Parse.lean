@@ -93,7 +93,7 @@ def pmachine: Parser MParseRes := attempt do
           rhs
           rhs
           simp [s, Nat.sub_one_add_one has]
-        rw [← Array.sum_eq_sum_toList]
+        rw [← Array.sum_toList]
         rw [Array.toList_map]
         have hconst : ∀ a ∈ List.map Array.size mcode.toList, a = asize := by
           intro a ha

@@ -1,4 +1,4 @@
-import Mathlib.Computability.TuringMachine
+import Mathlib.Computability.TuringMachine.StackTuringMachine
 import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Sort
 import Busybeaver.TuringExt

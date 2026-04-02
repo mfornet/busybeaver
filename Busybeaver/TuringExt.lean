@@ -135,8 +135,8 @@ lemma append_nth {T: Turing.ListBlank Γ} {L: List Γ}: (L ++ T).nth n = if h: n
 by
   classical
   by_cases h : n < L.length
-  · simpa [append_mk_nth, h] using (append_mk_nth (L := L) (T := T) (i := n))
-  · simpa [append_mk_nth, h] using (append_mk_nth (L := L) (T := T) (i := n))
+  · simp [append_mk_nth, h]
+  · simp [append_mk_nth, h]
 
 @[simp]
 lemma liftOn_mk {L: List Γ}: Turing.ListBlank.liftOn (Turing.ListBlank.mk L) f prf = f L :=
@@ -161,7 +161,7 @@ by {
   · intro hn
     simp at hn
     rw [Turing.ListBlank.ext_iff] at hn
-    push_neg at hn
+    push Not at hn
     exact hn
   · intro ⟨n, hn⟩ hL
     rw [Turing.ListBlank.ext_iff] at hL
@@ -178,7 +178,7 @@ termination_by L L' => L.length + L'.length
 lemma meet_blank.commutative [DecidableEq Γ] {L L': List Γ}: meet_blank L L' = meet_blank L' L :=
 by induction L, L' using meet_blank.induct with simp_all [meet_blank]
 | case7 head tail head' tail' hne => {
-  push_neg at hne
+  push Not at hne
   symm at hne
   simp [hne]
 }
@@ -257,7 +257,7 @@ by {
     simp [take_nth h]
   · rename_i heq
     congr 1
-    push_neg at heq
+    push Not at heq
     exact Nat.add_sub_of_le heq
 }
 

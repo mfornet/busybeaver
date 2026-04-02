@@ -48,7 +48,7 @@ by {
     exists n
   }
 
-  push_neg at hn
+  push Not at hn
   obtain ⟨k, hk⟩ := Nat.exists_eq_succ_of_ne_zero hn
   simp_all
   obtain ⟨C, _, hCr⟩ := term

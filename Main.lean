@@ -88,7 +88,7 @@ unsafe def save_to_file (path: String) (set: Multiset (Machine l s)): IO Unit :=
 
 instance: ParseableType MParseRes where
   name := s!"Machine"
-  parse? str := match TM.Parse.pmachine (⟨str, str.startValidPos⟩) with
+  parse? str := match TM.Parse.pmachine (⟨str, str.startPos⟩) with
     | .success _ M => some M
     | .error _ _ => none
 
