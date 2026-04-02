@@ -23,12 +23,14 @@ section DeciderCombinator
 
 open Lean
 
+deriving instance FromJson, ToJson for NGramCPSConfig
+
 inductive DeciderConfig where
 | translatedCycler : ℕ → DeciderConfig
 | cycler : ℕ → DeciderConfig
 | explore : ℕ → DeciderConfig
 | backwardsReasoning : ℕ → DeciderConfig
-| nGramCPS : ℕ → DeciderConfig
+| nGramCPS : NGramCPSConfig → DeciderConfig
 deriving FromJson, ToJson
 
 instance: ToString DeciderConfig where
@@ -37,14 +39,14 @@ instance: ToString DeciderConfig where
   | .cycler n => s!"Cycler {n}"
   | .explore n => s!"Explore {n}"
   | .backwardsReasoning n => s!"Backwards Reasoning {n}"
-  | .nGramCPS n => s!"NGram CPS {n}"
+  | .nGramCPS cfg => s!"NGram CPS n={cfg.n} bound={cfg.bound}"
 
 def DeciderConfig.decider (cfg: DeciderConfig) (M: Machine l s): HaltM M Unit := match cfg with
 | .translatedCycler n => do let _ ← translatedCyclerDecider n M
 | .cycler n => looperDecider n M
 | .explore n => do let _ ← boundedExplore n M
 | .backwardsReasoning n => backwardsReasoningDecider n M
-| .nGramCPS n => nGramCPSDecider n M
+| .nGramCPS cfg => nGramCPSDecider cfg M
 
 @[inline]
 def toDecider (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
@@ -67,6 +69,7 @@ def defaultConfig: List DeciderConfig := [
   .translatedCycler 300,
   .cycler 300,
   .backwardsReasoning 30,
+  .nGramCPS { n := 1, bound := 10000 }
 ]
 
 def determineConfig: (Option String) → IO (List DeciderConfig)

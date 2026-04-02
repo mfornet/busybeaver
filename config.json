@@ -1,0 +1,20 @@
+[
+    {
+        "translatedCycler": 300
+    },
+    {
+        "cycler": 300
+    },
+    {
+        "explore": 100
+    },
+    {
+        "backwardsReasoning": 30
+    },
+    {
+        "nGramCPS": {
+            "n": 3,
+            "bound": 1000000000
+        }
+    }
+]
