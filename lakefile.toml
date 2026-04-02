@@ -2,10 +2,6 @@ name = "busybeaver"
 version = "0.1.0"
 defaultTargets = ["beaver"]
 
-# TODO: Do we need this?
-# [leanOptions]
-# "pp.unicode.fun" = true
-
 [[require]]
 name = "mathlib"
 git = "https://github.com/leanprover-community/mathlib4"
@@ -26,8 +22,3 @@ name = "Busybeaver"
 [[lean_exe]]
 name = "beaver"
 root = "Main"
-
-# TODO: Bring back this to life
-# [[lean_exe]]
-# name = "gfunc"
-# root = "bin.GFunction"

@@ -3,9 +3,6 @@ import Busybeaver.Reachability
 import Busybeaver.Transition
 import Busybeaver.Deciders.BoundExplore
 
--- TODO: remove
-import Busybeaver.Parse
-
 /-!
 Backwards reasonning.
 
