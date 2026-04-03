@@ -3,17 +3,80 @@ import Mathlib.Data.Finset.Basic
 import Mathlib.Data.Finset.Sort
 import Busybeaver.TuringExt
 
+class InitialState (State : Type _) where
+  initial : State
+
+export InitialState (initial)
+
+class BlankSymbol (Symbol : Type _) where
+  blank : Symbol
+
+export BlankSymbol (blank)
+
+instance {Symbol : Type _} [BlankSymbol Symbol] : Inhabited Symbol := ⟨blank⟩
+
+inductive GStmt (State Symbol : Type _)
+| halt
+| next : Symbol → Turing.Dir → State → GStmt State Symbol
+deriving DecidableEq
+
+instance : Inhabited (GStmt State Symbol) := ⟨.halt⟩
+
+structure GConfig (State Symbol : Type _) [BlankSymbol Symbol] where
+  state : State
+  tape : Turing.Tape Symbol
+
+instance [BlankSymbol Symbol] [DecidableEq State] [DecidableEq Symbol] :
+    DecidableEq (GConfig State Symbol) := by
+  unfold DecidableEq
+  intro a b
+  obtain ⟨sa, ta⟩ := a
+  obtain ⟨sb, tb⟩ := b
+  simp_all
+  apply instDecidableAnd
+
+class GMachine (Machine : Type _) (State Symbol : Type _) where
+  trans : Machine → State → Symbol → GStmt State Symbol
+
+namespace GMachine
+
+variable {Machine State Symbol : Type _}
+
+def step [GMachine Machine State Symbol] [BlankSymbol Symbol]
+    (M : Machine) (orig : GConfig State Symbol) : Option (GConfig State Symbol) :=
+  match GMachine.trans M orig.state orig.tape.head with
+  | .halt => none
+  | .next sym dir state => some { state, tape := orig.tape.write sym |>.move dir }
+
+def eval [GMachine Machine State Symbol] [BlankSymbol Symbol]
+    (M : Machine) (bound : ℕ) (orig : GConfig State Symbol) : Option (GConfig State Symbol) :=
+  match bound with
+  | 0 => orig
+  | n + 1 => step M orig >>= eval M n
+
+def LastState [GMachine Machine State Symbol] [BlankSymbol Symbol]
+    (M : Machine) (σ : GConfig State Symbol) : Bool :=
+  step M σ |>.isNone
+
+def init [GMachine Machine State Symbol] [InitialState State] [BlankSymbol Symbol] :
+    GConfig State Symbol :=
+  ⟨initial, default⟩
+
+end GMachine
+
 abbrev Label (l: ℕ) := Fin (l + 1)
 instance: Fintype (Label l) := inferInstance
 instance: LE (Label l) := inferInstance
 instance: Repr (Label l) := inferInstance
 instance: Inhabited (Label l) := inferInstance
+instance : InitialState (Label l) := ⟨default⟩
 
 abbrev Symbol (s: ℕ) := Fin (s + 1)
 instance: Fintype (Symbol s) := inferInstance
 instance: LE (Symbol s) := inferInstance
 instance: Repr (Symbol s) := inferInstance
 instance: Inhabited (Symbol s) := inferInstance
+instance : BlankSymbol (Symbol s) := ⟨default⟩
 
 instance Finset.instUnionComm [DecidableEq α]: Std.Commutative (α:=Finset α) Union.union :=
 by {
@@ -230,13 +293,13 @@ by {
 lemma Machine.update_with.get_eq {M: Machine l s} {lab: Label l} {sym: Symbol s} {S: Stmt l s} :
   (M.update_with lab sym S).get lab sym = S := by simp [Machine.update_with, Machine.get, Machine.get_index]
 
-structure Config (l s: ℕ) [Inhabited $ Symbol s] where
-  state: Label l
-  tape: Turing.Tape (Symbol s)
+structure Config (l s : ℕ) where
+  state : Label l
+  tape : Turing.Tape (Symbol s)
 
 end Defs
 
-instance: DecidableEq (Config l s) := by {
+instance : DecidableEq (Config l s) := by {
   unfold DecidableEq
   intro a b
   obtain ⟨sa, ta⟩ := a
@@ -272,6 +335,12 @@ instance Machine.inhabited: Inhabited $ Machine l s := ⟨{
   vals := Array.replicate ((l + 1) * (s + 1)) .halt,
   wf := Array.size_replicate
 }⟩
+
+instance : GMachine (Machine l s) (Label l) (Symbol s) where
+  trans M lab sym :=
+    match M.get lab sym with
+    | .halt => .halt
+    | .next write dir nextState => .next write dir nextState
 
 @[simp]
 lemma Machine.default_all_halt {l s: ℕ} {lab : Label l} {sym : Symbol s}:
@@ -360,18 +429,27 @@ lemma Machine.ext {M M': Machine l s}: (∀ lab sym, M.get lab sym = M'.get lab 
   simpa [Machine.get, Mi, Mi', idx, hidx, hidx'] using hEq
 }
 
-instance Config.inhabited: Inhabited $ Config l s := ⟨⟨default, default⟩⟩
+instance Config.inhabited : Inhabited (Config l s) := ⟨⟨default, default⟩⟩
 
-def Machine.step (M: Machine l s) (orig: Config l s): Option (Config l s) := match M.get orig.state orig.tape.head with
-| .halt => none
-| .next sym dir state => some { state, tape := orig.tape.write sym |>.move dir}
+-- TODO: Remove this in favor GMachine.step
+def Machine.step (M : Machine l s) (orig : Config l s) : Option (Config l s) :=
+  match M.get orig.state orig.tape.head with
+  | .halt => none
+  | .next sym dir state => some { state, tape := orig.tape.write sym |>.move dir }
 
-def Machine.eval (M: Machine l s) (bound: ℕ) (orig: Config l s): Option (Config l s) := match bound with
-| 0 => orig
-| n + 1 => M.step orig >>= M.eval n
+def Machine.eval (M : Machine l s) (bound : ℕ) (orig : Config l s) : Option (Config l s) :=
+  match bound with
+  | 0 => orig
+  | n + 1 => M.step orig >>= M.eval n
 
-def Machine.LastState (M: Machine l s) (σ: Config l s): Bool := M.step σ |>.isNone
+def Machine.LastState (M : Machine l s) (σ : Config l s) : Bool := M.step σ |>.isNone
 
-def init: Config l s := default
+def init : Config l s := default
+
+lemma Machine.step_eq_gstep (M : Machine l s) (orig : Config l s) :
+    M.step orig =
+      (GMachine.step M ⟨orig.state, orig.tape⟩ |>.map
+        (fun cfg : GConfig (Label l) (Symbol s) ↦ (⟨cfg.state, cfg.tape⟩ : Config l s))) := by
+  cases h : M.get orig.state orig.tape.head <;> simp [Machine.step, GMachine.step, GMachine.trans, h]
 
 end TM
