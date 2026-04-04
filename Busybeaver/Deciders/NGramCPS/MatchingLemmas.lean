@@ -44,9 +44,11 @@ lemma pop_eq_take_of_size_eq_succ (xs : Array α) (n : ℕ) (hsize : xs.size = n
     have hpop : xs.pop[i]'hi1 = xs[i]'hix := by
       rw [Array.getElem_pop]
     have htake : (xs.take n)[i]'hi2 = xs[i]'hix := by
-      simpa [Array.take_eq_extract] using
-        (Array.getElem_extract (xs := xs) (start := 0) (stop := n) (i := i)
-          (h := by simpa [Array.take_eq_extract] using hi2))
+      have hi2' : i < (xs.extract 0 n).size := by
+        simpa [Array.take_eq_extract] using hi2
+      change (xs.extract 0 n)[i]'hi2' = xs[i]'hix
+      convert Array.getElem_extract (xs := xs) (start := 0) (stop := n) (i := i) (h := hi2') using 1
+      simp
     exact hpop.trans htake.symm
 
 /--
@@ -76,10 +78,10 @@ lemma appendFar_take_getD_succ (xs : Array α) (n : ℕ) (fallback : α)
           rw [pop_eq_take_of_size_eq_succ xs n hsize]
           have hback : xs.back! = xs.getD n fallback := by
             rw [Array.back!_eq_back?, Array.back?_eq_getElem?]
-            simpa [hsize]
+            simp [hsize]
           rw [hback]
     _ = xs := by
-          simpa using (Array.eq_push_pop_back!_of_size_ne_zero (α := α) hne).symm
+          exact (Array.eq_push_pop_back!_of_size_ne_zero (α := α) hne).symm
 
 lemma rightWindowAt_one_take_succ (n : ℕ) (A : Config l s) :
     (rightWindowAt (n + 1) 1 A).take n = rightWindowAt n 1 A := by
@@ -132,8 +134,7 @@ lemma rightVisibleDrop_eq_windowAt_one (n : ℕ) {A : Config l s} {pc : PartialC
   · intro i hi1 hi2
     have hi : i < n := by
       simpa [rightWindowAt, Array.drop_eq_extract, Turing.ListBlank.take.length] using hi1
-    simp [rightWindowAt, Array.drop_eq_extract, Array.getElem_extract, hi,
-      Turing.ListBlank.take_nth, Turing.ListBlank.drop_nth]
+    simp [rightWindowAt, Array.drop_eq_extract, hi, Turing.ListBlank.take_nth]
 
 /--
 For a positive visible window, dropping the nearest left symbol from the current
@@ -148,8 +149,7 @@ lemma leftVisibleDrop_eq_windowAt_one (n : ℕ) {A : Config l s} {pc : PartialCo
   · intro i hi1 hi2
     have hi : i < n := by
       simpa [leftWindowAt, Array.drop_eq_extract, Turing.ListBlank.take.length] using hi1
-    simp [leftWindowAt, Array.drop_eq_extract, Array.getElem_extract, hi,
-      Turing.ListBlank.take_nth, Turing.ListBlank.drop_nth]
+    simp [leftWindowAt, Array.drop_eq_extract, hi, Turing.ListBlank.take_nth]
 
 /--
 For a positive matched window, the nearest visible symbol on the right agrees with
@@ -167,8 +167,7 @@ lemma matched_right_getD_zero_eq (n : ℕ) {A : Config l s} {pc : PartialConfig 
     pc.right.getD 0 default = A.tape.right.head := by
   rw [MatchesPartial_right hmatch, Array.getD_eq_getD_getElem?]
   rw [Array.getElem?_eq_getElem]
-  · simpa [rightWindowAt, Turing.ListBlank.take_nth, Turing.ListBlank.drop_nth,
-      Turing.ListBlank.nth_zero]
+  · simp [rightWindowAt]
   · simp [rightWindowAt, Turing.ListBlank.take.length]
 
 /--
@@ -187,8 +186,7 @@ lemma matched_left_getD_zero_eq (n : ℕ) {A : Config l s} {pc : PartialConfig l
     pc.left.getD 0 default = A.tape.left.head := by
   rw [MatchesPartial_left hmatch, Array.getD_eq_getD_getElem?]
   rw [Array.getElem?_eq_getElem]
-  · simpa [leftWindowAt, Turing.ListBlank.take_nth, Turing.ListBlank.drop_nth,
-      Turing.ListBlank.nth_zero]
+  · simp [leftWindowAt]
   · simp [leftWindowAt, Turing.ListBlank.take.length]
 
 lemma appendFar_rightWindowAt_one_succ (n : ℕ) (A : Config l s) :
@@ -197,7 +195,8 @@ lemma appendFar_rightWindowAt_one_succ (n : ℕ) (A : Config l s) :
   have hbase :=
     appendFar_take_getD_succ (xs := rightWindowAt (n + 1) 1 A) (n := n) (fallback := default)
       (by simp [rightWindowAt, Turing.ListBlank.take.length])
-  simpa [rightWindowAt_one_take_succ (l := l) (s := s) n A] using hbase
+  rw [rightWindowAt_one_take_succ (l := l) (s := s) n A] at hbase
+  exact hbase
 
 lemma appendFar_leftWindowAt_one_succ (n : ℕ) (A : Config l s) :
     appendFar (leftWindowAt n 1 A) ((leftWindowAt (n + 1) 1 A).getD n default) =
@@ -205,6 +204,7 @@ lemma appendFar_leftWindowAt_one_succ (n : ℕ) (A : Config l s) :
   have hbase :=
     appendFar_take_getD_succ (xs := leftWindowAt (n + 1) 1 A) (n := n) (fallback := default)
       (by simp [leftWindowAt, Turing.ListBlank.take.length])
-  simpa [leftWindowAt_one_take_succ (l := l) (s := s) n A] using hbase
+  rw [leftWindowAt_one_take_succ (l := l) (s := s) n A] at hbase
+  exact hbase
 
 end NGramCPS

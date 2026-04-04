@@ -697,7 +697,7 @@ lemma runRound_closed_fixpoint_of_frontier_or_new
               cases hRound
               cases hpc with
               | inl hfront =>
-                  exact False.elim (by simpa [hfrontier] using hfront)
+                  simp [hfrontier] at hfront
               | inr hnew =>
                   exact False.elim (hnew.2 hnew.1)
           | true =>
@@ -713,7 +713,7 @@ lemma runRound_closed_fixpoint_of_frontier_or_new
               cases hRound
               cases hpc with
               | inl hfront =>
-                  exact False.elim (by simpa [hfrontier] using hfront)
+                  simp [hfrontier] at hfront
               | inr hnew =>
                   exact False.elim (hnew.2 hnew.1)
           | true =>

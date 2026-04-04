@@ -29,7 +29,7 @@ lemma rightWindowAt_moveRight (n k : ℕ) (A : Config l s) (writeSym : Symbol s)
     have hi : i < n := by
       simpa [rightWindowAt, Turing.ListBlank.take.length] using hi1
     simp [rightWindowAt, Turing.Tape.move, Turing.Tape.write, Turing.ListBlank.take_nth, hi,
-      Turing.ListBlank.drop_nth, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      Turing.ListBlank.drop_nth]
 
 /--
 When the machine writes and moves left, every left-side length-`n` window of the
@@ -56,7 +56,7 @@ lemma leftWindowAt_moveLeft (n k : ℕ) (A : Config l s) (writeSym : Symbol s) (
     have hi : i < n := by
       simpa [leftWindowAt, Turing.ListBlank.take.length] using hi1
     simp [leftWindowAt, Turing.Tape.move, Turing.Tape.write, Turing.ListBlank.take_nth, hi,
-      Turing.ListBlank.drop_nth, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm]
+      Turing.ListBlank.drop_nth]
 
 /--
 For positive window width, the visible left window after a right move is obtained
@@ -83,7 +83,7 @@ lemma leftWindowAt_moveRight_zero_succ (n : ℕ) (A : Config l s) (writeSym : Sy
             (leftWindowAt (n + 1) 0
               { state := nextState, tape := (A.tape.write writeSym).move .right })[j + 1]'hi1 =
               A.tape.left.nth j := by
-          simpa [leftWindowAt, Turing.Tape.move, Turing.Tape.write, Turing.ListBlank.take_nth, hj]
+          simp [leftWindowAt, Turing.Tape.move, Turing.Tape.write, Turing.ListBlank.take_nth, hj]
         have hpop :
             (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound = A.tape.left.nth j := by
           rw [Array.getElem_pop]
@@ -92,9 +92,10 @@ lemma leftWindowAt_moveRight_zero_succ (n : ℕ) (A : Config l s) (writeSym : Sy
         have happend :
             (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound =
               (shiftInNear writeSym (leftWindowAt (n + 1) 0 A))[j + 1]'hi2 := by
-          simpa [shiftInNear] using
-            (Array.getElem_append_right' #[writeSym] (ys := (leftWindowAt (n + 1) 0 A).pop)
-              (i := j) hpopBound)
+          change (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound =
+            (#[writeSym] ++ (leftWindowAt (n + 1) 0 A).pop)[j + 1]'hi2
+          exact Array.getElem_append_right' #[writeSym] (ys := (leftWindowAt (n + 1) 0 A).pop)
+            (i := j) hpopBound
         exact hlhs.trans (hpop.symm.trans happend)
 
 /--
@@ -122,7 +123,7 @@ lemma rightWindowAt_moveLeft_zero_succ (n : ℕ) (A : Config l s) (writeSym : Sy
             (rightWindowAt (n + 1) 0
               { state := nextState, tape := (A.tape.write writeSym).move .left })[j + 1]'hi1 =
               A.tape.right.nth j := by
-          simpa [rightWindowAt, Turing.Tape.move, Turing.Tape.write, Turing.ListBlank.take_nth, hj]
+          simp [rightWindowAt, Turing.Tape.move, Turing.Tape.write, Turing.ListBlank.take_nth, hj]
         have hpop :
             (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound = A.tape.right.nth j := by
           rw [Array.getElem_pop]
@@ -131,9 +132,10 @@ lemma rightWindowAt_moveLeft_zero_succ (n : ℕ) (A : Config l s) (writeSym : Sy
         have happend :
             (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound =
               (shiftInNear writeSym (rightWindowAt (n + 1) 0 A))[j + 1]'hi2 := by
-          simpa [shiftInNear] using
-            (Array.getElem_append_right' #[writeSym] (ys := (rightWindowAt (n + 1) 0 A).pop)
-              (i := j) hpopBound)
+          change (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound =
+            (#[writeSym] ++ (rightWindowAt (n + 1) 0 A).pop)[j + 1]'hi2
+          exact Array.getElem_append_right' #[writeSym] (ys := (rightWindowAt (n + 1) 0 A).pop)
+            (i := j) hpopBound
         exact hlhs.trans (hpop.symm.trans happend)
 
 /--

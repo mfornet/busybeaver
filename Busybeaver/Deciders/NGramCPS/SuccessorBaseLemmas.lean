@@ -101,7 +101,7 @@ lemma rightStep_has_matching_partialConfig (cfg : NGramCPSConfig) {finalState : 
       · calc
           pc'.right = appendFar (pc.right.drop 1) farSym := rfl
           _ = appendFar (rightWindowAt n 1 A) ((rightWindowAt (n + 1) 1 A).getD n default) := by
-                simp [pc', farSym, hdrop]
+                simp [farSym, hdrop]
           _ = rightWindowAt (n + 1) 1 A := appendFar_rightWindowAt_one_succ (l := l) (s := s) n A
           _ = rightWindowAt (n + 1) 0 { state := nextState, tape := (A.tape.write writeSym).move .right } := by
                 symm
@@ -181,7 +181,7 @@ Proof complexity:
 lemma allRightWindowsIn_of_rightStep (cfg : NGramCPSConfig) {finalState : SearchState l s}
     {A : Config l s} {writeSym : Symbol s} {nextState : Label l}
     (hright : AllRightWindowsIn cfg.n finalState.rightNGrams A)
-    (hstmt : Machine.get M A.state A.tape.head = Stmt.next writeSym .right nextState) :
+    (_hstmt : Machine.get M A.state A.tape.head = Stmt.next writeSym .right nextState) :
     AllRightWindowsIn cfg.n finalState.rightNGrams
       { state := nextState, tape := (A.tape.write writeSym).move .right } := by
   intro k
@@ -274,7 +274,7 @@ lemma leftStep_has_matching_partialConfig (cfg : NGramCPSConfig) {finalState : S
       · calc
           pc'.left = appendFar (pc.left.drop 1) farSym := rfl
           _ = appendFar (leftWindowAt n 1 A) ((leftWindowAt (n + 1) 1 A).getD n default) := by
-                simp [pc', farSym, hdrop]
+                simp [farSym, hdrop]
           _ = leftWindowAt (n + 1) 1 A := appendFar_leftWindowAt_one_succ (l := l) (s := s) n A
           _ = leftWindowAt (n + 1) 0 { state := nextState, tape := (A.tape.write writeSym).move .left } := by
                 symm
@@ -308,7 +308,7 @@ Proof complexity:
 lemma allLeftWindowsIn_of_leftStep (cfg : NGramCPSConfig) {finalState : SearchState l s}
     {A : Config l s} {writeSym : Symbol s} {nextState : Label l}
     (hleft : AllLeftWindowsIn cfg.n finalState.leftNGrams A)
-    (hstmt : Machine.get M A.state A.tape.head = Stmt.next writeSym .left nextState) :
+    (_hstmt : Machine.get M A.state A.tape.head = Stmt.next writeSym .left nextState) :
     AllLeftWindowsIn cfg.n finalState.leftNGrams
       { state := nextState, tape := (A.tape.write writeSym).move .left } := by
   intro k
