@@ -1,6 +1,7 @@
 -- This module serves as the root of the `Busybeaver` library.
 -- Import modules here that should be built as part of the library.
 import Busybeaver.Basic
+import Busybeaver.GMachine.History
 import Busybeaver.Problem
 
 import Busybeaver.Deciders.Cyclers
