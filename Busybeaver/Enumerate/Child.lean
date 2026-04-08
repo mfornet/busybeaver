@@ -6,7 +6,7 @@ import Busybeaver.Reachability
 import Busybeaver.Problem
 import Busybeaver.Transition
 
-namespace TM.Machine
+namespace TM.Table.Machine
 
 def is_child (M M': Machine l s): Prop :=
   ∀ lab sym, M'.get lab sym = .halt ∨ M'.get lab sym = M.get lab sym

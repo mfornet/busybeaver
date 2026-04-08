@@ -16,7 +16,7 @@ import Mathlib.Algebra.BigOperators.Group.Finset.Defs
 import Mathlib.Algebra.BigOperators.Group.Finset.Basic
 
 namespace TM.Busybeaver
-open TM.Machine
+open TM.Table.Machine TM.Table
 
 variable {M: Machine l s}
 

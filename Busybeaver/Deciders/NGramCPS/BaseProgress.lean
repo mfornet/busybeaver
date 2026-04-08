@@ -1,6 +1,6 @@
 import Busybeaver.Deciders.NGramCPS.SuccessorBaseLemmas
 
-open TM
+open TM.Table
 
 namespace NGramCPS
 

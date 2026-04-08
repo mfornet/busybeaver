@@ -6,6 +6,8 @@ import Busybeaver.Parse
 Generates a time diagram for a TM as an SVG.
 -/
 
+open TM.Table
+
 namespace SVG
 
 inductive Size where

@@ -56,6 +56,8 @@ universe u v w
 
 namespace TM
 
+-- TODO: Move to Busybeaver/Model/Basic.lean and still import it from
+
 class Model (Machine : Type u) where
   State : Type v
   Symbol : Type w
@@ -77,15 +79,6 @@ abbrev Config (M : Type _) [TM.Model M] :=
 
 def init (M : Type _) [TM.Model M] : Config M :=
   ⟨initial, default⟩
-
-def LastConfig {M : Type _} [TM.Model M] (m : M) (C : Config M) : Prop :=
-  (TM.Model.step m C).outcome = .halted C
-
-def StepRel {M : Type _} [TM.Model M] (m : M) (k : Nat) (A B : Config M) : Prop :=
-  TM.Model.step m A = ⟨k, .continue B⟩
-
-def SegmentHaltRel {M : Type _} [TM.Model M] (m : M) (k : Nat) (A B : Config M) : Prop :=
-  TM.Model.step m A = ⟨k, .halted B⟩
 
 def eval (M : Type _) [TM.Model M] (m : M) (bound : Nat) (orig : Config M) :
     Option (Config M) :=

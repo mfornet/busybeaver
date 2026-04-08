@@ -6,7 +6,7 @@ import Lean.Data.Json
 
 import Cli
 
-open TM
+open TM TM.Table
 
 instance: ToString (HaltM M α) where
   toString := λ

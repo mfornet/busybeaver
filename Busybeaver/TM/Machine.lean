@@ -1,6 +1,6 @@
 import Busybeaver.Basic
 
-namespace TM
+namespace TM.Table
 
 section Defs
 inductive Stmt (l s: ℕ)
@@ -356,4 +356,4 @@ lemma Machine.step_eq_model_step (M : Machine l s) (orig : Config l s) :
       | ⟨_, .halted _⟩ => none := by
   cases h : M.get orig.state orig.tape.head <;> simp [Machine.step, TM.Model.step, h]
 
-end TM
+end TM.Table

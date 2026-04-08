@@ -9,16 +9,15 @@ by two goals:
 -/
 -- TODO: Rewrite in terms of TM.Model rather than TM.Machine
 import Busybeaver.TM.Machine
+-- import Busybeaver.TM.Reachability
+import Busybeaver.Basic
 import Busybeaver.Reachability
 
-open TM
+variable {M: TM.Table.Machine L S}
 
-variable {M: Machine L S}
-
-structure ClosedSet (M: Machine L S) (base: Config L S → Prop) (I: Config L S) where
+structure ClosedSet (M: TM.Table.Machine L S) (base: TM.Table.Config L S → Prop) (I: TM.Table.Config L S) where
   closed : ∀ (A: {S // base S}), ∃ (B: {S // base S}), A -[M]->+ B
   enters : ∃ (N: {S // base S}), I -[M]->* N
-
 namespace ClosedSet
 
 def offset (closed: ClosedSet M p I) (hN: p N): ClosedSet M p N :=
@@ -37,7 +36,7 @@ lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
     obtain ⟨F, hFL, hFR⟩ := hFinal
     cases hFR
     obtain ⟨⟨N, pN⟩, hN⟩ := inst.enters
-    have hIN := Machine.halts_in.evstep_same hFL hN
+    have hIN := TM.Table.Machine.halts_in.evstep_same hFL hN
     simp at hIN
     cases hIN
 
@@ -45,7 +44,7 @@ lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
     -- contradiction
 
     obtain ⟨_, hNN'⟩ := inst.closed ⟨I, pN⟩
-    exact Machine.halts_in.no_progress hFL hNN'
+    exact TM.Table.Machine.halts_in.no_progress hFL hNN'
   }
   | ind n IH => {
     /-
@@ -69,8 +68,8 @@ lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
       _ -[M]->+ N' := hNN'
 
     obtain ⟨nfin, hnfin⟩ := hIN'.to_multistep
-    have hnfinn := Machine.halts_in.within hFinal hnfin
-    have hnfinHalts := Machine.halts_in.preceeds hFinal hnfin hnfinn
+    have hnfinn := TM.Table.Machine.halts_in.within hFinal hnfin
+    have hnfinHalts := TM.Table.Machine.halts_in.preceeds hFinal hnfin hnfinn
     simp [*] at hnfinn hnfinHalts
 
     -- hnfinHalts : M halts in at most n steps from N', we can apply the induction hypothesis

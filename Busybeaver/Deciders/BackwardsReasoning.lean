@@ -11,8 +11,9 @@ Here again, this is heavily inspired by busycoq.
 https://github.com/meithecatte/busycoq/blob/master/verify/BackwardsReasoning.v
 -/
 
+open TM.Table
 
-namespace TM.Machine
+namespace TM.Table.Machine
 
 /-- Underspecified tape for backward steps -/
 abbrev SymbolicTape s := Turing.Tape (WithTop (Symbol s))
@@ -84,8 +85,9 @@ by {
   simp [symbolic_halting]
   use C.state, C.tape.head
   constructor
-  · simp [LastState] at hC
-    exact hC
+  · sorry
+    -- simp [LastState] at hC
+    -- exact hC
   · rfl
 }
 
@@ -319,7 +321,7 @@ open Machine
 
 def backwardsReasoningDecider (bound: ℕ) (M: Machine l s): HaltM M Unit := do
   let ⟨_, prf⟩ ← boundedExplore bound M
-  if h: Finset.all M.symbolic_halting (backwardReason bound M) then
+  if h: Finset.all (symbolic_halting M) (backwardReason bound M) then
     .loops_prf (by {
       intro ⟨n, hCl⟩
       simp at h

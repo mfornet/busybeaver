@@ -1,6 +1,6 @@
 import Busybeaver.Deciders.NGramCPS.StepWindowLemmas
 
-open TM
+open TM.Table
 
 namespace NGramCPS
 

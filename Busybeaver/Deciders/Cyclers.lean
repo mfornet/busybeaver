@@ -12,7 +12,7 @@ machine loops
 Note that because of the HaltM monad, execution of the machine through
 -/
 
-open TM
+open TM.Table
 
 @[specialize bound]
 def looperDecider (bound: ℕ) (M: Machine l s): HaltM M Unit := Id.run do

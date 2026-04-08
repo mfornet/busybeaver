@@ -1,7 +1,8 @@
--- Rewrite in terms of TM.Model rather than TM.Machine
+-- TODO: Remove this and keep only Busybeaver.TM.Reachability
 import Busybeaver.TM.Machine
+import Busybeaver.TM.Reachability
 
-namespace TM
+namespace TM.Table
 
 variable {M: Machine l s}
 
@@ -588,7 +589,7 @@ end Machine.halts
 /--
 Monad for computations that prove (non-)termination of machine M
 -/
-inductive HaltM {l s: ℕ} (M: TM.Machine l s) (α: Type u)
+inductive HaltM {l s: ℕ} (M: TM.Table.Machine l s) (α: Type u)
 | unknown: α → HaltM M α
 | halts_prf n C : M.LastState C ∧ (default -[M]{n}-> C) → HaltM M α
 | loops_prf : ¬(M.halts init) → HaltM M α
@@ -597,7 +598,7 @@ namespace HaltM
 
 variable {l s: ℕ}
 
-instance (M: TM.Machine l s): Monad (HaltM M) where
+instance (M: TM.Table.Machine l s): Monad (HaltM M) where
   pure := .unknown
   bind := λ m f ↦ match m with
     | .unknown v => f v
@@ -611,7 +612,7 @@ def decided: HaltM M α → Bool
 end HaltM
 
 def Machine.stepH
-  (M: TM.Machine l s) (σ: {s // init -[M]{k}-> s}): HaltM M {s' // init -[M]{k + 1}-> s'} :=
+  (M: TM.Table.Machine l s) (σ: {s // init -[M]{k}-> s}): HaltM M {s' // init -[M]{k + 1}-> s'} :=
   match hi: M.step σ.val with
   | .none => .halts_prf k σ.val (by {
     constructor
@@ -624,99 +625,4 @@ def Machine.stepH
     exact Machine.Multistep.tail hs hi
   }⟩
 
-end TM
-
-namespace TM.Model
-
-variable {M : Type _} [TM.Model M]
-
-inductive Multistep (m : M) : Nat → Config M → Config M → Prop
-| refl {C} : Multistep m 0 C C
-| step {i j A B C} :
-    StepRel m i A B →
-    Multistep m j B C →
-    Multistep m (i + j) A C
-
-inductive HaltRel (m : M) : Nat → Config M → Config M → Prop
-| halt {k A B} : SegmentHaltRel m k A B → HaltRel m k A B
-| step {i j A B C} :
-    StepRel m i A B →
-    HaltRel m j B C →
-    HaltRel m (i + j) A C
-
-def halts_in (m : M) (k : Nat) (A : Config M) : Prop := ∃ C, HaltRel m k A C
-
-def halts (m : M) (A : Config M) : Prop := ∃ k, halts_in m k A
-
-namespace Multistep
-
-lemma single {m : M} (hAB : StepRel m k A B) : Multistep m k A B := by
-  exact .step hAB .refl
-
-lemma trans {m : M} (hAB : Multistep m i A B) (hBC : Multistep m j B C) :
-    Multistep m (i + j) A C := by
-  induction hAB with
-  | refl =>
-      simpa using hBC
-  | @step i j A B D hAB hBD IH =>
-      simpa [Nat.add_assoc] using
-        Multistep.step hAB (IH hBC)
-
-end Multistep
-
-namespace HaltRel
-
-lemma to_halts_in {m : M} (h : HaltRel m k A B) : halts_in m k A := ⟨B, h⟩
-
-lemma to_halts {m : M} (h : HaltRel m k A B) : halts m A := ⟨k, h.to_halts_in⟩
-
-lemma trans_multistep {m : M} (hAB : Multistep m i A B) (hBC : HaltRel m j B C) :
-    HaltRel m (i + j) A C := by
-  induction hAB with
-  | refl =>
-      simpa using hBC
-  | @step i j A B D hAB hBD IH =>
-      simpa [Nat.add_assoc] using
-        HaltRel.step hAB (IH hBC)
-
-lemma of_lastConfig {m : M} (h : LastConfig m A) : HaltRel m 0 A A := by
-  apply HaltRel.halt
-  have hzero : (TM.Model.step m A).baseSteps = 0 := (TM.Model.step_zero_iff m A).mpr h
-  cases hstep : TM.Model.step m A with
-  | mk baseSteps outcome =>
-      simp [LastConfig] at h
-      simp [hstep] at hzero h
-      cases outcome
-      · cases h
-      · cases h
-        simp [SegmentHaltRel, hstep, hzero]
-
-end HaltRel
-
-inductive HaltM (m : M) (α : Type _)
-| unknown : α → HaltM m α
-| halts_prf : ∀ k C, HaltRel m k (init M) C → HaltM m α
-| loops_prf : ¬halts m (init M) → HaltM m α
-
-namespace HaltM
-
-variable {m : M} {α : Type _}
-
-instance (m : M) : Monad (HaltM m) where
-  pure := .unknown
-  bind := fun x f =>
-    match x with
-    | .unknown v => f v
-    | .halts_prf k C h => .halts_prf k C h
-    | .loops_prf h => .loops_prf h
-
-def decided : HaltM m α → Bool
-| .unknown _ => false
-| _ => true
-
-end HaltM
-
-abbrev GDecider (M : Type _) [TM.Model M] :=
-  (m : M) → HaltM m Unit
-
-end TM.Model
+end TM.Table

@@ -2,7 +2,9 @@ import Busybeaver.TM.Machine
 import Busybeaver.Reachability
 import Busybeaver.Problem
 
-namespace TM.Machine
+open TM.Table
+
+namespace TM.Table.Machine
 
 variable {M: Machine l s}
 

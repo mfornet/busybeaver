@@ -2,7 +2,7 @@ import Busybeaver.ClosedSet
 import Busybeaver.Deciders.NGramCPS.BaseProgress
 import Busybeaver.Deciders.NGramCPS.FinalStateLemmas
 
-open TM
+open TM.Table
 
 namespace NGramCPS
 

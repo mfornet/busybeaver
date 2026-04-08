@@ -9,7 +9,7 @@ This file keeps the executable search and its data structures separate from the
 proof support developed in sibling files.
 -/
 
-open TM
+open TM.Table
 
 structure NGramCPSConfig where
   n : ℕ

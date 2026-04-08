@@ -10,7 +10,7 @@ import Busybeaver.Enumerate.Basic
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Translate
 
-namespace TM.Machine
+namespace TM.Table.Machine
 
 variable {l s: ℕ}
 

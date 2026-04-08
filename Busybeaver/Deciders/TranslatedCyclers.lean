@@ -8,7 +8,7 @@ the tape. Using that we can define the "extended transcripts" used in the blog p
 import Busybeaver.TM.Machine
 import Busybeaver.Reachability
 
-namespace TM
+namespace TM.Table
 
 abbrev TickingTape s := Turing.Tape (WithBot (Symbol s))
 
@@ -250,7 +250,7 @@ step through an execution: if the machine stops at some point the decider also s
 termination.
 -/
 def Machine.stepT
-  (M: TM.Machine l s) (σ: {s // default t-[M : L]->> s}):
+  (M: Machine l s) (σ: {s // default t-[M : L]->> s}):
   HaltM M {s': (TickingConfig l s × Tick l s) // default t-[M : L ++ [s'.2]]->> s'.1} :=
   match hi: step_tick M σ.val with
   | .none => .halts_prf L.length σ.val (by {

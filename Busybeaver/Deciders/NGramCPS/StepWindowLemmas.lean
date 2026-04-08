@@ -1,6 +1,6 @@
 import Busybeaver.Deciders.NGramCPS.Windows
 
-open TM
+open TM.Table
 
 namespace NGramCPS
 

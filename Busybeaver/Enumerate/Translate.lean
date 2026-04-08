@@ -6,7 +6,7 @@ We prove here that translated machine are equivalent to their original (through 
 import Busybeaver.TM.Machine
 import Busybeaver.Enumerate.Basic
 
-open TM.Machine
+open TM.Table TM.Table.Machine
 
 namespace Turing.Tape
 /-
@@ -78,7 +78,7 @@ by {
 
 end Turing.Tape
 
-namespace TM.Machine
+namespace TM.Table.Machine
 
 def translated (M: Machine l s) (S S': Symbol s): Machine l s :=
   M.map' <| λ lab sym _ ↦ match M.get lab (swap S S' sym) with

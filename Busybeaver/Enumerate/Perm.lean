@@ -2,7 +2,7 @@ import Busybeaver.TM.Machine
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic
 
-namespace TM.Machine
+namespace TM.Table.Machine
 
 variable {M: Machine l s}
 

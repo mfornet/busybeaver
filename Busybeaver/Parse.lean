@@ -5,6 +5,7 @@ import Busybeaver.TM.Machine
 import Std.Internal.Parsec.String
 
 open Lean Std.Internal.Parsec String
+open TM.Table
 
 namespace TM.Parse
 

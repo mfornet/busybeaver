@@ -6,6 +6,7 @@ This hides the implementation details of the algorithm behind a `csimp`.
 import Busybeaver.Enumerate.Alg
 import Batteries.Lean.System.IO
 
+open TM.Table
 namespace TM.Busybeaver
 
 instance: Monad Task where

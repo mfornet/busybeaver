@@ -2,7 +2,7 @@
 import Busybeaver.TM.Machine
 import Busybeaver.Reachability
 
-open TM
+open TM.Table
 
 /--
 A decider that explores a bounded number of steps of the machine and produces a

@@ -1,6 +1,6 @@
 import Busybeaver.Deciders.NGramCPS.ClosedSetProof
 
-open TM
+open TM.Table
 
 def nGramCPSDecider (cfg : NGramCPSConfig) (M : Machine l s) : HaltM M Unit :=
   if hcfg : cfg.n = 0 then

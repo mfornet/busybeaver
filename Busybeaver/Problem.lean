@@ -5,7 +5,7 @@ import Busybeaver.TM.Machine
 import Busybeaver.Reachability
 namespace TM
 
-open TM.Machine
+open TM.Table
 
 variable {M: Machine l s}
 

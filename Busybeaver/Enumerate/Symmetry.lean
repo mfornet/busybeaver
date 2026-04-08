@@ -55,7 +55,7 @@ lemma default: Turing.Tape.reverse (Γ:=Γ) default = default :=
 
 end Turing.Tape.reverse
 
-namespace TM.Machine
+namespace TM.Table.Machine
 
 variable {M: Machine l s}
 

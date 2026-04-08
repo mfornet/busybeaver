@@ -8,7 +8,7 @@ A transition is a pair (label, symbol).
 import Busybeaver.TM.Machine
 import Busybeaver.Reachability
 
-namespace TM
+namespace TM.Table
 
 --- Computes the set of halting transitions of a given machine
 ---
