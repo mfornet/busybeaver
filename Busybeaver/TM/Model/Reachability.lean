@@ -6,10 +6,11 @@ namespace TM.Model
 variable {M : Type _} [TM.Model M]
 
 -- Stepping with machine M from A leads to B in one step (not base steps)
-def Step {M : Type _} [TM.Model M] (m : M) (A B : Config M) : Prop :=
+def Step (m : M) (A B : Config M) : Prop :=
   (TM.Model.step m A |>.outcome) = .continue B
 
-notation (priority:=high) s₁ "-[" M "]->'" s₂ => Step M s₁ s₂
+-- TODO: Remove the tick from this macro once we delete the old version.
+notation (priority:=high) s₁ "-["m"]->'" s₂ => Step m s₁ s₂
 
 inductive Multistep (m : M) : Nat → Config M → Config M → Prop
 | refl {C} : Multistep m 0 C C
@@ -29,6 +30,51 @@ inductive Machine.EvStep (m : M): Config M → Config M → Prop
 
 notation A " -["m"]->*' " B => Machine.EvStep m A B
 
+
+def StepBase (m : M) (k : ℕ) (A B : Config M) : Prop :=
+  (TM.Model.step m A) = ⟨k, .continue B⟩
+
+-- `Base` talks about the base machine, so MultistepBase counts the number of steps taken by that machine,
+-- rather than the high-level machine M.
+inductive MultistepBase (m : M) : Nat → Config M → Config M → Prop
+| refl {C} : MultistepBase m 0 C C
+| step {A B C n₁ n₂} : StepBase m n₁ A B → MultistepBase m n₂ B C → MultistepBase m (n₁ + n₂) A C
+
+notation (priority:=high) s₁ "-["m"]{"k"}->>'" s₂ => MultistepBase m k s₁ s₂
+
+namespace Multistep
+
+lemma single {m : M} (hAB : A -[m]->' B) : A -[m]{1}->' B :=
+  .step hAB .refl
+
+lemma trans {m : M} (hAB : A -[m]{i}->' B) (hBC : B -[m]{j}->' C) :
+    A -[m]{i + j}->' C := by
+  induction hAB with
+  | refl =>
+      simpa using hBC
+  | step hAB hBD IH =>
+      simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+        Multistep.step hAB (IH hBC)
+
+lemma step_to_base {m : M} (hAB : A -[m]->' B) : ∃ n, StepBase m n A B := by
+  cases hstep : TM.Model.step m A with
+  | mk n outcome =>
+      refine ⟨n, ?_⟩
+      unfold Step at hAB
+      unfold StepBase
+      simpa [hstep] using hAB
+
+lemma to_base {m : M} (hAB : A -[m]{i}->' B) : ∃ n, A -[m]{n}->>' B := by
+  induction hAB with
+  | refl =>
+      exact ⟨0, .refl⟩
+  | step hAB hBC IH =>
+      obtain ⟨n₁, hn₁⟩ := step_to_base hAB
+      obtain ⟨n₂, hn₂⟩ := IH
+      exact ⟨n₁ + n₂, MultistepBase.step hn₁ hn₂⟩
+
+end Multistep
+
 -- def StepRel {M : Type _} [TM.Model M] (m : M) (k : Nat) (A B : Config M) : Prop :=
 --   TM.Model.step m A = ⟨k, .continue B⟩
 
@@ -42,9 +88,9 @@ notation A " -["m"]->*' " B => Machine.EvStep m A B
 --     HaltRel m j B C →
 --     HaltRel m (i + j) A C
 
--- def halts_in (m : M) (k : Nat) (A : Config M) : Prop := ∃ C, HaltRel m k A C
+def halts_in_base (m : M) (k : Nat) (A : Config M) : Prop := ∃ C, LastState m C ∧ A -[m]{k}->' C
 
--- def halts (m : M) (A : Config M) : Prop := ∃ k, halts_in m k A
+def halts (m : M) (A : Config M) : Prop := ∃ k, halts_in_base m k A
 
 -- namespace Multistep
 
@@ -79,28 +125,43 @@ notation A " -["m"]->*' " B => Machine.EvStep m A B
 
 -- end HaltRel
 
--- inductive HaltM (m : M) (α : Type _)
--- | unknown : α → HaltM m α
--- | halts_prf : ∀ k C, HaltRel m k (init M) C → HaltM m α
--- | loops_prf : ¬halts m (init M) → HaltM m α
+inductive HaltM (m : M) (α : Type _)
+| unknown : α → HaltM m α
+| halts_prf n C : LastState m C ∧ (default -[m]{n}->>' C) → HaltM m α
+| loops_prf : ¬halts m default → HaltM m α
 
--- namespace HaltM
+namespace HaltM
 
--- variable {m : M} {α : Type _}
+variable {m : M} {α : Type _}
 
--- instance (m : M) : Monad (HaltM m) where
---   pure := .unknown
---   bind := fun x f =>
---     match x with
---     | .unknown v => f v
---     | .halts_prf k C h => .halts_prf k C h
---     | .loops_prf h => .loops_prf h
+instance (m : M) : Monad (HaltM m) where
+  pure := .unknown
+  bind := fun x f =>
+    match x with
+    | .unknown v => f v
+    | .halts_prf k C h => .halts_prf k C h
+    | .loops_prf h => .loops_prf h
 
--- def decided : HaltM m α → Bool
--- | .unknown _ => false
--- | _ => true
+def decided : HaltM m α → Bool
+| .unknown _ => false
+| _ => true
 
--- end HaltM
+end HaltM
+
+noncomputable def stepH (m : M) (σ : {s // default -[m]{k}->' s}) :
+    HaltM m {s' // default -[m]{k + 1}->' s'} :=
+  match hstep : TM.Model.step m σ.val with
+  | ⟨_, .halted _⟩ =>
+      let n := Classical.choose (Multistep.to_base σ.prop)
+      .halts_prf n σ.val <| by
+        constructor
+        · simp [TM.Model.LastState, hstep]
+        · exact Classical.choose_spec (Multistep.to_base σ.prop)
+  | ⟨_, .continue nxt⟩ =>
+      .unknown ⟨nxt, by
+        have hcontinue : σ.val -[m]->' nxt := by
+          simp [Step, hstep]
+        simpa using Multistep.trans σ.prop (Multistep.single hcontinue)⟩
 
 -- abbrev GDecider (M : Type _) [TM.Model M] :=
 --   (m : M) → HaltM m Unit

@@ -77,19 +77,20 @@ namespace Model
 abbrev Config (M : Type _) [TM.Model M] :=
   TM.Generic.Config (TM.Model.State M) (TM.Model.Symbol M)
 
-def init (M : Type _) [TM.Model M] : Config M :=
-  ⟨initial, default⟩
+variable {M : Type _} [TM.Model M]
 
-def eval (M : Type _) [TM.Model M] (m : M) (bound : Nat) (orig : Config M) :
+instance Config.Inhabited : Inhabited (Config M) := ⟨⟨initial, default⟩⟩
+
+def eval (m : M) (bound : Nat) (orig : Config M) :
     Option (Config M) :=
   match bound with
   | 0 => orig
   | n + 1 =>
       match TM.Model.step m orig with
-      | ⟨_, .continue next⟩ => eval M m n next
+      | ⟨_, .continue next⟩ => eval m n next
       | ⟨_, .halted _⟩ => none
 
-def LastState {M : Type _} [TM.Model M] (m : M) (C : Config M) : Bool :=
+def LastState (m : M) (C : Config M) : Bool :=
   match TM.Model.step m C with
   | ⟨_, .halted _⟩ => true
   | ⟨_, .continue _⟩ => false

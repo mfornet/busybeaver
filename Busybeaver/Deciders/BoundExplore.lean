@@ -1,8 +1,9 @@
 -- Rewrite in terms of TM.Model rather than TM.Machine
 import Busybeaver.TM.Table
 import Busybeaver.TM.Table.Reachability
+import Busybeaver.TM.Model.Reachability
 
-open TM.Table
+namespace TM.Table
 
 /--
 A decider that explores a bounded number of steps of the machine and produces a
@@ -27,10 +28,21 @@ def boundedExplore (bound: ℕ) (M: Machine l s): HaltM M { s // default -[M]{bo
   })
   boundedExploreCore bound (by rfl) ⟨init, Machine.Multistep.refl⟩
 
+end TM.Table
+
 namespace Deciders.BoundExplore
+
+open TM.Model
 
 variable {M : Type _} [TM.Model M]
 
--- def boundExplore' (bound : ℕ) (m : M) :
+noncomputable def boundedExplore (bound : ℕ) (m : M) : HaltM m { s // default -[m]{bound}->' s } :=
+    let rec boundedExploreCore (left: ℕ) {k} (hk: left + k = bound) (σ: { s // default -[m]{k}->' s }) :
+    HaltM m { s // default -[m]{bound}->' s } := match left with
+  | 0 => .unknown ⟨σ.val, by {simp at hk; cases hk; exact σ.prop}⟩
+  | n + 1 => stepH m σ >>= boundedExploreCore n (by
+    simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using hk)
+
+  boundedExploreCore bound (by simp) ⟨default, Multistep.refl⟩
 
 end Deciders.BoundExplore
