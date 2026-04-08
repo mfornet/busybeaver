@@ -1,7 +1,7 @@
 /-
 A definition of an order for turing machines.
 -/
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Reachability
 import Busybeaver.Problem
 import Busybeaver.Transition

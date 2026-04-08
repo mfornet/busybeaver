@@ -1,7 +1,7 @@
 /-
 Definition and lemmas about the Busy beaver problem
 -/
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Reachability
 namespace TM
 

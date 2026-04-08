@@ -1,7 +1,7 @@
 /-
 Parsing machines in standard format for convenience.
 -/
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Std.Internal.Parsec.String
 
 open Lean Std.Internal.Parsec String

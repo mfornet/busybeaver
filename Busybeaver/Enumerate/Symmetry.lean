@@ -3,7 +3,7 @@ Symmetries are the swap of left and right in the TM
 
 M and M.symm are obviously equi-halting.
 -/
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Reachability
 import Busybeaver.Enumerate.Basic
 

@@ -1,4 +1,4 @@
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Lean.Data.AssocList
 import Busybeaver.Parse
 

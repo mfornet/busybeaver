@@ -5,7 +5,7 @@ states and symbols.
 Following this, there exists a "normal form" for turing machines, where the states and symbols are visited in order.
 -/
 
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Enumerate.Basic
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Translate

@@ -5,7 +5,7 @@ The idea is to have a tape that records the fact that a machine is on one of the
 the tape. Using that we can define the "extended transcripts" used in the blog post.
 -/
 -- TODO: Rewrite in terms of TM.Model rather than TM.Machine
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Reachability
 
 namespace TM.Table

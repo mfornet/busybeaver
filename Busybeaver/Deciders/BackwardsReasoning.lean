@@ -1,5 +1,5 @@
 -- TODO: Rewrite in terms of TM.Model rather than TM.Machine
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Reachability
 import Busybeaver.Transition
 import Busybeaver.Deciders.BoundExplore

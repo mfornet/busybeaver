@@ -3,7 +3,7 @@ A translation is a swap of symbols on the tape.
 
 We prove here that translated machine are equivalent to their original (through transformations)
 -/
-import Busybeaver.TM.Machine
+import Busybeaver.TM.Table
 import Busybeaver.Enumerate.Basic
 
 open TM.Table TM.Table.Machine
