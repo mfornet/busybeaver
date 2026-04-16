@@ -51,6 +51,24 @@ Manual equivalent:
 codex mcp add lean-lsp --env "LEAN_PROJECT_PATH=$(pwd)" -- uvx lean-lsp-mcp
 ```
 
+## Codex Local Environment
+
+Codex worktrees run in separate directories and get their own local `.lake` state by default. For this Lean project, the expensive part is the dependency checkout and build cache under `.lake/packages`, especially mathlib.
+
+This repo includes a Codex local environment at [`.codex/environments/environment.toml`](/Users/mnaeraxr/Documents/projects/busy-beaver-research/busybeaver/.codex/environments/environment.toml). Its setup step delegates to [ci/codex_lean_setup.sh](./ci/codex_lean_setup.sh), which reuses or migrates `.lake/packages` from a shared cache root and then runs `lake build` in the current worktree.
+
+Recommended shared cache location:
+
+```bash
+CODEX_LEAN_CACHE_ROOT=$HOME/.codex/cache/busybeaver-lean
+```
+
+What this gives you:
+
+1. New worktrees reuse the same dependency checkout and build cache.
+2. Only the repo-local code in the current worktree needs to rebuild.
+3. You can reset the cache later by deleting the shared cache root.
+
 ## Configuration file
 
 The binary admits a configuration file for the deciders, in JSON, the
