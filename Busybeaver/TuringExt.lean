@@ -292,3 +292,25 @@ lemma other.symmetric {d: Turing.Dir}: d.other.other = d :=
 by cases d <;> simp [other]
 
 end Turing.Dir
+
+namespace Turing.Tape
+
+variable {Γ} [Inhabited Γ]
+
+@[simp] lemma write_nth_zero (T : Turing.Tape Γ) (sym : Γ) :
+    (T.write sym).nth (0 : ℤ) = sym := by
+  simp [Turing.Tape.nth, Turing.Tape.write]
+
+lemma write_nth_of_ne_zero (T : Turing.Tape Γ) (sym : Γ) {i : ℤ} (hi : i ≠ 0) :
+    (T.write sym).nth i = T.nth i := by
+  cases i using Int.casesOn with
+  | ofNat n =>
+      cases n with
+      | zero =>
+          cases (hi rfl)
+      | succ _ =>
+          simp [Turing.Tape.nth, Turing.Tape.write]
+  | negSucc _ =>
+      simp [Turing.Tape.nth, Turing.Tape.write]
+
+end Turing.Tape

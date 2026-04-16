@@ -245,6 +245,10 @@ lemma evstep_same {m : M} (hM : LastState m A) (h : A -[m]->*' B) : A = B := by
   | succ n =>
       exact False.elim <| no_multistep hM hn
 
+lemma no_multistep' {m : M} (hM : LastState m A) (hn : 0 < n) : ¬(A -[m]{n}->' C) := by
+  rw [← Nat.sub_one_add_one_eq_of_pos hn]
+  exact no_multistep hM
+
 lemma preceeds {m : M} (hM : halts_in_base m k A) (hAB : A -[m]{n}->' B) (hk : n ≤ k) :
     halts_in_base m (k - n) B := by
   obtain ⟨C, hCl, hAC⟩ := hM
@@ -264,6 +268,32 @@ lemma within {m : M} (hM : halts_in_base m k A) (hB : A -[m]{n}->' B) : n ≤ k 
       exact no_multistep hCl hBC
 
 end halts_in_base
+
+namespace halts
+
+lemma mono {m : M} (h : A -[m]{n}->' B) (hM : halts m B) : halts m A := by
+  obtain ⟨nb, hnb⟩ := hM
+  refine ⟨n + nb, ?_⟩
+  obtain ⟨C, hCl, hBC⟩ := hnb
+  exact ⟨C, hCl, Multistep.trans h hBC⟩
+
+lemma tail {m : M} (h : A -[m]{n}->' B) (hM : halts m A) : halts m B := by
+  obtain ⟨k, hk⟩ := hM
+  have hkn := halts_in_base.within hk h
+  exact ⟨k - n, halts_in_base.preceeds hk h hkn⟩
+
+lemma skip {m : M} (h : A -[m]{n}->' B) (hM : ¬halts m B) : ¬halts m A := by
+  intro hA
+  exact hM (tail h hA)
+
+lemma skip_evstep {m : M} (h : A -[m]->*' B) (hM : ¬halts m B) : ¬halts m A := by
+  obtain ⟨n, hn⟩ := Machine.EvStep.to_multistep h
+  exact skip hn hM
+
+lemma skip_next {m : M} (h : A -[m]->' B) (hM : ¬halts m B) : ¬halts m A := by
+  exact skip (Multistep.single h) hM
+
+end halts
 
 noncomputable def stepH (m : M) (σ : {s // default -[m]{k}->' s}) :
     HaltM m {s' // default -[m]{k + 1}->' s'} :=

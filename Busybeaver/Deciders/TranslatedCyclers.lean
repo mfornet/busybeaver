@@ -1,495 +1,492 @@
 /-
 Translated cycler decider based on [transcripts](https://www.sligocki.com/2024/06/12/tm-transcripts.html).
 
-The idea is to have a tape that records the fact that a machine is on one of the "trailing zeros" of
-the tape. Using that we can define the "extended transcripts" used in the blog post.
+The ticking behavior is implemented as a wrapper machine in `TM.Wrappers.Ticking`; the decider
+itself only runs a search over that wrapped machine and then discharges the corresponding proof
+obligations separately.
 -/
--- TODO: Rewrite in terms of TM.Model rather than TM.Machine
-import Busybeaver.TM.Table
-import Busybeaver.TM.Table.Reachability
+import Busybeaver.TM.Model.Reachability
+import Busybeaver.TM.Wrappers.Ticking
 
-namespace TM.Table
+namespace Deciders.TranslatedCyclers
 
-abbrev TickingTape s := Turing.Tape (WithBot (Symbol s))
+open TM.Model
 
-structure TickingConfig (l s) where
-  state : Label l
-  tape : TickingTape s
+variable {BM : Type _} [TM.Model BM]
 
-instance TickingConfig.inhabited: Inhabited (TickingConfig l s) :=
-  ⟨{state := default, tape := default}⟩
+abbrev TickingMachine (BM : Type _) [TM.Model BM] := TM.Wrappers.Ticking.Machine BM
+abbrev TickingConfig (BM : Type _) [TM.Model BM] := TM.Model.Config (TickingMachine BM)
+abbrev TickSymbol (BM : Type _) [TM.Model BM] := WithBot (TM.Model.Symbol BM)
+abbrev Tick (BM : Type _) [TM.Model BM] := TM.Model.State BM × TickSymbol BM
 
-abbrev Tick (l s) := Label l × (WithBot (Symbol s))
-
-section ToBase
-
-/-
-To convert a ticking tape to a normal tape, with use Turing.Tape.map with a "forgetting" operation.
-
-We thus leverage the lemmas of Turing.Tape.move this way
--/
-
-/- The "forgetting" pointed map -/
-def unbot_pointed [Inhabited α]: Turing.PointedMap (WithBot α) α := {
-  f := WithBot.unbotD default
-  map_pt' := rfl
-}
-
-def TickingTape.forget (T: TickingTape s): Turing.Tape (Symbol s) :=
-  T.map unbot_pointed
-
-def TickingConfig.toConfig (C: TickingConfig l s): Config l s := {
-  state := C.state,
-  tape := C.tape.forget
-}
-
-instance TickingConfig.coeConfig: Coe (TickingConfig l s) (Config l s) := ⟨TickingConfig.toConfig⟩
-
-variable {C: TickingConfig l s}
-
-@[simp]
-lemma TickingConfig.toConfig.state: C.toConfig.state = C.state := rfl
-
-@[simp]
-lemma TickingConfig.toConfig.head: C.toConfig.tape.head = WithBot.unbotD default C.tape.head := rfl
-
-end ToBase
-
-section PrettyPrint -- TODO: remove when decider is done
-open Std.Format Lean
-
-private def right_repr [Repr α] [Inhabited α] (l: Turing.ListBlank α) (bound: ℕ): List Format := match bound with
-| 0 => []
-| n + 1 => repr l.head :: (right_repr l.tail n)
-
-private def left_repr [Repr α] [Inhabited α] (l: Turing.ListBlank α) (bound: ℕ): List Format := match bound with
-| 0 => []
-| n + 1 => left_repr l.tail n ++ [repr l.head]
-
-instance: Repr (TickingConfig l s) := ⟨λ cfg _ ↦
-  Std.Format.joinSep (left_repr cfg.tape.left 10) " " ++ s!" {cfg.state}>{repr cfg.tape.head} " ++ Std.Format.joinSep (right_repr cfg.tape.right 10) " "⟩
-
-end PrettyPrint
-
-def step_tick (M: Machine l s) (C: TickingConfig l s): Option (TickingConfig l s × Tick l s) :=
-  match M.get C.state (WithBot.unbotD default C.tape.head)  with
-  | .halt => .none
-  | .next sym' dir lab' =>
-    .some ({state := lab', tape := (C.tape.write ↑sym').move dir }, (C.state, C.tape.head))
+def stepTick (m : TickingMachine BM) (C : TickingConfig BM) :
+    TM.StepResult (TickingConfig BM × Tick BM) :=
+  match TM.Model.step m C with
+  | ⟨dn, .halted _⟩ => ⟨dn, .halted (C, (C.state, C.tape.head))⟩
+  | ⟨dn, .continue cfg⟩ => ⟨dn, .continue (cfg, (C.state, C.tape.head))⟩
 
 namespace TReach
 
-variable {M: Machine l s}
+def TStep (m : TickingMachine BM) (A : TickingConfig BM) (t : Tick BM)
+    (B : TickingConfig BM) : Prop :=
+  (stepTick m A).outcome = .continue (B, t)
 
-notation A " t-[" M ":" T "]-> " B => step_tick M A = Option.some (B, T)
+notation A " t-[" m ":" t "]->' " B => TStep m A t B
 
-/--
-The transcript-building step relation.
--/
-inductive MultiTStep (M: Machine l s): List (Tick l s) → TickingConfig l s → TickingConfig l s → Prop
-| refl C : MultiTStep M [] C C
-| step A B C t L : (A t-[M:t]-> B) → MultiTStep M L B C → MultiTStep M (t :: L) A C
+inductive MultiTStep (m : TickingMachine BM) :
+    List (Tick BM) → TickingConfig BM → TickingConfig BM → Prop
+| refl C : MultiTStep m [] C C
+| step A B C t L : (A t-[m:t]->' B) → MultiTStep m L B C → MultiTStep m (t :: L) A C
 
-notation A " t-[" M ":" L "]->> " B => MultiTStep M L A B
+notation A " t-[" m ":" L "]->>' " B => MultiTStep m L A B
 
-lemma single_step {A B: TickingConfig l s} (h: A t-[M : t]-> B): A -[M]-> B :=
-by {
-  simp [step_tick] at h
-  split at h
-  · simp_all
-  rename_i heq
-  simp at h
-  obtain ⟨hB, _⟩ := h
-  simp [Machine.step]
-  split
-  · rename_i heq'
-    rw [heq] at heq'
-    cases heq'
-  rename_i heq'
-  rw [heq] at heq'
-  cases heq'
-  simp
-  rw [← hB]
-  simp [TickingConfig.toConfig, TickingTape.forget, Turing.Tape.map_move]
-  congr
-}
+lemma single_step {m : TickingMachine BM} (h : A t-[m:t]->' B) : A -[m]->' B := by
+  unfold TStep at h
+  unfold TM.Model.Step
+  unfold stepTick at h
+  cases hs : TM.Model.step m A with
+  | mk dn outcome =>
+      cases outcome <;> simp [hs] at h ⊢
+      exact h.1
 
-@[simp]
-lemma step_tick.none {M: Machine l s}: step_tick M C = .none ↔ M.get C.state (WithBot.unbotD default C.tape.head) = .halt :=
-by {
-  simp [step_tick]
-  split <;> simp_all
-}
+lemma to_multistep {m : TickingMachine BM} (h : A t-[m:L]->>' B) : A -[m]{L.length}->' B := by
+  induction h with
+  | refl =>
+      exact .refl
+  | step A B C t L hAB hBC IH =>
+      simpa using TM.Model.Multistep.step (single_step hAB) IH
 
-lemma step_tick.state_deterministic (hAB: A t-[M:t]-> B) (hAB': A' t-[M:t]-> B'): A.state = A'.state ∧ B.state = B'.state :=
-by {
-  -- Little massage of the hypotheses
-  simp [step_tick] at hAB
-  split at hAB
-  · cases hAB
-  rename_i sym' dir lab' heq
-  simp at hAB
-  simp [← hAB.1]
-  unfold step_tick at hAB'
-  split at hAB'
-  · cases hAB'
-  simp at hAB'
+lemma to_multistepBase {m : TickingMachine BM} (h : A t-[m:L]->>' B) : ∃ n, A -[m]{n}->>' B := by
+  exact TM.Model.Multistep.to_base (to_multistep h)
 
-  -- Now we begin the proof
-  obtain ⟨hB', htA'⟩ := hAB'
-  obtain ⟨hB, htA⟩ := hAB
-
-  rw [← htA] at htA'
-  simp at htA'
-  obtain ⟨htA's, htA'h⟩ := htA'
-  constructor
-  · exact htA's.symm
-  rename_i heq'
-  simp [default] at heq'
-  rw [htA's, htA'h, heq] at heq'
-  cases heq'
-  rw [← hB']
-}
-
-lemma MultiTStep.to_multistep (h: A t-[M : L]->> B): A -[M]{L.length}-> B :=
-by induction h with
-| refl => exact .refl
-| step A B C t L hAB _ IH => exact Machine.Multistep.succ (single_step hAB) IH
-
-@[simp]
-lemma MultiTStep.single: (A t-[M:[t]]->> B) ↔ (A t-[M:t]-> B) :=
-by {
-  constructor
-  · intro hAB
-    cases hAB
-    rename_i B' hAB' hBB'
-    cases hBB'
-    exact hAB'
-  · intro hAB
-    apply MultiTStep.step
-    · exact hAB
-    · exact MultiTStep.refl B
-}
-
-instance MultiTStep.trans: Trans (MultiTStep M L) (MultiTStep M L') (MultiTStep M (L ++ L')) :=
-by {
-  constructor
-  intro A B C hAB hBC
+lemma trans {m : TickingMachine BM} (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L']->>' C) :
+    A t-[m:L ++ L']->>' C := by
   induction hAB with
-  | refl A => simp [hBC]
-  | step A B C' t L'' hAB _ IH => {
-    specialize IH hBC
-    simp
-    apply MultiTStep.step A B C t (L'' ++ L') hAB IH
-  }
-}
+  | refl =>
+      simpa using hBC
+  | step A B D t L hAB hBD IH =>
+      simpa using
+        MultiTStep.step (A := A) (B := B) (C := C) (t := t) (L := L ++ L') hAB (IH hBC)
 
-lemma MultiTStep.split (h: A t-[M: L ++ L']->> B): ∃C, (A t-[M:L]->> C) ∧ C t-[M:L']->> B :=
-by induction L generalizing A with
-| nil => {
-  use A
-  simp at h
-  constructor
-  · exact .refl A
-  · exact h
-}
-| cons head tail IH => {
-  cases h
-  rename_i C hAC hCB
-  simp at hCB
-  obtain ⟨C', hC'⟩ := IH hCB
-  use C'
-  constructor
-  · exact MultiTStep.step A C C' head tail hAC hC'.1
-  · exact hC'.2
-}
-
-/--
-Induction principle that pops the tail of the transcript instead of the head.
--/
-lemma MultiTStep.reverseInduction
-  {motive: (L: List (Tick l s)) → (A B: TickingConfig l s) → (A t-[M:L]->> B) → Prop}
-  (refl: (C: TickingConfig l s) → motive [] C C (.refl C))
-  (tail:
-    (A B C: TickingConfig l s) → (t: Tick l s) → (L: List (Tick l s)) →
-    (hAB: A t-[M:L]->> B) → (hBC: B t-[M:t]-> C) → motive L A B hAB →
-    motive (L ++ [t]) A C (by calc A
-    _ t-[M:L]->> B := hAB
-    _ t-[M:[t]]->> C := by {
-      simp
-      exact hBC
-    }))
-  (h: A t-[M:L]->> B): motive L A B h :=
-by induction L using List.reverseRecOn generalizing B with
-| nil => {
-  cases h
-  exact refl A
-}
-| append_singleton L t IH => {
-  obtain ⟨C, hAC, hBC⟩ := h.split
-  simp at hBC
-  exact tail A C B t L hAC hBC (IH hAC)
-}
-
-lemma MultiTStep.state_deterministic (hAB: A t-[M:L]->> B) (hAB': A t-[M:L]->> B'): B.state = B'.state :=
-by induction hAB using MultiTStep.reverseInduction generalizing B' with
-| refl C => {
-  cases hAB'
-  rfl
-}
-| tail A C B t L _ hCB _ => {
-  obtain ⟨C', _, hCB'⟩ := hAB'.split
-  simp at hCB'
-  obtain ⟨_, hBB'⟩ := step_tick.state_deterministic hCB hCB'
-  exact hBB'
-}
-
-/-
-The very convenient step-or-prove-termination function that greatly simplifies writing deciders that
-step through an execution: if the machine stops at some point the decider also stops, proving
-termination.
--/
-def Machine.stepT
-  (M: Machine l s) (σ: {s // default t-[M : L]->> s}):
-  HaltM M {s': (TickingConfig l s × Tick l s) // default t-[M : L ++ [s'.2]]->> s'.1} :=
-  match hi: step_tick M σ.val with
-  | .none => .halts_prf L.length σ.val (by {
-    simp at hi
-    constructor
-    · simp [Machine.LastState]
-      exact hi
-    · exact σ.property.to_multistep
-  })
-  | .some (s, t) => .unknown ⟨(s, t), calc default
-      _ t-[M:L]->> σ.val := σ.property
-      _ t-[M:[t]]->> s := by {
-        simp
-        exact hi
-      } ⟩
-
-def List.repeat (L: List α): ℕ → List α
-| 0 => []
-| n + 1 => L ++ (List.repeat L n)
-
-@[simp]
-lemma List.repeat.zero: List.repeat L 0 = [] := rfl
-
-@[simp]
-lemma List.repeat.succ: List.repeat L (n + 1) = L ++ (List.repeat L n) := rfl
-
-lemma List.repeat.concat_comm: List.repeat L n ++ L = L ++ List.repeat L n :=
-by induction n with
-| zero => simp
-| succ n IH => simp [IH]
-
-@[simp]
-lemma List.repeat.length: (List.repeat L n).length = n * L.length :=
-by induction n with
-| zero => simp
-| succ n IH => {
-  simp
-  rw [Nat.add_one_mul, IH, Nat.add_comm]
-}
-
-@[simp]
-lemma List.repeat.add: List.repeat L (n + k) = List.repeat L n ++ List.repeat L k :=
-by induction k with
-| zero => simp
-| succ k IH => {
-  simp
-  rw [← Nat.add_assoc, succ, ← concat_comm, IH]
-  simp
-  exact concat_comm
-}
-
-/--
-If a ticking machine goes twice through the transcript, with a record within the transcript, then
-we can push that cycle once more, keeping the same transcript
-
-This is the key step in proving non-termination of translated cyclers.
--/
-lemma ticking_extends (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: (q, ⊥) ∈ L): ∃D, C t-[M:L]->> D :=
-by {
-  induction L generalizing A B C with
-  | nil => simp at hRecord
-  | cons head tail IH => {
-    simp at hRecord
-    rcases hRecord with hq | hq
-    · cases hq
-      sorry
-    · sorry
-  }
-}
-
-lemma ticking_extends_many (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: (q, ⊥) ∈ L):
-  ∃D, B t-[M:List.repeat L n]->> D :=
-by induction n generalizing A B C with
-| zero => {
-  simp
-  use B
-  exact .refl B
-}
-| succ n IH => {
-  simp
-  obtain ⟨D, hCD⟩ := ticking_extends hAB hBC hRecord
-  obtain ⟨E, hE⟩ := IH hBC hCD
-  use E
-  calc B
-    _ t-[M:L]->> C := hBC
-    _ t-[M:List.repeat L n]->> E := hE
-}
-
-/--
-If a machine follows the transcript pattern of a translated cycler, then it loops.
--/
-lemma ticking_loops (hAB: A t-[M: L]->> B) (hBC: B t-[M:L]->> C) (hRecord: (q, ⊥) ∈ L):
-  ¬M.halts A :=
-by {
-  /- SKETCH
-
-  Suppose the machine stops after n steps on configuration E. We thus have:
-
-  A t-[M:L]->> B t-[M:L]->> C
-  A ......................... -[M]{n}-> E
-
-  Because of [ticking_extends_many], we can push past B as many times as we want, i.e:
-
-  A t-[M:L]->> B t-[M:L]->> C ........... t-[M:List.repeat L k]->> E'
-  A ......................... -[M]{n}-> E
-
-  Thus it is actually possible to "step more" from E based on the ticking assumption, which
-  contradicts it being a finishing state, concluding the proof.
-  -/
-
-  intro ⟨n, E, hEl, hEr⟩
-
-  have hLlen: 0 < L.length := List.length_pos_of_mem hRecord
-
-  have hLrep: n < (List.repeat L (n / L.length + 1)).length := by {
-    simp
-    rw [Nat.add_comm]
-    exact Nat.lt_div_mul_add hLlen
-  }
-
-  obtain ⟨E', hE'⟩ := ticking_extends_many hAB hBC hRecord (n:= n / L.length)
-  have hAE' := calc A
-    _ t-[M:L]->> B := hAB
-    _ t-[M:List.repeat L (n / L.length)]->> E' := hE'
-
-  simp at hLrep
-
-  have hAE'ms := hAE'.to_multistep
-  simp at hAE'ms
-
-  let nstep := L.length + n / L.length * L.length - n
-  have hEE': E -[M]{nstep}-> E' := Machine.Multistep.split_le  hAE'ms hEr (Nat.le_of_lt hLrep)
-
-  refine Machine.halts_in.no_multistep' hEl (C:=E') (n:=nstep) ?_ hEE'
-  simp [nstep]
-  exact Nat.zero_lt_sub_of_lt hLrep
-}
-
-lemma twice_loop (h: A t-[M:L ++ L]->> B) (hRecord: (q, ⊥) ∈ L): ¬(M.halts A) :=
-by {
-  obtain ⟨C, hAC, hCB⟩ := h.split
-  exact ticking_loops hAC hCB hRecord
-}
-
-lemma twice_suffix_loop (h: A t-[M:L]->> B) (hL': L' ++ L' <:+ L) (hRecord: (q, ⊥) ∈ L'): ¬(M.halts A) :=
-by {
-  rw [List.suffix_iff_eq_append] at hL'
-  rw [← hL'] at h
-
-  obtain ⟨C, hAC, hCB⟩ := h.split
-  have hCnothalts := twice_loop hCB hRecord
-  have hAC' := hAC.to_multistep
-  exact Machine.halts.skip hAC' hCnothalts
-}
+lemma split {m : TickingMachine BM} (h : A t-[m:L ++ L']->>' B) :
+    ∃ C, (A t-[m:L]->>' C) ∧ (C t-[m:L']->>' B) := by
+  induction L generalizing A with
+  | nil =>
+      exact ⟨A, TReach.MultiTStep.refl A, by simpa using h⟩
+  | cons t L IH =>
+      cases h with
+      | step A B C _ L'' hAB hBC =>
+          obtain ⟨C, hAC, hCB⟩ := IH hBC
+          exact ⟨C, MultiTStep.step (A := A) (B := B) (C := C) (t := t) (L := L) hAB hAC, hCB⟩
 
 end TReach
 
-lemma List.takeWhile_append_drop {p: α → Bool} (L: List α):
-  (L.takeWhile p) ++ (L.drop (L.takeWhile p).length) = L :=
-by induction L with
-| nil => simp
-| cons head tail IH => {
-  by_cases h: p head = true
-  · rw [List.takeWhile_cons_of_pos h]
-    simp [IH]
-  · rw [List.takeWhile_cons_of_neg h]
-    simp
+structure TickCache (m : TickingMachine BM) where
+  cfg : TickingConfig BM
+  history : List (Tick BM)
+  baseSteps : Nat
+
+namespace TickCache
+
+structure Valid (m : TickingMachine BM) (σ : TickCache m) where
+  transcript : (default : TickingConfig BM) t-[m:σ.history.reverse]->>' σ.cfg
+  multistepBase : (default : TickingConfig BM) -[m]{σ.baseSteps}->>' σ.cfg
+
+def initial (m : TickingMachine BM) : TickCache m := {
+  cfg := default
+  history := []
+  baseSteps := 0
 }
 
-def detect_front_loop (q: Label l) (L: List (Tick l s)): Option { L': List (Tick l s) // L' ++ L' <+: ((q, ⊥) :: L) ∧ (q, ⊥) ∈ L' } :=
-  let rec loopy (left: List (Tick l s)) (right: List (Tick l s))
-    (hq: (q, ⊥) ∈ left) (hL: (q, ⊥) :: L = left ++ right):
-      Option { P: List (Tick l s) × List (Tick l s) // (q, ⊥) :: L = P.1 ++ P.2 ∧ P.1 <+: P.2 ∧ (q, ⊥) ∈ P.1 } :=
-    if hlr: left.length > right.length then
-      .none -- This avoids searching too far
-    else if hl: left <+: right then
+lemma initial_valid (m : TickingMachine BM) : Valid m (initial m) := {
+  transcript := by simpa using TReach.MultiTStep.refl (default : TickingConfig BM)
+  multistepBase := .refl
+}
+
+end TickCache
+
+private lemma stepTick_halts
+    {m : TickingMachine BM} {σ : TickCache m} (hvalid : TickCache.Valid m σ)
+    (hstep : stepTick m σ.cfg = ⟨dn, .halted out⟩) :
+    TM.Model.LastState m σ.cfg ∧
+      ((default : TickingConfig BM) -[m]{σ.baseSteps}->>' σ.cfg) := by
+  constructor
+  · unfold TM.Model.LastState
+    unfold stepTick at hstep
+    cases hs : TM.Model.step m σ.cfg with
+    | mk dn outcome =>
+        cases outcome <;> simp [hs] at hstep ⊢
+  · exact hvalid.multistepBase
+
+private lemma stepTick_continue_valid
+    {m : TickingMachine BM} {σ : TickCache m} (hvalid : TickCache.Valid m σ)
+    (hstep : stepTick m σ.cfg = ⟨dn, .continue (cfg, t)⟩) :
+    TickCache.Valid m {
+      cfg := cfg
+      history := t :: σ.history
+      baseSteps := σ.baseSteps + dn
+    } := by
+  have hsingle : σ.cfg t-[m:[t]]->>' cfg := by
+    exact TReach.MultiTStep.step
+      (A := σ.cfg) (B := cfg) (C := cfg) (t := t) (L := [])
+      (by simpa [TReach.TStep] using congrArg TM.StepResult.outcome hstep)
+      (TReach.MultiTStep.refl cfg)
+  have hbase : TM.Model.StepBase m dn σ.cfg cfg := by
+    unfold TM.Model.StepBase
+    unfold stepTick at hstep
+    cases hs : TM.Model.step m σ.cfg with
+    | mk dn' outcome =>
+        cases outcome <;> simp [hs] at hstep ⊢
+        exact ⟨hstep.1, hstep.2.1⟩
+  refine {
+    transcript := ?_
+    multistepBase := ?_
+  }
+  · simpa using TReach.trans hvalid.transcript hsingle
+  · simpa using
+      TM.Model.MultistepBase.trans hvalid.multistepBase (TM.Model.MultistepBase.single hbase)
+
+lemma List.takeWhile_append_drop {p : α → Bool} (L : List α) :
+    (L.takeWhile p) ++ (L.drop (L.takeWhile p).length) = L := by
+  induction L with
+  | nil =>
+      simp
+  | cons head tail IH =>
+      by_cases h : p head = true
+      · rw [List.takeWhile_cons_of_pos h]
+        simp [IH]
+      · rw [List.takeWhile_cons_of_neg h]
+        simp
+
+def detectFrontLoop (q : TM.Model.State BM) (L : List (Tick BM)) :
+    Option {L' : List (Tick BM) //
+      L' ++ L' <+: ((q, (⊥ : TickSymbol BM)) :: L) ∧ (q, (⊥ : TickSymbol BM)) ∈ L'} :=
+  let rec loopy (left : List (Tick BM)) (right : List (Tick BM))
+      (hq : (q, (⊥ : TickSymbol BM)) ∈ left)
+      (hL : (q, (⊥ : TickSymbol BM)) :: L = left ++ right) :
+      Option {P : List (Tick BM) × List (Tick BM) //
+        (q, (⊥ : TickSymbol BM)) :: L = P.1 ++ P.2 ∧
+          P.1 <+: P.2 ∧ (q, (⊥ : TickSymbol BM)) ∈ P.1} :=
+    if hlr : left.length > right.length then
+      .none
+    else if hl : left <+: right then
       .some ⟨(left, right), ⟨hL, hl, hq⟩⟩
     else match right with
-    | [] => by { -- Contradiction by the first if
-      exfalso
-      simp at hlr
-      absurd hlr
-      exact List.ne_nil_of_mem hq
-    }
+    | [] =>
+        by
+          simp at hlr
+          absurd hlr
+          exact List.ne_nil_of_mem hq
     | head :: tail =>
-      let upto := tail.takeWhile (λ t ↦ t.2 ≠ ⊥)
-      loopy (left ++ head :: upto) (tail.drop upto.length) (by {
-      simp
-      left
-      exact hq
-    }) (by {
-      rw [hL]
-      simp [upto]
-      symm
-      exact List.takeWhile_append_drop tail
-    })
+        let upto := tail.takeWhile (fun t => t.2 ≠ (⊥ : TickSymbol BM))
+        loopy (left ++ head :: upto) (tail.drop upto.length)
+          (by
+            simp
+            left
+            exact hq)
+          (by
+            rw [hL]
+            simp [upto]
+            symm
+            exact List.takeWhile_append_drop tail)
   termination_by right.length
-  loopy [(q, ⊥)] L (by simp) (by simp) |>.map (λ ⟨(left, right), issum, ispref⟩ ↦ ⟨left, by {
-    constructor
-    · simp_all only [List.prefix_append_right_inj]
-    · exact ispref.2
-  }⟩)
+  (loopy [(q, (⊥ : TickSymbol BM))] L (by simp) (by simp)).map fun x =>
+    match x with
+    | ⟨(left, right), ⟨hsum, hpref, hq⟩⟩ =>
+        ⟨left, by
+          constructor
+          · rcases hpref with ⟨r, hr⟩
+            refine ⟨r, ?_⟩
+            calc
+              left ++ left ++ r = left ++ (left ++ r) := by simp [List.append_assoc]
+              _ = left ++ right := by rw [hr]
+              _ = (q, ⊥) :: L := hsum.symm
+          · exact hq⟩
 
-abbrev TickCache (M: Machine l s) := { T: TickingConfig l s × List (Tick l s) // default t-[M:T.2.reverse]->> T.1}
+private def List.repeat (L : List α) : Nat → List α
+  | 0 => []
+  | n + 1 => L ++ List.repeat L n
+
+@[simp] private lemma List.repeat_zero : List.repeat L 0 = [] := rfl
+
+@[simp] private lemma List.repeat_succ : List.repeat L (n + 1) = L ++ List.repeat L n := rfl
+
+private lemma List.repeat_concat_comm : List.repeat L n ++ L = L ++ List.repeat L n := by
+  induction n with
+  | zero =>
+      simp
+  | succ n IH =>
+      simp [IH, List.append_assoc]
+
+@[simp] private lemma List.repeat_length : (List.repeat L n).length = n * L.length := by
+  induction n with
+  | zero =>
+      simp
+  | succ n IH =>
+      simp [IH, Nat.succ_mul, Nat.add_comm]
+
+@[simp] private lemma List.repeat_add : List.repeat L (n + k) = List.repeat L n ++ List.repeat L k := by
+  induction k with
+  | zero =>
+      simp
+  | succ k IH =>
+      have hk : n + (k + 1) = (n + k) + 1 := by omega
+      rw [hk, List.repeat_succ, IH, List.repeat_succ]
+      rw [← List.append_assoc, ← List.repeat_concat_comm, List.append_assoc]
+
+private lemma ticking_extends
+    {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
+    {q : TM.Model.State BM}
+    (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    ∃ D, C t-[m:L]->>' D := by
+  sorry
+
+private lemma ticking_extends_many
+    {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
+    {q : TM.Model.State BM}
+    (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    ∀ n, ∃ D, B t-[m:List.repeat L n]->>' D := by
+  intro n
+  induction n generalizing A B C with
+  | zero =>
+      exact ⟨B, .refl B⟩
+  | succ n IH =>
+      obtain ⟨D, hCD⟩ := ticking_extends hAB hBC hRecord
+      obtain ⟨E, hDE⟩ := IH hBC hCD
+      exact ⟨E, by
+        simpa [List.repeat_succ] using TReach.trans hBC hDE⟩
+
+private lemma ticking_loops
+    {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
+    {q : TM.Model.State BM}
+    (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    ¬TM.Model.halts m A := by
+  intro hhalts
+  obtain ⟨n, E, hEl, hEr⟩ := hhalts
+  have hLlen : 0 < L.length := List.length_pos_of_mem hRecord
+  have hLrep : n < (List.repeat L (n / L.length + 1)).length := by
+    rw [List.repeat_length, Nat.add_comm, Nat.add_mul, one_mul]
+    simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Nat.lt_div_mul_add hLlen
+  obtain ⟨E', hBE'⟩ := ticking_extends_many hAB hBC hRecord (n / L.length)
+  have hAE' : A t-[m:L ++ List.repeat L (n / L.length)]->>' E' := TReach.trans hAB hBE'
+  have hAE'ms : A -[m]{(L ++ List.repeat L (n / L.length)).length}->' E' := TReach.to_multistep hAE'
+  have hEE' : E -[m]{(L ++ List.repeat L (n / L.length)).length - n}->' E' := by
+    exact TM.Model.Multistep.split_le hAE'ms hEr (Nat.le_of_lt hLrep)
+  refine TM.Model.halts_in_base.no_multistep' hEl ?_ hEE'
+  simpa [List.length_append] using Nat.sub_pos_of_lt hLrep
+
+private lemma twice_loop
+    {m : TickingMachine BM} {A B : TickingConfig BM} {L : List (Tick BM)}
+    {q : TM.Model.State BM}
+    (h : A t-[m:L ++ L]->>' B) (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    ¬TM.Model.halts m A := by
+  obtain ⟨C, hAC, hCB⟩ := TReach.split h
+  exact ticking_loops hAC hCB hRecord
+
+theorem twice_suffix_loop
+    {m : TickingMachine BM} {A B : TickingConfig BM} {L L' : List (Tick BM)}
+    {q : TM.Model.State BM}
+    (h : A t-[m:L]->>' B) (hL' : L' ++ L' <:+ L)
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L') :
+    ¬TM.Model.halts m A := by
+  rw [List.suffix_iff_eq_append] at hL'
+  rw [← hL'] at h
+  obtain ⟨C, hAC, hCB⟩ := TReach.split h
+  have hCnothalts : ¬TM.Model.halts m C := by
+    exact twice_loop hCB hRecord
+  exact TM.Model.halts.skip (TReach.to_multistep hAC) hCnothalts
+
+inductive SearchResult : TickingMachine BM → Type _
+  | timeout {m : TickingMachine BM} (cache : TickCache m) : SearchResult m
+  | halts {m : TickingMachine BM} (cache : TickCache m) : SearchResult m
+  | loops {m : TickingMachine BM} (cache : TickCache m)
+      (loop : {L : List (Tick BM) //
+        L ++ L <:+ cache.history.reverse ∧ ∃ q, (q, (⊥ : TickSymbol BM)) ∈ L}) :
+      SearchResult m
+
+mutual
+
+private def runSearchNext
+    (m : TickingMachine BM) (n : Nat) (cache : TickCache m) :
+    TM.StepResult (TickingConfig BM × Tick BM) → SearchResult m
+  | ⟨_, .halted _⟩ =>
+      .halts cache
+  | ⟨dn, .continue (cfg, t)⟩ =>
+      let cache' : TickCache m := {
+        cfg := cfg
+        history := t :: cache.history
+        baseSteps := cache.baseSteps + dn
+      }
+      if hb : t.2 = (⊥ : TickSymbol BM) then
+        match detectFrontLoop t.1 cache.history with
+        | some Lh =>
+            .loops cache' ⟨Lh.1.reverse, by
+              obtain ⟨L, hL, hq⟩ := Lh
+              have ht : (t.1, (⊥ : TickSymbol BM)) = t := by
+                cases t with
+                | mk q b =>
+                    simp at hb
+                    cases hb
+                    rfl
+              constructor
+              · have hL' : L.reverse ++ L.reverse <:+ (t :: cache.history).reverse := by
+                  conv_lhs =>
+                    rw [← List.reverse_append]
+                  rw [List.reverse_suffix]
+                  simpa [ht] using hL
+                simpa [cache'] using hL'
+              · exact ⟨t.1, by simpa [List.mem_reverse] using hq⟩⟩
+        | none => runSearchLoop m n cache'
+      else
+        runSearchLoop m n cache'
+
+private def runSearchLoop (m : TickingMachine BM) : Nat → TickCache m → SearchResult m
+  | .zero, cache => .timeout cache
+  | .succ n, cache => runSearchNext m n cache (stepTick m cache.cfg)
+
+end
 
 @[specialize bound]
-def translatedCyclerDecider (bound: ℕ) (M: Machine l s) (start: TickCache M := ⟨(default, []), by {
-  simp
-  exact TReach.MultiTStep.refl default
-}⟩): HaltM M (TickCache M) :=
-  let rec loop (n: ℕ) (history: List (Tick l s))
-    (current: TickingConfig l s) (hC: default t-[M: history.reverse]->> current): HaltM M (TickCache M) :=
-    match n with
-    | .zero => .unknown ⟨(current, history), hC⟩
-    | .succ n => do
-      let ⟨(cfg, q, b), prf⟩ ← TReach.Machine.stepT M ⟨current, hC⟩
-      let nh := (q, b) :: history
-      have hprf : default t-[M:nh.reverse]->> cfg := by {
-        simp at prf
-        simp [nh]
-        exact prf
-      }
-      if hb: b = ⊥ then
-        match detect_front_loop q history with
-        | some Lh => .loops_prf (by {
-            obtain ⟨L, hL, hq⟩ := Lh
-            have hL': L.reverse ++ L.reverse <:+ nh.reverse := by {
-              conv_lhs =>
-                rw [← List.reverse_append]
-              rw [List.reverse_suffix]
-              simp [nh, hb]
-              exact hL
+def runSearchWrapped (bound : Nat) (m : TickingMachine BM)
+    (start : TickCache m := TickCache.initial m) :
+    SearchResult m :=
+  runSearchLoop m bound start
+
+lemma haltsResult_gives_wrappedHalts
+    {bound : Nat} {m : TickingMachine BM} {start cache : TickCache m}
+    (hvalid : TickCache.Valid m start)
+    (hSearch : runSearchWrapped bound m start = .halts cache) :
+    TM.Model.LastState m cache.cfg ∧
+      ((default : TickingConfig BM) -[m]{cache.baseSteps}->>' cache.cfg) := by
+  induction bound generalizing start with
+  | zero =>
+      simp [runSearchWrapped, runSearchLoop] at hSearch
+  | succ bound IH =>
+      cases hstep : stepTick m start.cfg with
+      | mk dn outcome =>
+          cases hout : outcome <;> rename_i out
+          ·
+            have hstep' : stepTick m start.cfg = ⟨dn, .continue out⟩ := by
+              simpa [hout] using hstep
+            rcases out with ⟨cfg, t⟩
+            let start' : TickCache m := {
+              cfg := cfg
+              history := t :: start.history
+              baseSteps := start.baseSteps + dn
             }
-            apply TReach.twice_suffix_loop hprf hL' (q:=q)
-            simp
-            exact hq
-          })
-        | none => loop n nh cfg hprf
-      else
-        loop n nh cfg hprf
-  let ⟨(cfg, hist), prf⟩ := start
-  loop bound hist cfg prf
+            have hvalid' : TickCache.Valid m start' := stepTick_continue_valid hvalid hstep'
+            by_cases hb : t.2 = (⊥ : TickSymbol BM)
+            · cases hdet : detectFrontLoop t.1 start.history with
+              | some Lh =>
+                  have : False := by
+                    simp [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout, hb, hdet] at hSearch
+                  exact False.elim this
+              | none =>
+                  have hSearch' : runSearchWrapped bound m start' = SearchResult.halts cache := by
+                    simpa [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout, hb, hdet, start'] using hSearch
+                  exact IH hvalid' hSearch'
+            · have hSearch' : runSearchWrapped bound m start' = SearchResult.halts cache := by
+                simpa [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout, hb, start'] using hSearch
+              exact IH hvalid' hSearch'
+          ·
+            have hstep' : stepTick m start.cfg = ⟨dn, .halted out⟩ := by
+              simpa [hout] using hstep
+            have hEq : start = cache := by
+              simpa [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout] using hSearch
+            cases hEq
+            exact stepTick_halts hvalid hstep'
+
+private lemma loopResult_gives_nonHalting_fromDefault
+    {bound : Nat} {m : TickingMachine BM} {start cache : TickCache m}
+    {loopWitness : {L : List (Tick BM) //
+      L ++ L <:+ cache.history.reverse ∧ ∃ q, (q, (⊥ : TickSymbol BM)) ∈ L}}
+    (hvalid : TickCache.Valid m start)
+    (hSearch : runSearchWrapped bound m start = .loops cache loopWitness) :
+    ¬TM.Model.halts m (default : TickingConfig BM) := by
+  induction bound generalizing start with
+  | zero =>
+      simp [runSearchWrapped, runSearchLoop] at hSearch
+  | succ bound IH =>
+      cases hstep : stepTick m start.cfg with
+      | mk dn outcome =>
+          cases hout : outcome <;> rename_i out
+          ·
+            have hstep' : stepTick m start.cfg = ⟨dn, .continue out⟩ := by
+              simpa [hout] using hstep
+            rcases out with ⟨cfg, t⟩
+            let start' : TickCache m := {
+              cfg := cfg
+              history := t :: start.history
+              baseSteps := start.baseSteps + dn
+            }
+            have hvalid' : TickCache.Valid m start' := stepTick_continue_valid hvalid hstep'
+            by_cases hb : t.2 = (⊥ : TickSymbol BM)
+            · cases hdet : detectFrontLoop t.1 start.history with
+              | some Lh =>
+                  have hEq : SearchResult.loops start' ⟨Lh.1.reverse, by
+                      obtain ⟨L, hL, hq⟩ := Lh
+                      have ht : (t.1, (⊥ : TickSymbol BM)) = t := by
+                        cases t with
+                        | mk q b =>
+                            simp at hb
+                            cases hb
+                            rfl
+                      constructor
+                      · have hL' : L.reverse ++ L.reverse <:+ (t :: start.history).reverse := by
+                          conv_lhs =>
+                            rw [← List.reverse_append]
+                          rw [List.reverse_suffix]
+                          simpa [ht] using hL
+                        simpa [start'] using hL'
+                      · exact ⟨t.1, by simpa [List.mem_reverse] using hq⟩⟩ = SearchResult.loops cache loopWitness := by
+                    simpa [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout, hb, hdet, start'] using hSearch
+                  have hcache : start' = cache := by
+                    injection hEq with hcache
+                  subst hcache
+                  rcases loopWitness.2.2 with ⟨q, hq⟩
+                  exact twice_suffix_loop hvalid'.transcript loopWitness.2.1 hq
+              | none =>
+                  have hSearch' : runSearchWrapped bound m start' = SearchResult.loops cache loopWitness := by
+                    simpa [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout, hb, hdet, start'] using hSearch
+                  exact IH hvalid' hSearch'
+            · have hSearch' : runSearchWrapped bound m start' = SearchResult.loops cache loopWitness := by
+                simpa [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout, hb, start'] using hSearch
+              exact IH hvalid' hSearch'
+          ·
+            have : False := by
+              simp [runSearchWrapped, runSearchLoop, runSearchNext, hstep, hout] at hSearch
+            exact False.elim this
+
+lemma loopResult_gives_wrappedNonHalting
+    {bound : Nat} {m : TickingMachine BM} {cache : TickCache m}
+    {loopWitness : {L : List (Tick BM) //
+      L ++ L <:+ cache.history.reverse ∧ ∃ q, (q, (⊥ : TickSymbol BM)) ∈ L}}
+    (hSearch : runSearchWrapped bound m = .loops cache loopWitness) :
+    ¬TM.Model.halts m (default : TickingConfig BM) := by
+  exact loopResult_gives_nonHalting_fromDefault (TickCache.initial_valid m) hSearch
+
+@[specialize bound]
+def runSearch (bound : Nat) (m : BM) :
+    SearchResult (TM.Wrappers.Ticking.wrap m) :=
+  runSearchWrapped bound (TM.Wrappers.Ticking.wrap m)
+
+@[specialize bound]
+def translatedCyclerDecider (bound : Nat) (m : BM) : TM.Model.HaltM m Unit :=
+  let wm := TM.Wrappers.Ticking.wrap m
+  match hSearch : runSearchWrapped bound wm with
+  | .timeout _ => .unknown ()
+  | .halts cache =>
+      let hWrapped := haltsResult_gives_wrappedHalts (TickCache.initial_valid wm) hSearch
+      let hBase := TM.Wrappers.Ticking.halts_of_wrapped_halts (m := m) hWrapped
+      .halts_prf cache.baseSteps (TM.Wrappers.Ticking.forgetConfig cache.cfg) hBase
+  | .loops cache loopWitness =>
+      .loops_prf (by
+        intro hBase
+        have hWrapped : TM.Model.halts wm (default : TickingConfig BM) :=
+          TM.Wrappers.Ticking.wrapped_halts_of_halts (m := m) hBase
+        exact loopResult_gives_wrappedNonHalting hSearch hWrapped)
+
+end Deciders.TranslatedCyclers

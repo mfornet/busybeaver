@@ -241,11 +241,18 @@ instance : TM.Model (Machine l s) where
   instDecEqSymbol := inferInstance
   instBlankSymbol := inferInstance
   instInitialState := inferInstance
+  stmt M orig := match M.get orig.state orig.tape.head with
+    | .halt => (0, .halt)
+    | .next sym dir state => (1, .next sym dir state)
+  stmt_eq_of_state_head_eq M A B hstate hhead := by
+    rw [hstate, hhead]
   step M orig :=
     match M.get orig.state orig.tape.head with
     | .halt => ⟨0, .halted orig⟩
     | .next sym dir state =>
         ⟨1, .continue { state, tape := orig.tape.write sym |>.move dir }⟩
+  step_stmt M C := by
+    cases M.get C.state C.tape.head <;> rfl
   step_zero_iff M C := by
     cases h : M.get C.state C.tape.head <;> simp
 

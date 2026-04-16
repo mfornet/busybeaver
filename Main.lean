@@ -48,6 +48,55 @@ private lemma modelLastState_to_tableLastState
   | next sym dir state =>
       simp [TM.Model.LastState, TM.Model.step, hget] at h
 
+private lemma tableLastState_to_modelLastState
+    {l s : ℕ} {M : Machine l s}
+    {C : Config l s}
+    (h : M.LastState C) :
+    TM.Model.LastState M ({ state := C.state, tape := C.tape } : TM.Model.Config (Machine l s)) := by
+  cases hget : M.get C.state C.tape.head with
+  | halt =>
+      simp [Machine.LastState, Machine.step, hget] at h
+      simp [TM.Model.LastState, TM.Model.step, hget]
+  | next sym dir state =>
+      simp [Machine.LastState, Machine.step, hget] at h
+
+private lemma tableStep_to_modelStep
+    {l s : ℕ} {M : Machine l s}
+    {A B : Config l s}
+    (h : A -[M]-> B) :
+    ({ state := A.state, tape := A.tape } : TM.Model.Config (Machine l s))
+      -[M]->'
+    ({ state := B.state, tape := B.tape } : TM.Model.Config (Machine l s)) := by
+  cases hget : M.get A.state A.tape.head with
+  | halt =>
+      simp [Machine.step, hget] at h
+  | next sym dir state =>
+      simp [Machine.step, hget] at h
+      rcases h with rfl
+      simp [TM.Model.Step, TM.Model.step, hget]
+
+private lemma tableMultistep_to_modelMultistep
+    {l s : ℕ} {M : Machine l s}
+    {n : ℕ} {A B : Config l s}
+    (h : A -[M]{n}-> B) :
+    ({ state := A.state, tape := A.tape } : TM.Model.Config (Machine l s))
+      -[M]{n}->'
+    ({ state := B.state, tape := B.tape } : TM.Model.Config (Machine l s)) := by
+  induction h with
+  | refl =>
+      exact .refl
+  | succ hAB hBC IH =>
+      exact .step (tableStep_to_modelStep hAB) IH
+
+private lemma tableHalts_to_modelHalts
+    {l s : ℕ} {M : Machine l s}
+    (h : M.halts (init : Config l s)) :
+    TM.Model.halts M (default : TM.Model.Config (Machine l s)) := by
+  rcases h with ⟨n, C, hLast, hReach⟩
+  exact ⟨n, ({ state := C.state, tape := C.tape } : TM.Model.Config (Machine l s)),
+    tableLastState_to_modelLastState hLast, by
+    simpa using tableMultistep_to_modelMultistep hReach⟩
+
 private lemma modelMultistepBase_to_tableMultistep
     {l s : ℕ} {M : Machine l s}
     {n : ℕ} {A B : TM.Model.Config (Machine l s)}
@@ -61,6 +110,8 @@ private lemma modelMultistepBase_to_tableMultistep
       cases hn
       simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Machine.Multistep.succ hAB' IH
 
+-- TODO: Move this proof and its dependencies to TM.Table.Model, it is about explaining how
+-- a tabular machine is actually a model, and all its relevant API.
 private def modelHaltMToTableHaltM
     {l s : ℕ} {M : Machine l s} :
     TM.Model.HaltM M Unit → HaltM M Unit
@@ -71,7 +122,10 @@ private def modelHaltMToTableHaltM
         constructor
         · exact modelLastState_to_tableLastState hLast
         · exact modelMultistepBase_to_tableMultistep hReach
-  | .loops_prf _ => .unknown ()
+  | .loops_prf h =>
+      .loops_prf (by
+        intro hhalts
+        exact h (tableHalts_to_modelHalts hhalts))
 
 def compute (l s: ℕ) (dec: (M: Machine l s) → TM.Model.HaltM M Unit): Busybeaver.BBResult l s :=
   let tableDec := fun M => modelHaltMToTableHaltM (dec M)
@@ -103,6 +157,8 @@ instance: ToString DeciderConfig where
 
 def DeciderConfig.deciderModel {M : Type _} [TM.Model M] (cfg: DeciderConfig) (m : M) :
     TM.Model.HaltM m Unit := match cfg with
+| .translatedCycler n => do
+    let _ ← Deciders.TranslatedCyclers.translatedCyclerDecider n m
 | .explore n => do
     let _ ← Deciders.BoundExplore.boundedExplore n m
 | .cycler n => Deciders.Cyclers.looperDecider n m
