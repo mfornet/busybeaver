@@ -27,6 +27,9 @@ def stepTick (m : TickingMachine BM) (C : TickingConfig BM) :
 
 namespace TReach
 
+-- TODO: This should not be expressed in terms of ticking machines, but rather as a generalization of `Multistep`
+--       This should be in reachability without mentioning any specific machine, but instead talk about Models.
+-- TODO: Let's rename Ticking Machines to Unwritten Machine (i.e they have the ability to distinguish between written and unwritten cells).
 def TStep (m : TickingMachine BM) (A : TickingConfig BM) (t : Tick BM)
     (B : TickingConfig BM) : Prop :=
   (stepTick m A).outcome = .continue (B, t)
@@ -238,7 +241,8 @@ private lemma ticking_extends
     {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
     {q : TM.Model.State BM}
     (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
-    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L)
+    (hReachA : default -[m]->*' A) :
     ∃ D, C t-[m:L]->>' D := by
   sorry
 
@@ -246,15 +250,19 @@ private lemma ticking_extends_many
     {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
     {q : TM.Model.State BM}
     (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
-    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L)
+    (hReachA : default -[m]->*' A) :
     ∀ n, ∃ D, B t-[m:List.repeat L n]->>' D := by
   intro n
   induction n generalizing A B C with
   | zero =>
       exact ⟨B, .refl B⟩
   | succ n IH =>
-      obtain ⟨D, hCD⟩ := ticking_extends hAB hBC hRecord
-      obtain ⟨E, hDE⟩ := IH hBC hCD
+      have hReachB : (default : TickingConfig BM) -[m]->*' B := by
+        exact TM.Model.Machine.EvStep.trans hReachA
+          (TM.Model.Multistep.to_evstep (TReach.to_multistep hAB))
+      obtain ⟨D, hCD⟩ := ticking_extends hAB hBC hRecord hReachA
+      obtain ⟨E, hDE⟩ := IH hBC hCD hReachB
       exact ⟨E, by
         simpa [List.repeat_succ] using TReach.trans hBC hDE⟩
 
@@ -262,7 +270,8 @@ private lemma ticking_loops
     {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
     {q : TM.Model.State BM}
     (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
-    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L)
+    (hReachA : default -[m]->*' A) :
     ¬TM.Model.halts m A := by
   intro hhalts
   obtain ⟨n, E, hEl, hEr⟩ := hhalts
@@ -270,7 +279,7 @@ private lemma ticking_loops
   have hLrep : n < (List.repeat L (n / L.length + 1)).length := by
     rw [List.repeat_length, Nat.add_comm, Nat.add_mul, one_mul]
     simpa [Nat.add_comm, Nat.add_left_comm, Nat.add_assoc] using Nat.lt_div_mul_add hLlen
-  obtain ⟨E', hBE'⟩ := ticking_extends_many hAB hBC hRecord (n / L.length)
+  obtain ⟨E', hBE'⟩ := ticking_extends_many hAB hBC hRecord hReachA (n / L.length)
   have hAE' : A t-[m:L ++ List.repeat L (n / L.length)]->>' E' := TReach.trans hAB hBE'
   have hAE'ms : A -[m]{(L ++ List.repeat L (n / L.length)).length}->' E' := TReach.to_multistep hAE'
   have hEE' : E -[m]{(L ++ List.repeat L (n / L.length)).length - n}->' E' := by
@@ -281,23 +290,27 @@ private lemma ticking_loops
 private lemma twice_loop
     {m : TickingMachine BM} {A B : TickingConfig BM} {L : List (Tick BM)}
     {q : TM.Model.State BM}
-    (h : A t-[m:L ++ L]->>' B) (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    (h : A t-[m:L ++ L]->>' B) (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L)
+    (hReachA : default -[m]->*' A) :
     ¬TM.Model.halts m A := by
   obtain ⟨C, hAC, hCB⟩ := TReach.split h
-  exact ticking_loops hAC hCB hRecord
+  exact ticking_loops hAC hCB hRecord hReachA
 
 theorem twice_suffix_loop
-    {m : TickingMachine BM} {A B : TickingConfig BM} {L L' : List (Tick BM)}
+    {m : TickingMachine BM} {A : TickingConfig BM} {L L' : List (Tick BM)}
     {q : TM.Model.State BM}
-    (h : A t-[m:L]->>' B) (hL' : L' ++ L' <:+ L)
+    (h : (default : TickingConfig BM) t-[m:L]->>' A) (hL' : L' ++ L' <:+ L)
     (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L') :
-    ¬TM.Model.halts m A := by
+    ¬TM.Model.halts m (default : TickingConfig BM) := by
   rw [List.suffix_iff_eq_append] at hL'
   rw [← hL'] at h
   obtain ⟨C, hAC, hCB⟩ := TReach.split h
+  have hReachC : default -[m]->*' C := by
+    exact TM.Model.Multistep.to_evstep (TReach.to_multistep hAC)
   have hCnothalts : ¬TM.Model.halts m C := by
-    exact twice_loop hCB hRecord
-  exact TM.Model.halts.skip (TReach.to_multistep hAC) hCnothalts
+    exact twice_loop hCB hRecord hReachC
+  exact TM.Model.halts.skip_evstep
+    (TM.Model.Multistep.to_evstep (TReach.to_multistep hAC)) hCnothalts
 
 inductive SearchResult : TickingMachine BM → Type _
   | timeout {m : TickingMachine BM} (cache : TickCache m) : SearchResult m
