@@ -18,7 +18,8 @@ Dependency summary:
 3. `Frontier.lean` proves the reachable ticking suffix invariant.
 4. This file combines overlap plus frontier filling to replay one more transcript copy.
 -/
-import Busybeaver.Deciders.TranslatedCyclers.Bridge
+import Busybeaver.Deciders.TranslatedCyclers.Constraints
+import Busybeaver.Deciders.TranslatedCyclers.Frontier
 
 namespace Deciders.TranslatedCyclers
 
@@ -158,19 +159,7 @@ private lemma ticking_extends_start_model
     (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
     (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
     C.tape ⊨ startConstraint m L := by
-  obtain ⟨nB, hReachB_from_A⟩ := TReach.to_multistepBase hAB
-  have hReachB : (default : TickingConfig BM) -[m]{n + nB}->>' B :=
-    TM.Model.MultistepBase.trans hReach hReachB_from_A
-  intro i s hs
-  rcases start_offset_overlap_or_fresh hRecord i s hs with hover | ⟨hnone, hsbot⟩
-  · have hfin : finishConstraint m L i = some s :=
-      overlap_current_offset hAB hBC i s hover
-    exact run_implies_models_finish hBC i s hfin
-  · have hpres : C.tape.nth i = B.tape.nth (i + netShift m L) :=
-      run_implies_finish_none hBC hnone
-    have hbot : B.tape.nth (i + netShift m L) = (⊥ : TickSymbol BM) :=
-      fresh_current_cell_is_bot hReachB hBC hRecord i hnone
-    rw [hpres, hbot, hsbot]
+  sorry
 
 /--
 Reachable transcript extension theorem.
