@@ -85,9 +85,8 @@ by {
   simp [symbolic_halting]
   use C.state, C.tape.head
   constructor
-  · sorry
-    -- simp [LastState] at hC
-    -- exact hC
+  ·
+    contrapose! hC; simp_all +decide [ Machine.LastState ] ;
   · rfl
 }
 
