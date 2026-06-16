@@ -20,6 +20,19 @@ lake exe beaver -h
 
 Follow the help from here.
 
+For an individual machine, `decide` stops after the first definite result:
+
+```bash
+lake exe beaver decide 0RB---_1LA1LB
+```
+
+Pass `--all` to keep running later deciders after a result is found. To classify
+machine codes already written to a holdout log, use `audit`:
+
+```bash
+lake exe beaver audit holdouts.txt --limit 100
+```
+
 ## Codex + Lean MCP
 
 To register [`lean-lsp-mcp`](https://github.com/oOo0oOo/lean-lsp-mcp) with Codex for this repo:

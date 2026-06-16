@@ -212,6 +212,15 @@ def toLogDecider (cfg: List DeciderConfig) (quiet: Bool) (M: Machine l s): HaltM
     dbg_trace s!"{repr M} {res}"
   res
 
+def firstDecision?: List DeciderConfig → (M: Machine l s) → Option (String × String)
+| [], _ => none
+| d :: ds, M =>
+    let res := d.deciderTable M
+    if HaltM.decided res then
+      some (toString d, toString res)
+    else
+      firstDecision? ds M
+
 def configFromFile (path: String): IO (Option <| List DeciderConfig) := do
   let content ← IO.FS.readFile path
   let Except.ok parsed := Json.parse content | throw <| IO.userError "Invalid JSON"
@@ -311,28 +320,79 @@ instance: ParseableType MParseRes where
     | .success _ M => some M
     | .error _ _ => none
 
-def runCheckCmd (p: Parsed): IO UInt32 := do
+def runDecideCmd (p: Parsed): IO UInt32 := do
   let ⟨l, s, M⟩ := p.positionalArg! "machine" |>.as! MParseRes
 
   IO.println s!"Parsed machine with {l + 1} labels and {s + 1} symbols: {repr M}"
 
   let cfg ← determineConfig l s ((p.flag? "config").map (Parsed.Flag.as! · String))
+  let runAll := p.hasFlag "all"
 
   for d in cfg do
     let res := d.deciderTable M
     IO.println s!"{d}: {res}"
+    if !runAll && HaltM.decided res then
+      return 0
 
   return 0
 
-unsafe def checkCmd := `[Cli|
-  decide VIA runCheckCmd;
+unsafe def decideCmd := `[Cli|
+  decide VIA runDecideCmd;
   "Runs the deciders on the provided machine."
 
   FLAGS:
     c, config: String; "Configuration of the deciders to run"
+    a, all; "Keep running after a decider reaches a definite result"
 
   ARGS:
     machine: String; "The machine code"
+]
+
+def firstToken (line : String) : String :=
+  (line.trimAscii.toString.takeWhile (!·.isWhitespace)).toString
+
+def auditLine (resolveConfig : ℕ → ℕ → List DeciderConfig) (line : String) : IO Unit := do
+  let code := firstToken line
+  if code.isEmpty then
+    return
+  match TM.Parse.pmachine (⟨code, code.startPos⟩) with
+  | .error _ err =>
+      IO.println s!"{code} parse-error: {err}"
+  | .success _ ⟨l, s, M⟩ =>
+      match firstDecision? (resolveConfig l s) M with
+      | none => IO.println s!"{code} unknown"
+      | some (decider, result) => IO.println s!"{code} {result} by {decider}"
+
+def runAuditCmd (p: Parsed): IO UInt32 := do
+  let path := p.positionalArg! "input" |>.as! String
+  let cfgPath? := (p.flag? "config").map (Parsed.Flag.as! · String)
+  let limit? := (p.flag? "limit").map (Parsed.Flag.as! · ℕ)
+  -- Resolve the config once: a supplied file is read and parsed a single time,
+  -- while the default config is cheap to recompute per machine size.
+  let resolveConfig ← match cfgPath? with
+    | none => pure (fun l s => defaultConfigFor l s)
+    | some path => do
+        let loaded ← configFromFile path
+        pure (fun l s => loaded.getD (defaultConfigFor l s))
+  let content ← IO.FS.readFile path
+  let lines := content.splitOn "\n" |>.filter (fun line => !line.trimAscii.toString.isEmpty)
+  let lines := match limit? with
+    | none => lines
+    | some limit => lines.take limit
+  for line in lines do
+    auditLine resolveConfig line
+  return 0
+
+unsafe def auditCmd := `[Cli|
+  audit VIA runAuditCmd;
+  "Classifies machine codes from a file using the first deciding decider."
+
+  FLAGS:
+    c, config: String; "Configuration of the deciders to run"
+    l, limit: ℕ; "Maximum number of input lines to classify"
+
+  ARGS:
+    input: String; "File containing machine codes, optionally followed by prior output text"
 ]
 
 unsafe def runExploreCmd (p: Parsed): IO UInt32 := do
@@ -405,7 +465,8 @@ unsafe def mainCmd := `[Cli|
     nsyms: ℕ; "Number of symbols for the machines"
 
   SUBCOMMANDS:
-    checkCmd;
+    decideCmd;
+    auditCmd;
     exploreCmd
 ]
 
