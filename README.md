@@ -77,6 +77,7 @@ repeated.
 
 Available deciders include:
 - Bounded exploration: `{ "explore": <number> }`
+- Loop1 translated-loop detection: `{ "loop1": <number> }`
 - Translated cyclers: `{ "translatedCycler": <number> }`
 - Cyclers: `{ "cycler": <number> }`
 - Backwards reasoning: `{ "backwardsReasoning": <number> }`
@@ -119,10 +120,10 @@ and LRU NGram CPS passes, and finally RepWL with `{ "len": 4, "threshold": 3,
 "maxT": 320, "bound": 10000 }`.
 
 For `BB(5,2)`, the default uses bounded exploration passes for partial-machine
-expansion, the generic NGram CPS passes from the Coq BB5 pipeline, and finally
-`"bb5TableExecutable"`. The generated table contains all 8,228 hardcoded Coq
-rows, including custom NGram, RepWL, halt, Loop1, FAR, WFAR, and sporadic
-entries.
+expansion; the Loop1, NGram CPS, LRU, and RepWL passes from the Coq BB5
+pipeline for which Lean has executable equivalents; and `"bb5TableExecutable"`.
+The generated table contains all 8,228 hardcoded Coq rows, including custom
+NGram, RepWL, halt, Loop1, FAR, WFAR, and sporadic entries.
 
 # Architecture of the project
 

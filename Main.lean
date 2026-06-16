@@ -144,6 +144,7 @@ inductive DeciderConfig where
 | translatedCycler : ℕ → DeciderConfig
 | cycler : ℕ → DeciderConfig
 | explore : ℕ → DeciderConfig
+| loop1 : ℕ → DeciderConfig
 | backwardsReasoning : ℕ → DeciderConfig
 | nGramCPS : NGramCPSConfig → DeciderConfig
 | nGramCPSHistory : NGramCPSHistoryConfig → DeciderConfig
@@ -158,6 +159,7 @@ instance: ToString DeciderConfig where
   | .translatedCycler n => s!"Translated cycler {n}"
   | .cycler n => s!"Cycler {n}"
   | .explore n => s!"Explore {n}"
+  | .loop1 n => s!"Loop1 {n}"
   | .backwardsReasoning n => s!"Backwards Reasoning {n}"
   | .nGramCPS cfg => s!"NGram CPS n={cfg.n} bound={cfg.bound}"
   | .nGramCPSHistory cfg =>
@@ -189,6 +191,7 @@ def DeciderConfig.deciderTable (cfg: DeciderConfig) (M: Machine l s) : HaltM M U
 | .nGramCPSHistory cfg => nGramCPSHistoryDecider cfg M
 | .nGramCPSLRU cfg => nGramCPSLRUDecider cfg M
 | .repWL cfg => Deciders.RepWL.decider cfg M
+| .loop1 n => Deciders.Loop1.decider n M
 | .bb5TableExecutable => runBB5Table Deciders.BB5Table.Generated.executableTable M
 | .bb5TableAll => runBB5Table Deciders.BB5Table.Generated.allTable M
 | _ => modelHaltMToTableHaltM (cfg.deciderModel M)
@@ -249,19 +252,27 @@ def bb4DefaultConfig: List DeciderConfig := [
 
 def bb5DefaultConfig: List DeciderConfig := [
   .explore 130,
-  .nGramCPS { n := 1, bound := 100 },
-  .nGramCPS { n := 2, bound := 200 },
+  .loop1 107,
+  .nGramCPS { n := 1, bound := 400 },
+  .nGramCPS { n := 2, bound := 800 },
   .nGramCPS { n := 3, bound := 400 },
-  .nGramCPSHistory { history := 2, left := 2, right := 2, bound := 1600 },
-  .nGramCPSHistory { history := 2, left := 3, right := 3, bound := 1600 },
+  .nGramCPS { n := 4, bound := 800 },
   .explore 4100,
+  .loop1 4100,
+  .bb5TableExecutable,
+  .repWL { len := 2, threshold := 3, maxT := 320, bound := 400 },
+  .nGramCPSLRU { left := 2, right := 2, bound := 1000 },
+  .nGramCPSHistory { history := 2, left := 2, right := 2, bound := 3000 },
+  .nGramCPSHistory { history := 2, left := 3, right := 3, bound := 1600 },
   .nGramCPSHistory { history := 4, left := 2, right := 2, bound := 600 },
   .nGramCPSHistory { history := 4, left := 3, right := 3, bound := 1600 },
   .nGramCPSHistory { history := 6, left := 2, right := 2, bound := 3200 },
   .nGramCPSHistory { history := 6, left := 3, right := 3, bound := 3200 },
-  .nGramCPSHistory { history := 8, left := 2, right := 2, bound := 1600 },
   .nGramCPSHistory { history := 8, left := 3, right := 3, bound := 1600 },
-  .bb5TableExecutable
+  .nGramCPSLRU { left := 3, right := 3, bound := 20000 },
+  .repWL { len := 4, threshold := 2, maxT := 320, bound := 2000 },
+  .repWL { len := 6, threshold := 2, maxT := 320, bound := 2000 },
+  .nGramCPS { n := 4, bound := 20000 }
 ]
 
 def defaultConfigFor (l s : ℕ) : List DeciderConfig :=
