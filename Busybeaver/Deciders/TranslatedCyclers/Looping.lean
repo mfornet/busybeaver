@@ -254,21 +254,21 @@ private lemma fresh_cell_is_bot
   rcases lt_or_gt_of_ne hΔne with hΔneg | hΔpos
   · -- Translation to the left: the fresh cells lie left of the visited window.
     have hpjΔ : j + netShift m L < p := by
-      by_contra hle; push_neg at hle
+      by_contra hle; push Not at hle
       exact hpne (startConstraint_none_left m L hsne hstartjΔ (by omega) hle)
     obtain ⟨v, hvne, hveq⟩ := start_boundary m L hL
     have hvjΔ : j + netShift m L < v := by
-      by_contra hle; push_neg at hle
+      by_contra hle; push Not at hle
       exact hvne (startConstraint_none_left m L hsne hstartjΔ (by omega) hle)
     have hj0 : j ≤ 0 := by rcases hveq with h | h <;> omega
     have hpΔneg : p + netShift m L ≤ -1 := by
-      by_contra hle; push_neg at hle
+      by_contra hle; push Not at hle
       exact (startConstraint_convex m L h0ne hpne (by omega) (by omega)) hstartpΔ
     have claim : ∀ x, x ≤ j + netShift m L → A.tape.nth x = (⊥ : TickSymbol BM) := by
       intro x hx
       by_cases hpm1 : p ≤ -1
       · exact reachable_bot_mono_left hReach hpm1 (by omega) hAp
-      · push_neg at hpm1
+      · push Not at hpm1
         exact reachable_bot_mono_left hReach hpΔneg (by omega) hApΔ
     have hstartj2Δ : startConstraint m L (j + 2 * netShift m L) = none :=
       startConstraint_none_left m L hsne hstartjΔ (by omega) (by omega)
@@ -285,21 +285,21 @@ private lemma fresh_cell_is_bot
     · rw [hBjΔ]; exact claim _ (by omega)
   · -- Translation to the right: the fresh cells lie right of the visited window.
     have hpjΔ : p < j + netShift m L := by
-      by_contra hle; push_neg at hle
+      by_contra hle; push Not at hle
       exact hpne (startConstraint_none_right m L hsne hstartjΔ (by omega) hle)
     obtain ⟨v, hvne, hveq⟩ := start_boundary m L hL
     have hvjΔ : v < j + netShift m L := by
-      by_contra hle; push_neg at hle
+      by_contra hle; push Not at hle
       exact hvne (startConstraint_none_right m L hsne hstartjΔ (by omega) hle)
     have hj0 : 0 ≤ j := by rcases hveq with h | h <;> omega
     have hpΔ1 : 1 ≤ p + netShift m L := by
-      by_contra hle; push_neg at hle
+      by_contra hle; push Not at hle
       exact (startConstraint_convex m L hpne h0ne (by omega) (by omega)) hstartpΔ
     have claim : ∀ x, j + netShift m L ≤ x → A.tape.nth x = (⊥ : TickSymbol BM) := by
       intro x hx
       by_cases hp1 : 1 ≤ p
       · exact reachable_bot_mono_right hReach hp1 (by omega) hAp
-      · push_neg at hp1
+      · push Not at hp1
         exact reachable_bot_mono_right hReach hpΔ1 (by omega) hApΔ
     have hstartj2Δ : startConstraint m L (j + 2 * netShift m L) = none :=
       startConstraint_none_right m L hsne hstartjΔ (by omega) (by omega)
