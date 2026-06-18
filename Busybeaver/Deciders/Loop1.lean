@@ -149,6 +149,21 @@ lemma step?_step {M : Machine l s} {h h' : HistoryEntry l s} (hstep : step? M h 
     simp only [Machine.step, hget]
   rw [hms, ← hst, ← htape]
 
+/-- **Replay engine.** Any configuration with the *same control state and head symbol* as `h`
+takes the *same* transition `h` does (same written symbol, move direction, next state, and head
+displacement).  This is the determinism that drives the translated cycle: a shifted copy of a
+window position replays it verbatim. -/
+lemma step?_replay {M : Machine l s} {h g h' : HistoryEntry l s}
+    (hstep : step? M h = some h')
+    (hstate : g.cfg.state = h.cfg.state) (hhead : g.cfg.tape.head = h.cfg.tape.head) :
+    ∃ sym dir st, M.get h.cfg.state h.cfg.tape.head = .next sym dir st ∧
+      step? M g = some { cfg := { state := st, tape := (g.cfg.tape.write sym).move dir },
+                         pos := g.pos + dirDelta dir } := by
+  obtain ⟨sym, dir, st, hget, _, _, _⟩ := step?_eq_some hstep
+  refine ⟨sym, dir, st, hget, ?_⟩
+  unfold step?
+  rw [hstate, hhead, hget]
+
 /-! ### Translated-cycler certificate
 
 `run` returns `true` exactly when it discovers a *translated cycler*: two consecutive length-`p`
@@ -228,11 +243,11 @@ Mathematical content: by `matchSH` the second window replays the first one trans
 the tape is reproduced, translated by `d`.  The blank leading edge recorded in `base` guarantees that
 every cell the head newly enters is blank, so the period repeats forever.
 
-This is the genuinely hard geometric fact; it is the same statement left `sorry` in
-`Deciders/TranslatedCyclers/{Constraints,Looping}.lean` (`start_finish_agree_on_overlap` /
-`ticking_extends_start_model`), and CoqBB5's clean shift-invariance argument does not transfer
-directly to Mathlib's head-relative `Turing.Tape`.  The supporting absolute-tape machinery
-(`absSym`, `absSym_step`) above is the foundation for completing it. -/
+This is the genuinely hard geometric fact; it is the same mathematical content proved (in the
+Ticking-wrapper representation) by `ticking_extends_start_model` / `fresh_cell_is_bot` in
+`Deciders/TranslatedCyclers/`.  Here we prove it directly in the absolute-tape representation via a
+`ClosedSet` of shifted window-start configurations; the supporting machinery (`absSym`,
+`absSym_step`) is the foundation. -/
 theorem LoopCert.nonHalting {M : Machine l s} (c : LoopCert M) :
     ¬ M.halts (c.f 0).cfg := by
   sorry
