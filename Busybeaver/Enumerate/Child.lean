@@ -186,7 +186,6 @@ by {
   intro M' hM'
   simp [terminating_children] at hM'
   have hMnohalts := Machine.halting_trans.eq_zero_nonhalts hM
-  simp at hMnohalts
   apply hM'.halt_of_halt_parent hMnohalts
   use M'.n
   exact M'.terminates

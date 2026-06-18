@@ -936,8 +936,8 @@ by induction M using BBCompute.induct decider with
 
 def m1RB (l s): Machine l s := (default: Machine l s).update_with 0 0 (.next 1 .right 1)
 
-lemma correct_1RB (h: (BBCompute decider (m1RB l s)).undec = ∅): (BBCompute decider (m1RB l s)).val = Busybeaver' l s
-(terminating_children (m1RB l s)) :=
+lemma correct_1RB (h: (BBCompute decider (m1RB l s)).undec = ∅):
+    (BBCompute decider (m1RB l s)).val = Busybeaver' l s (terminating_children (m1RB l s)) :=
 by {
   apply correct h <;> {
     simp [used_symbols, used_states]

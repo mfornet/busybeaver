@@ -65,7 +65,7 @@ by {
 lemma default_nth {Γ: Type*} [Inhabited Γ]: nth default i = default (α:=Γ) :=
 by {
   simp [nth]
-  split <;> simp [default, ListBlank.nth]
+  split <;> simp
 }
 
 @[simp]
