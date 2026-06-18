@@ -96,7 +96,7 @@ lemma interval_after_move_right {T : Turing.Tape (TickSymbol BM)}
         simpa using h0
     | succ n =>
         rw [Turing.Tape.move_right_nth]
-        simpa using hl n
+        simpa [Int.negSucc_eq] using hl n
   · intro n
     rw [Turing.Tape.move_right_nth]
     have h' := hr (n + 1)
@@ -149,7 +149,7 @@ private lemma sidePrefixes_step {m : TickingMachine BM} {A B : TickingConfig BM}
           have hwrite : SidePrefixes (BM := BM) (A.tape.write sym) :=
             interval_after_write_nonbot hA hsym
           have hhead : (A.tape.write sym).nth 0 ≠ (⊥ : TickSymbol BM) := by
-            simpa [Turing.Tape.write_nth_zero] using hsym
+            rw [Turing.Tape.write_nth_zero]; exact hsym
           cases dir with
           | left =>
               simpa using interval_after_move_left hwrite hhead

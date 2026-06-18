@@ -236,8 +236,8 @@ lemma lift_terminating.halt_steps [inst: Transformation (l:=l) (s:=s) fC fM] {M:
 (inst.lift_terminating hfC M).n = M.n :=
 by simp [lift_terminating]
 
-theorem same_busybeaver [inst: Transformation fC fM] {S: Finset (Terminating l s)} (hfC: fC default = default): Busybeaver' l s
-S = Busybeaver' l s (S.image (inst.lift_terminating hfC)) :=
+theorem same_busybeaver [inst: Transformation fC fM] {S: Finset (Terminating l s)} (hfC: fC default = default):
+    Busybeaver' l s S = Busybeaver' l s (S.image (inst.lift_terminating hfC)) :=
 by induction S using Finset.induction with
 | empty => simp
 | @insert A S _ IH => simp [IH]

@@ -297,6 +297,12 @@ namespace Turing.Tape
 
 variable {Γ} [Inhabited Γ]
 
+@[simp] lemma default_head : (default : Turing.Tape Γ).head = default := rfl
+
+@[simp] lemma default_left : (default : Turing.Tape Γ).left = default := rfl
+
+@[simp] lemma default_right : (default : Turing.Tape Γ).right = default := rfl
+
 @[simp] lemma write_nth_zero (T : Turing.Tape Γ) (sym : Γ) :
     (T.write sym).nth (0 : ℤ) = sym := by
   simp [Turing.Tape.nth, Turing.Tape.write]
