@@ -85,6 +85,21 @@ lemma preStep_apply (m : TickingMachine BM) (t : Tick BM) (P : PartialTape BM) (
   · simp [hi]
   · simp [hi, sub_eq_add_neg]
 
+lemma merge_eq_none {P Q : PartialTape BM} {i : Int} :
+    merge P Q i = none ↔ Q i = none ∧ P i = none := by
+  unfold merge
+  cases Q i <;> simp
+
+lemma merge_eq_some {P Q : PartialTape BM} {i : Int} {w : TickSymbol BM} :
+    merge P Q i = some w ↔ Q i = some w ∨ (Q i = none ∧ P i = some w) := by
+  unfold merge
+  cases Q i <;> simp
+
+lemma singleton_eq_none {i j : Int} {s : TickSymbol BM} :
+    singleton i s j = none ↔ j ≠ i := by
+  unfold singleton
+  by_cases h : j = i <;> simp [h]
+
 end PartialTape
 
 -- TODO: Reverse notation and signature of Models, the partial tape models the full tape, not the other way around.

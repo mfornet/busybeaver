@@ -58,7 +58,7 @@ private lemma tstep_nth_preStep {m : TickingMachine BM} {A B : TickingConfig BM}
       rw [Turing.Tape.move_right_nth]
       simpa [shiftDelta, hdir] using (Turing.Tape.write_nth_of_ne_zero _ _ hi)
 
-private lemma tstep_written_cell {m : TickingMachine BM} {A B : TickingConfig BM} {t : Tick BM}
+lemma tstep_written_cell {m : TickingMachine BM} {A B : TickingConfig BM} {t : Tick BM}
     (h : A t-[m:t]->' B) :
     B.tape.nth (-shiftDelta (dirOfTick m t)) = writeOfTick m t := by
   rw [tstep_tape_eq h]
@@ -359,23 +359,213 @@ lemma models_start_implies_exists_run
       exact ⟨D, TReach.MultiTStep.step (A := A) (B := B) (C := D) (t := t) (L := L) hAB hBD⟩
 
 /--
-Start and finish constraints agree on any offset where both are defined after the net shift.
+Start and finish constraints agree on any offset where both are defined.
 
 Depends on:
 - `run_implies_models_start`
 - `run_implies_models_finish`
 
 Idea:
-- compare both constraints on the same actual tape arising as the middle configuration of two
-  consecutive transcript runs.
+- compare both constraints on the same actual tape `B`, which is simultaneously the *finish* of the
+  first run `A t-[m:L]->>' B` and the *start* of the second run `B t-[m:L]->>' C`.
+
+Note on coordinates: both `startConstraint` and `finishConstraint` of a run are expressed relative
+to the run's own start/finish head respectively. For the shared config `B`, the second run starts at
+`B` and the first run finishes at `B`, so both constraints live in *the same* `B`-relative
+coordinate system. Hence they are compared at the *same* offset `i` (there is no net-shift between
+them — the net shift only relates a single run's own start- and finish-coordinates).
 -/
 lemma start_finish_agree_on_overlap
     {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
     (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C) :
-    ∀ i s,
+    ∀ i s w,
       startConstraint m L i = some s →
-      PartialTape.shift (-netShift m L) (finishConstraint m L) i = some s := by
-  -- The hypothesis for this theorem looks correct.
-  sorry
+      finishConstraint m L i = some w →
+      s = w := by
+  intro i s w hstart hfinish
+  -- `B` realizes the start constraint (it starts the second run)…
+  have hs : B.tape.nth i = s := run_implies_models_start hBC i s hstart
+  -- …and the finish constraint (it finishes the first run).
+  have hw : B.tape.nth i = w := run_implies_models_finish hAB i w hfinish
+  exact hs.symm.trans hw
+
+/-! ### Domain structure of the start/finish constraints
+
+The remaining frontier argument only needs to know *where* the constraints are defined (their
+"domains" are the visited offsets) and how the two domains are related by the net shift. We expose
+these facts purely in terms of `startConstraint`/`finishConstraint`, so the geometric head walk never
+has to be reasoned about explicitly. -/
+
+/-- Unfolding of the start constraint on a cons. -/
+lemma startConstraint_cons (m : TickingMachine BM) (t : Tick BM) (L : List (Tick BM)) (i : Int) :
+    startConstraint m (t :: L) i =
+      PartialTape.merge (PartialTape.singleton 0 t.2)
+        (PartialTape.preStep m t (startConstraint m L)) i := rfl
+
+/-- The start constraint is always defined at the current head (offset `0`). -/
+lemma startConstraint_zero (m : TickingMachine BM) (t : Tick BM) (L : List (Tick BM)) :
+    startConstraint m (t :: L) 0 = some t.2 := by
+  rw [startConstraint_cons]
+  simp [PartialTape.merge, PartialTape.preStep_apply, PartialTape.singleton]
+
+/-- The start constraint of a cons is `none` at `i` iff `i ≠ 0` and the tail is `none` one step
+back. -/
+lemma startConstraint_cons_eq_none_iff
+    (m : TickingMachine BM) (t : Tick BM) (L : List (Tick BM)) (i : Int) :
+    startConstraint m (t :: L) i = none ↔
+      i ≠ 0 ∧ startConstraint m L (i - shiftDelta (dirOfTick m t)) = none := by
+  rw [startConstraint_cons, PartialTape.merge_eq_none, PartialTape.preStep_apply,
+    PartialTape.singleton_eq_none]
+  by_cases hi : i = 0
+  · simp [hi]
+  · simp [hi]
+
+/-- Value of the start constraint away from the head: it is the tail's value one step back. -/
+lemma startConstraint_cons_apply_of_ne
+    (m : TickingMachine BM) (t : Tick BM) (L : List (Tick BM)) {i : Int} (hi : i ≠ 0) :
+    startConstraint m (t :: L) i = startConstraint m L (i - shiftDelta (dirOfTick m t)) := by
+  rw [startConstraint_cons]
+  unfold PartialTape.merge
+  rw [PartialTape.preStep_apply, if_neg hi]
+  cases hX : startConstraint m L (i - shiftDelta (dirOfTick m t)) with
+  | some s => rfl
+  | none => simp [PartialTape.singleton, hi]
+
+/-- Unfolding of the finish constraint on a cons. -/
+lemma finishConstraint_cons (m : TickingMachine BM) (t : Tick BM) (L : List (Tick BM)) (i : Int) :
+    finishConstraint m (t :: L) i =
+      PartialTape.merge (PartialTape.singleton (-netShift m (t :: L)) (writeOfTick m t))
+        (finishConstraint m L) i := rfl
+
+/-- The finish constraint is `none` exactly where the *shifted* start constraint is `none`: the two
+constraints have the same set of touched cells, related by the net head displacement. -/
+lemma finish_none_iff_start_none_shift
+    (m : TickingMachine BM) (L : List (Tick BM)) (k : Int) :
+    finishConstraint m L k = none ↔ startConstraint m L (k + netShift m L) = none := by
+  induction L generalizing k with
+  | nil => simp [finishConstraint, startConstraint]
+  | cons t L IH =>
+      have hδ : k + netShift m (t :: L) - shiftDelta (dirOfTick m t) = k + netShift m L := by
+        simp only [netShift]; omega
+      rw [finishConstraint_cons, PartialTape.merge_eq_none, PartialTape.singleton_eq_none,
+        startConstraint_cons_eq_none_iff, hδ, IH k]
+      constructor
+      · rintro ⟨h1, h2⟩; exact ⟨by omega, h1⟩
+      · rintro ⟨h1, h2⟩; exact ⟨h2, by omega⟩
+
+/-- `ne_none` form of `startConstraint_cons_eq_none_iff`. -/
+lemma startConstraint_cons_ne_none_iff
+    (m : TickingMachine BM) (t : Tick BM) (L : List (Tick BM)) (i : Int) :
+    startConstraint m (t :: L) i ≠ none ↔
+      i = 0 ∨ startConstraint m L (i - shiftDelta (dirOfTick m t)) ≠ none := by
+  rw [ne_eq, startConstraint_cons_eq_none_iff]
+  tauto
+
+/-- Whenever the start constraint is defined anywhere, it is defined at the head (offset `0`): a
+nonempty visited set always contains `0`. -/
+lemma startConstraint_zero_ne_none_of_ne_none
+    (m : TickingMachine BM) (L : List (Tick BM)) (x : Int)
+    (h : startConstraint m L x ≠ none) :
+    startConstraint m L 0 ≠ none := by
+  cases L with
+  | nil => simp [startConstraint] at h
+  | cons t L => rw [startConstraint_zero]; simp
+
+/-- `shiftDelta` of any tick direction is `±1`. -/
+lemma shiftDelta_dirOfTick_eq (m : TickingMachine BM) (t : Tick BM) :
+    shiftDelta (dirOfTick m t) = 1 ∨ shiftDelta (dirOfTick m t) = -1 := by
+  cases h : dirOfTick m t <;> simp [shiftDelta, h]
+
+/-- The set of offsets where the start constraint is defined is convex (an interval): this is the
+geometric content that the head walk visits a contiguous range. -/
+lemma startConstraint_convex (m : TickingMachine BM) (L : List (Tick BM)) {a b c : Int}
+    (ha : startConstraint m L a ≠ none) (hb : startConstraint m L b ≠ none)
+    (hac : a ≤ c) (hcb : c ≤ b) : startConstraint m L c ≠ none := by
+  induction L generalizing a b c with
+  | nil => simp [startConstraint] at ha
+  | cons t L IH =>
+      have hδ : shiftDelta (dirOfTick m t) = 1 ∨ shiftDelta (dirOfTick m t) = -1 :=
+        shiftDelta_dirOfTick_eq m t
+      rw [startConstraint_cons_ne_none_iff] at ha hb ⊢
+      by_cases hc0 : c = 0
+      · exact Or.inl hc0
+      · refine Or.inr ?_
+        rcases ha with rfl | haS
+        · rcases hb with rfl | hbS
+          · exfalso; omega
+          · have h0L : startConstraint m L 0 ≠ none :=
+              startConstraint_zero_ne_none_of_ne_none m L _ hbS
+            exact IH h0L hbS (by rcases hδ with h | h <;> omega) (by omega)
+        · rcases hb with rfl | hbS
+          · have h0L : startConstraint m L 0 ≠ none :=
+              startConstraint_zero_ne_none_of_ne_none m L _ haS
+            exact IH haS h0L (by omega) (by rcases hδ with h | h <;> omega)
+          · exact IH haS hbS (by omega) (by omega)
+
+/-- One-sided "no gap" consequence of convexity: to the right of a gap, the start constraint stays
+undefined. -/
+lemma startConstraint_none_right (m : TickingMachine BM) (L : List (Tick BM)) {x y z : Int}
+    (hx : startConstraint m L x ≠ none) (hy : startConstraint m L y = none)
+    (hxy : x ≤ y) (hyz : y ≤ z) : startConstraint m L z = none := by
+  by_contra hz
+  exact (startConstraint_convex m L hx hz hxy hyz) hy
+
+/-- One-sided "no gap" consequence of convexity: to the left of a gap, the start constraint stays
+undefined. -/
+lemma startConstraint_none_left (m : TickingMachine BM) (L : List (Tick BM)) {x y z : Int}
+    (hx : startConstraint m L x ≠ none) (hy : startConstraint m L y = none)
+    (hyx : y ≤ x) (hzy : z ≤ y) : startConstraint m L z = none := by
+  by_contra hz
+  exact (startConstraint_convex m L hz hx hzy hyx) hy
+
+/-- The finish constraint of a nonempty transcript is defined at `1` or at `-1`: the *last* tick's
+write lands one step from the final head, witnessing that the head walk reaches the net shift. -/
+lemma finish_boundary (m : TickingMachine BM) :
+    ∀ (L : List (Tick BM)), L ≠ [] →
+      finishConstraint m L 1 ≠ none ∨ finishConstraint m L (-1) ≠ none := by
+  intro L
+  induction L with
+  | nil => intro h; exact absurd rfl h
+  | cons t L IH =>
+      intro _
+      cases L with
+      | nil =>
+          have hnz : finishConstraint m [t] (-netShift m [t]) ≠ none := by
+            rw [finishConstraint_cons, ne_eq, PartialTape.merge_eq_none, not_and]
+            intro _
+            simp [PartialTape.singleton]
+          have hns : netShift m [t] = shiftDelta (dirOfTick m t) := by simp [netShift]
+          rcases shiftDelta_dirOfTick_eq m t with h | h
+          · right
+            have hv : -netShift m [t] = -1 := by rw [hns]; omega
+            rwa [hv] at hnz
+          · left
+            have hv : -netShift m [t] = 1 := by rw [hns]; omega
+            rwa [hv] at hnz
+      | cons u L' =>
+          rcases IH (by simp) with h | h
+          · left
+            rw [finishConstraint_cons, ne_eq, PartialTape.merge_eq_none]
+            push_neg
+            intro hc
+            exact absurd hc h
+          · right
+            rw [finishConstraint_cons, ne_eq, PartialTape.merge_eq_none]
+            push_neg
+            intro hc
+            exact absurd hc h
+
+/-- Start-side boundary: a nonempty transcript reads some cell within one step of the net shift. In
+particular the visited window reaches out to `netShift ± 1`. -/
+lemma start_boundary (m : TickingMachine BM) (L : List (Tick BM)) (hL : L ≠ []) :
+    ∃ v, startConstraint m L v ≠ none ∧ (v = netShift m L - 1 ∨ v = netShift m L + 1) := by
+  rcases finish_boundary m L hL with h | h
+  · -- finish 1 ≠ none ⟹ start (1 + netShift) ≠ none
+    refine ⟨1 + netShift m L, ?_, Or.inr (by omega)⟩
+    intro hstart
+    exact h ((finish_none_iff_start_none_shift m L 1).2 hstart)
+  · refine ⟨-1 + netShift m L, ?_, Or.inl (by omega)⟩
+    intro hstart
+    exact h ((finish_none_iff_start_none_shift m L (-1)).2 hstart)
 
 end Deciders.TranslatedCyclers

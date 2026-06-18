@@ -28,28 +28,6 @@ open TM.Model
 variable {BM : Type _} [TM.Model BM]
 
 /--
-Reindex the overlap theorem at the current final offset.
-
-Depends on:
-- `start_finish_agree_on_overlap`
-
-Idea:
-- the same physical tape cell has start coordinate `i + netShift m L` and final coordinate `i`.
--/
-private lemma overlap_current_offset
-    {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
-    (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C) :
-    -- TODO: Rewrite it as a partial tape is a subset of another partial tape.
-    ∀ i s,
-      startConstraint m L (i + netShift m L) = some s →
-      finishConstraint m L i = some s := by
-  intro i s hs
-  have hshift :
-      PartialTape.shift (-netShift m L) (finishConstraint m L) (i + netShift m L) = some s :=
-    start_finish_agree_on_overlap hAB hBC (i + netShift m L) s hs
-  simpa [PartialTape.shift] using hshift
-
-/--
 Running the same nonempty transcript from two starts produces the same ending control state.
 
 Depends on:
@@ -134,22 +112,224 @@ private lemma transcript_end_state_eq_cons
                     exact IH hZY hZ'Y' (by simp)
   exact aux h h' (by simp)
 
+/-- The statement of a continuing tick is a `next` (it does not halt). -/
+private lemma tstep_stmtOfTick_next {m : TickingMachine BM} {A B : TickingConfig BM} {t : Tick BM}
+    (h : A t-[m:t]->' B) :
+    ∃ dn sym dir st, stmtOfTick m t = (dn, GStmt.next sym dir st) := by
+  have ht : t = (A.state, A.tape.head) := by
+    unfold TReach.TStep stepTick at h
+    cases hs : TM.Model.step m A with
+    | mk dn outcome =>
+        cases outcome <;> simp [hs] at h
+        simpa using h.2.symm
+  have hstep : A -[m]->' B := TReach.single_step h
+  unfold TM.Model.Step at hstep
+  rw [TM.Model.step_stmt m A] at hstep
+  have hconfig : stmtOfTick m t = TM.Model.stmt m A := by
+    rw [ht]
+    unfold stmtOfTick
+    apply TM.Model.stmt_eq_of_state_head_eq m
+    · simp [configOfTick]
+    · rfl
+  rw [hconfig]
+  cases hstmt : TM.Model.stmt m A with
+  | mk dn stmt =>
+      cases stmt with
+      | halt => rw [hstmt] at hstep; simp at hstep
+      | next sym dir st => exact ⟨dn, sym, dir, st, rfl⟩
+
+/-- Every symbol recorded by the finish constraint of a *run* is a real (non-`⊥`) write. -/
+private lemma run_finish_write_nonbot {m : TickingMachine BM} {A B : TickingConfig BM}
+    {L : List (Tick BM)} (h : A t-[m:L]->>' B) :
+    ∀ k w, finishConstraint m L k = some w → w ≠ (⊥ : TickSymbol BM) := by
+  induction h with
+  | refl C => intro k w hk; simp [finishConstraint] at hk
+  | step X Y Z t L' hstep htail IH =>
+      intro k w hk
+      rw [finishConstraint_cons, PartialTape.merge_eq_some] at hk
+      rcases hk with hk | ⟨_, hk⟩
+      · exact IH k w hk
+      · simp only [PartialTape.singleton] at hk
+        split at hk
+        · injection hk with hk
+          obtain ⟨dn, sym, dir, st, hnext⟩ := tstep_stmtOfTick_next hstep
+          rw [← hk]
+          exact writeOfTick_ne_bot_of_next hnext
+        · simp at hk
+
+/-- A `⊥`-read in the transcript of a *run* is recorded by the start constraint: there is an offset
+the run reads `⊥` at first visit. (False without realizability — the `⊥` could be overwritten in an
+arbitrary transcript; the run rules that out.) -/
+private lemma record_bot {m : TickingMachine BM} {A B : TickingConfig BM} {L : List (Tick BM)}
+    {q : TM.Model.State BM} (h : A t-[m:L]->>' B) (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
+    ∃ p, startConstraint m L p = some (⊥ : TickSymbol BM) := by
+  induction h with
+  | refl C => exact absurd hRecord (by simp)
+  | step X Y Z t L' hstep htail IH =>
+      rcases List.mem_cons.mp hRecord with hEq | hMem
+      · refine ⟨0, ?_⟩
+        rw [startConstraint_zero, ← hEq]
+      · obtain ⟨p', hp'⟩ := IH hMem
+        by_cases hz : p' + shiftDelta (dirOfTick m t) = 0
+        · exfalso
+          have hp'val : p' = -shiftDelta (dirOfTick m t) := by omega
+          have hY : Y.tape.nth p' = (⊥ : TickSymbol BM) :=
+            run_implies_models_start htail p' ⊥ hp'
+          rw [hp'val] at hY
+          rw [tstep_written_cell hstep] at hY
+          obtain ⟨dn, sym, dir, st, hnext⟩ := tstep_stmtOfTick_next hstep
+          exact writeOfTick_ne_bot_of_next hnext hY
+        · refine ⟨p' + shiftDelta (dirOfTick m t), ?_⟩
+          rw [startConstraint_cons_apply_of_ne m t L' hz]
+          simpa using hp'
+
+/--
+Frontier fact for the *fresh* offsets of a detected loop.
+
+Consider an offset `j` that the transcript reads at its start (`startConstraint m L j = some s`) but
+whose write the run `B → C` never pins down (`finishConstraint m L j = none`). Such an offset lies
+just *beyond* the visited window on the side the head is translating toward. This lemma states that
+both the required start symbol `s` and the actual cell `B.tape` carries there are `⊥`.
+
+Why both are `⊥` (informal):
+- Writes are never `⊥` (`stmt_next_nonbot`), so every already-visited ("exhaust") cell is non-`⊥`.
+  Hence a `⊥`-read (which `hRecord` guarantees exists) can only happen at a cell the run reaches for
+  the *first* time, i.e. at the moving frontier.
+- For a reachable tape the non-`⊥` cells form a bounded prefix on each side
+  (`SidePrefixes` / `reachable_nonbot_interval`). Combined with the previous point, the run's visited
+  window reaches the frontier on the translation side, so every cell strictly beyond it is `⊥`
+  (`reachable_bot_suffix_left` / `reachable_bot_suffix_right`).
+- The two runs `A → B` and `B → C` realize the *same* transcript, which forces the agreement used to
+  transport the frontier `⊥` between the two configurations.
+
+This is the genuine core of translated-cycler correctness; it crucially needs *both* runs (a
+single-run version is false: a config could carry non-`⊥` junk beyond an under-reaching run).
+-/
+private lemma fresh_cell_is_bot
+    {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
+    {q : TM.Model.State BM} {n : Nat}
+    (hReach : (default : TickingConfig BM) -[m]{n}->>' A)
+    (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
+    (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L)
+    {j : Int} {s : TickSymbol BM}
+    (hstart : startConstraint m L j = some s)
+    (hfin : finishConstraint m L j = none) :
+    s = (⊥ : TickSymbol BM) ∧ B.tape.nth (j + netShift m L) = (⊥ : TickSymbol BM) := by
+  -- A `⊥`-read witness `p`, defined in the start constraint.
+  have hL : L ≠ [] := List.ne_nil_of_mem hRecord
+  obtain ⟨p, hp⟩ := record_bot hAB hRecord
+  have hpne : startConstraint m L p ≠ none := by rw [hp]; simp
+  have hsne : startConstraint m L j ≠ none := by rw [hstart]; simp
+  have h0ne : startConstraint m L 0 ≠ none := startConstraint_zero_ne_none_of_ne_none m L j hsne
+  -- `A` and `B` carry `⊥` at `p`.
+  have hAp : A.tape.nth p = (⊥ : TickSymbol BM) := run_implies_models_start hAB p ⊥ hp
+  have hBp : B.tape.nth p = (⊥ : TickSymbol BM) := run_implies_models_start hBC p ⊥ hp
+  -- `p` is fresh for the run `A → B` too: its write is never pinned (else it would be non-`⊥`).
+  have hfinp : finishConstraint m L p = none := by
+    cases hfp : finishConstraint m L p with
+    | none => rfl
+    | some w =>
+        have hw1 : B.tape.nth p = w := run_implies_models_finish hAB p w hfp
+        have hw2 : w ≠ (⊥ : TickSymbol BM) := run_finish_write_nonbot hAB p w hfp
+        rw [hBp] at hw1
+        exact absurd hw1.symm hw2
+  -- Second `⊥` witness in `A`, one period out.
+  have hApΔ : A.tape.nth (p + netShift m L) = (⊥ : TickSymbol BM) := by
+    have h := run_implies_finish_none hAB hfinp
+    rw [hBp] at h
+    exact h.symm
+  -- Reframe both goals onto `A`'s tape.
+  have hBj : B.tape.nth j = s := run_implies_models_start hBC j s hstart
+  have hsA : s = A.tape.nth (j + netShift m L) := by
+    have h := run_implies_finish_none hAB hfin
+    rw [hBj] at h
+    exact h
+  have hstartjΔ : startConstraint m L (j + netShift m L) = none :=
+    (finish_none_iff_start_none_shift m L j).1 hfin
+  have hstartpΔ : startConstraint m L (p + netShift m L) = none :=
+    (finish_none_iff_start_none_shift m L p).1 hfinp
+  -- A pure cycler (`netShift = 0`) has no fresh offsets, so `netShift ≠ 0`.
+  have hΔne : netShift m L ≠ 0 := by
+    intro h0; rw [h0, add_zero] at hstartjΔ; exact hsne hstartjΔ
+  rcases lt_or_gt_of_ne hΔne with hΔneg | hΔpos
+  · -- Translation to the left: the fresh cells lie left of the visited window.
+    have hpjΔ : j + netShift m L < p := by
+      by_contra hle; push_neg at hle
+      exact hpne (startConstraint_none_left m L hsne hstartjΔ (by omega) hle)
+    obtain ⟨v, hvne, hveq⟩ := start_boundary m L hL
+    have hvjΔ : j + netShift m L < v := by
+      by_contra hle; push_neg at hle
+      exact hvne (startConstraint_none_left m L hsne hstartjΔ (by omega) hle)
+    have hj0 : j ≤ 0 := by rcases hveq with h | h <;> omega
+    have hpΔneg : p + netShift m L ≤ -1 := by
+      by_contra hle; push_neg at hle
+      exact (startConstraint_convex m L h0ne hpne (by omega) (by omega)) hstartpΔ
+    have claim : ∀ x, x ≤ j + netShift m L → A.tape.nth x = (⊥ : TickSymbol BM) := by
+      intro x hx
+      by_cases hpm1 : p ≤ -1
+      · exact reachable_bot_mono_left hReach hpm1 (by omega) hAp
+      · push_neg at hpm1
+        exact reachable_bot_mono_left hReach hpΔneg (by omega) hApΔ
+    have hstartj2Δ : startConstraint m L (j + 2 * netShift m L) = none :=
+      startConstraint_none_left m L hsne hstartjΔ (by omega) (by omega)
+    have hfinjΔ : finishConstraint m L (j + netShift m L) = none := by
+      rw [finish_none_iff_start_none_shift]
+      rw [show (j + netShift m L) + netShift m L = j + 2 * netShift m L from by omega]
+      exact hstartj2Δ
+    have hBjΔ : B.tape.nth (j + netShift m L) = A.tape.nth (j + 2 * netShift m L) := by
+      have h := run_implies_finish_none hAB hfinjΔ
+      rw [show (j + netShift m L) + netShift m L = j + 2 * netShift m L from by omega] at h
+      exact h
+    refine ⟨?_, ?_⟩
+    · rw [hsA]; exact claim _ (le_refl _)
+    · rw [hBjΔ]; exact claim _ (by omega)
+  · -- Translation to the right: the fresh cells lie right of the visited window.
+    have hpjΔ : p < j + netShift m L := by
+      by_contra hle; push_neg at hle
+      exact hpne (startConstraint_none_right m L hsne hstartjΔ (by omega) hle)
+    obtain ⟨v, hvne, hveq⟩ := start_boundary m L hL
+    have hvjΔ : v < j + netShift m L := by
+      by_contra hle; push_neg at hle
+      exact hvne (startConstraint_none_right m L hsne hstartjΔ (by omega) hle)
+    have hj0 : 0 ≤ j := by rcases hveq with h | h <;> omega
+    have hpΔ1 : 1 ≤ p + netShift m L := by
+      by_contra hle; push_neg at hle
+      exact (startConstraint_convex m L hpne h0ne (by omega) (by omega)) hstartpΔ
+    have claim : ∀ x, j + netShift m L ≤ x → A.tape.nth x = (⊥ : TickSymbol BM) := by
+      intro x hx
+      by_cases hp1 : 1 ≤ p
+      · exact reachable_bot_mono_right hReach hp1 (by omega) hAp
+      · push_neg at hp1
+        exact reachable_bot_mono_right hReach hpΔ1 (by omega) hApΔ
+    have hstartj2Δ : startConstraint m L (j + 2 * netShift m L) = none :=
+      startConstraint_none_right m L hsne hstartjΔ (by omega) (by omega)
+    have hfinjΔ : finishConstraint m L (j + netShift m L) = none := by
+      rw [finish_none_iff_start_none_shift]
+      rw [show (j + netShift m L) + netShift m L = j + 2 * netShift m L from by omega]
+      exact hstartj2Δ
+    have hBjΔ : B.tape.nth (j + netShift m L) = A.tape.nth (j + 2 * netShift m L) := by
+      have h := run_implies_finish_none hAB hfinjΔ
+      rw [show (j + netShift m L) + netShift m L = j + 2 * netShift m L from by omega] at h
+      exact h
+    refine ⟨?_, ?_⟩
+    · rw [hsA]; exact claim _ (le_refl _)
+    · rw [hBjΔ]; exact claim _ (by omega)
+
 /--
 The third configuration satisfies the ordinary start constraint of the transcript.
 
 Depends on:
 - `run_implies_models_finish`
 - `run_implies_finish_none`
-- `overlap_current_offset`
-- `start_offset_overlap_or_fresh`
-- `fresh_current_cell_is_bot`
 - `start_finish_agree_on_overlap`
+- `fresh_cell_is_bot`
 
 Idea:
-- for each required next-start offset, split on whether the previous run already determined that
+- for each required next-start offset, split on whether the run `B → C` already determined that
   cell in `finishConstraint`;
-- overlap is discharged through `finishConstraint`;
-- fresh cells come from the untouched reachable frontier and therefore carry `⊥`.
+- overlap is discharged through `finishConstraint` plus `start_finish_agree_on_overlap`;
+- fresh cells come from the untouched reachable frontier and therefore carry `⊥`
+  (`fresh_cell_is_bot`).
 -/
 private lemma ticking_extends_start_model
     {m : TickingMachine BM} {A B C : TickingConfig BM} {L : List (Tick BM)}
@@ -159,7 +339,23 @@ private lemma ticking_extends_start_model
     (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L]->>' C)
     (hRecord : (q, (⊥ : TickSymbol BM)) ∈ L) :
     C.tape ⊨ startConstraint m L := by
-  sorry
+  intro j s hstart
+  -- Goal: `C.tape.nth j = s`. Split on whether the run `B → C` already determined cell `j`
+  -- (in final/`C`-relative coordinates) via its finish constraint.
+  cases hfin : finishConstraint m L j with
+  | some w =>
+      -- Overlap: `C` realizes the finish constraint of `B → C`, and the start/finish values
+      -- agree at this offset because they are both realized by the shared config `B`.
+      have hCw : C.tape.nth j = w := run_implies_models_finish hBC j w hfin
+      have hsw : s = w := start_finish_agree_on_overlap hAB hBC j s w hstart hfin
+      rw [hCw, hsw]
+  | none =>
+      -- Fresh: cell `j` was untouched by `B → C`, so its value comes from the reachable frontier.
+      -- We reduce to two `⊥` facts: the required start value `s` and the actual cell `B.tape`
+      -- carries at the corresponding (start-coordinate) offset `j + netShift m L`.
+      have hC : C.tape.nth j = B.tape.nth (j + netShift m L) := run_implies_finish_none hBC hfin
+      obtain ⟨hs_bot, hcell_bot⟩ := fresh_cell_is_bot hReach hAB hBC hRecord hstart hfin
+      rw [hC, hs_bot, hcell_bot]
 
 /--
 Reachable transcript extension theorem.

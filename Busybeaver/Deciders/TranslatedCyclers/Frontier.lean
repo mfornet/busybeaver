@@ -107,8 +107,8 @@ lemma interval_after_move_right {T : Turing.Tape (TickSymbol BM)}
     · intro h
       exact h'.2 (by omega)
 
-/-- Every reachable ticking configuration satisfies the side-prefix invariant. -/
-private lemma stmt_next_nonbot {m : TickingMachine BM} {A : TickingConfig BM}
+/-- A wrapped `next` statement never writes `⊥` (the ticking wrapper only writes real symbols). -/
+lemma stmt_next_nonbot {m : TickingMachine BM} {A : TickingConfig BM}
     {dn : Nat} {sym : TickSymbol BM} {dir : Turing.Dir} {state : TM.Model.State BM}
     (h : TM.Model.stmt m A = (dn, GStmt.next sym dir state)) :
     sym ≠ (⊥ : TickSymbol BM) := by
@@ -198,5 +198,43 @@ lemma reachable_bot_suffix_left {m : TickingMachine BM} {A : TickingConfig BM} {
   · have : j < l := (hl j).1 hj'
     omega
   · simpa using hj'
+
+/-- `Int`-indexed right cascade: a `⊥` at a positive cell forces `⊥` everywhere further right. -/
+lemma reachable_bot_mono_right {m : TickingMachine BM} {A : TickingConfig BM} {n : Nat}
+    (hA : (default : TickingConfig BM) -[m]{n}->>' A)
+    {a b : Int} (ha : 1 ≤ a) (hab : a ≤ b) (hbot : A.tape.nth a = (⊥ : TickSymbol BM)) :
+    A.tape.nth b = (⊥ : TickSymbol BM) := by
+  obtain ⟨ka, rfl⟩ : ∃ ka : Nat, a = Int.ofNat (ka + 1) :=
+    ⟨(a - 1).toNat, by rw [Int.ofNat_eq_natCast]; omega⟩
+  obtain ⟨kb, rfl⟩ : ∃ kb : Nat, b = Int.ofNat (kb + 1) :=
+    ⟨(b - 1).toNat, by rw [Int.ofNat_eq_natCast]; omega⟩
+  have hk : ka ≤ kb := by
+    rw [Int.ofNat_eq_natCast, Int.ofNat_eq_natCast] at hab
+    omega
+  exact reachable_bot_suffix_right hA hbot kb hk
+
+/-- `Int`-indexed left cascade: a `⊥` at a negative cell forces `⊥` everywhere further left. -/
+lemma reachable_bot_mono_left {m : TickingMachine BM} {A : TickingConfig BM} {n : Nat}
+    (hA : (default : TickingConfig BM) -[m]{n}->>' A)
+    {a b : Int} (ha : a ≤ -1) (hab : b ≤ a) (hbot : A.tape.nth a = (⊥ : TickSymbol BM)) :
+    A.tape.nth b = (⊥ : TickSymbol BM) := by
+  obtain ⟨ka, rfl⟩ : ∃ ka : Nat, a = Int.negSucc ka :=
+    ⟨(-a - 1).toNat, by rw [Int.negSucc_eq]; omega⟩
+  obtain ⟨kb, rfl⟩ : ∃ kb : Nat, b = Int.negSucc kb :=
+    ⟨(-b - 1).toNat, by rw [Int.negSucc_eq]; omega⟩
+  have hk : ka ≤ kb := by
+    rw [Int.negSucc_eq, Int.negSucc_eq] at hab
+    omega
+  exact reachable_bot_suffix_left hA hbot kb hk
+
+/-- The write determined by a non-halting tick is never `⊥`. -/
+lemma writeOfTick_ne_bot_of_next {m : TickingMachine BM} {t : Tick BM}
+    {dn : Nat} {sym : TickSymbol BM} {dir : Turing.Dir} {st : TM.Model.State BM}
+    (h : stmtOfTick m t = (dn, GStmt.next sym dir st)) :
+    writeOfTick m t ≠ (⊥ : TickSymbol BM) := by
+  have hsym : sym ≠ (⊥ : TickSymbol BM) :=
+    stmt_next_nonbot (A := configOfTick t) h
+  simp only [writeOfTick, h]
+  exact hsym
 
 end Deciders.TranslatedCyclers
