@@ -4,6 +4,7 @@ import Busybeaver.Deciders.Loop1
 import Busybeaver.Deciders.NGramCPS
 import Busybeaver.Deciders.RepWL
 import Busybeaver.Deciders.WFAR
+import Busybeaver.Parse
 import Std.Data.HashMap
 
 /-!
@@ -41,9 +42,104 @@ deriving DecidableEq, Repr
 abbrev Entry := String × EntryDecider
 abbrev Table := Std.HashMap String EntryDecider
 
-private theorem sporadic_nonHalting (M : Machine 4 1) :
-    ¬M.halts TM.Table.init := by
+/-!
+## Sporadic holdout machines
+
+The Coq BB5 proof closes a handful of machines that no algorithmic decider in
+the pipeline can handle — the "sporadic" holdouts — each with its own hand-built
+non-halting argument.  We mirror that structure: every holdout is a concrete
+machine paired with its own `…_nonHalting` theorem.
+
+These theorems carry the real mathematical content and are still `sorry`.  But
+unlike a single `∀ M, ¬M.halts` placeholder (which is *false* as stated, since
+halting BB(5) machines exist), each is a *true* statement about one specific
+machine — so discharging them is ordinary proof work, not a redesign.
+-/
+
+def sporadicMachine0 : Machine 4 1 := mach["1RB0LE_1RC1RB_1RD1LC_0LE0RB_---1LA"]
+theorem sporadicMachine0_nonHalting : ¬ sporadicMachine0.halts init := by
   sorry
+
+def sporadicMachine1 : Machine 4 1 := mach["1RB1RA_1RC1LB_0LD0RA_1RA1LE_---0LD"]
+theorem sporadicMachine1_nonHalting : ¬ sporadicMachine1.halts init := by
+  sorry
+
+def sporadicMachine2 : Machine 4 1 := mach["1RB1RE_1LC1RB_0RA0LD_1LB1LD_---0RA"]
+theorem sporadicMachine2_nonHalting : ¬ sporadicMachine2.halts init := by
+  sorry
+
+def sporadicMachine3 : Machine 4 1 := mach["1RB1LA_0LC0RE_---1LD_1RA0LC_1RA1RE"]
+theorem sporadicMachine3_nonHalting : ¬ sporadicMachine3.halts init := by
+  sorry
+
+def sporadicMachine4 : Machine 4 1 := mach["1RB1LA_0LC0RE_---1LD_1LA0LC_1RA1RE"]
+theorem sporadicMachine4_nonHalting : ¬ sporadicMachine4.halts init := by
+  sorry
+
+def sporadicMachine5 : Machine 4 1 := mach["1RB1RD_1LC0RC_1RA1LD_0RE0LB_---1RC"]
+theorem sporadicMachine5_nonHalting : ¬ sporadicMachine5.halts init := by
+  sorry
+
+def sporadicMachine6 : Machine 4 1 := mach["1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB"]
+theorem sporadicMachine6_nonHalting : ¬ sporadicMachine6.halts init := by
+  sorry
+
+def sporadicMachine7 : Machine 4 1 := mach["1RB---_1RC1LB_1LD1RE_1LB0LD_1RA0RC"]
+theorem sporadicMachine7_nonHalting : ¬ sporadicMachine7.halts init := by
+  sorry
+
+def sporadicMachine8 : Machine 4 1 := mach["1RB---_0LC1RE_0LD1LC_1RA1LB_0RB0RA"]
+theorem sporadicMachine8_nonHalting : ¬ sporadicMachine8.halts init := by
+  sorry
+
+def sporadicMachine9 : Machine 4 1 := mach["1RB1LD_1RC0RB_1LA1RC_1LE0LA_1LC---"]
+theorem sporadicMachine9_nonHalting : ¬ sporadicMachine9.halts init := by
+  sorry
+
+def sporadicMachine10 : Machine 4 1 := mach["1RB1LC_0RC0RB_1LD0LA_1LE---_1LA1RE"]
+theorem sporadicMachine10_nonHalting : ¬ sporadicMachine10.halts init := by
+  sorry
+
+def sporadicMachine11 : Machine 4 1 := mach["1RB1LC_0RC0RB_1LD0LA_1LE---_1LA1RA"]
+theorem sporadicMachine11_nonHalting : ¬ sporadicMachine11.halts init := by
+  sorry
+
+def sporadicMachine12 : Machine 4 1 := mach["1RB1LC_0RC0RB_1LD0LA_1LE---_1LA0LA"]
+theorem sporadicMachine12_nonHalting : ¬ sporadicMachine12.halts init := by
+  sorry
+
+/-- A sporadic holdout machine bundled with a proof that it never halts. -/
+structure SporadicCert where
+  machine : Machine 4 1
+  nonHalting : ¬ machine.halts init
+
+/-- The certified sporadic holdouts.  Adding or removing a holdout means editing
+this list alongside its `…_nonHalting` theorem. -/
+def sporadicCerts : List SporadicCert :=
+  [ ⟨sporadicMachine0, sporadicMachine0_nonHalting⟩,
+    ⟨sporadicMachine1, sporadicMachine1_nonHalting⟩,
+    ⟨sporadicMachine2, sporadicMachine2_nonHalting⟩,
+    ⟨sporadicMachine3, sporadicMachine3_nonHalting⟩,
+    ⟨sporadicMachine4, sporadicMachine4_nonHalting⟩,
+    ⟨sporadicMachine5, sporadicMachine5_nonHalting⟩,
+    ⟨sporadicMachine6, sporadicMachine6_nonHalting⟩,
+    ⟨sporadicMachine7, sporadicMachine7_nonHalting⟩,
+    ⟨sporadicMachine8, sporadicMachine8_nonHalting⟩,
+    ⟨sporadicMachine9, sporadicMachine9_nonHalting⟩,
+    ⟨sporadicMachine10, sporadicMachine10_nonHalting⟩,
+    ⟨sporadicMachine11, sporadicMachine11_nonHalting⟩,
+    ⟨sporadicMachine12, sporadicMachine12_nonHalting⟩ ]
+
+/-- Sound dispatch for the `.sporadic` table entry.  We are handed an arbitrary
+`M`, so we recover its identity by matching it against the certified holdouts and
+return that machine's non-halting proof; if `M` is none of them we stay
+`.unknown` rather than fabricate a certificate.  In practice the table lookup
+only routes the 13 holdouts here, but the match keeps the proof honest. -/
+def sporadicResult : List SporadicCert → (M : Machine 4 1) → HaltM M Unit
+  | [], _ => .unknown ()
+  | c :: rest, M =>
+      if h : c.machine = M then .loops_prf (h ▸ c.nonHalting)
+      else sporadicResult rest M
 
 def haltDecider (bound : ℕ) (M : Machine l s) : HaltM M Unit := do
   let _ ← TM.Table.boundedExplore bound M
@@ -73,7 +169,7 @@ def EntryDecider.run (d : EntryDecider) (M : Machine 4 1) : HaltM M Unit :=
         bound
       } M
   | .sporadic =>
-      .loops_prf (sporadic_nonHalting M)
+      sporadicResult sporadicCerts M
   | .unsupported _ =>
       .unknown ()
 
@@ -106,21 +202,8 @@ def tableDecider (table : Table) (M : Machine 4 1) : HaltM M Unit :=
 
 def emptyEntries : List Entry := []
 
-def sporadicEntries : List Entry := [
-  ("1RB0LE_1RC1RB_1RD1LC_0LE0RB_---1LA", .sporadic),
-  ("1RB1RA_1RC1LB_0LD0RA_1RA1LE_---0LD", .sporadic),
-  ("1RB1RE_1LC1RB_0RA0LD_1LB1LD_---0RA", .sporadic),
-  ("1RB1LA_0LC0RE_---1LD_1RA0LC_1RA1RE", .sporadic),
-  ("1RB1LA_0LC0RE_---1LD_1LA0LC_1RA1RE", .sporadic),
-  ("1RB1RD_1LC0RC_1RA1LD_0RE0LB_---1RC", .sporadic),
-  ("1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB", .sporadic),
-  ("1RB---_1RC1LB_1LD1RE_1LB0LD_1RA0RC", .sporadic),
-  ("1RB---_0LC1RE_0LD1LC_1RA1LB_0RB0RA", .sporadic),
-  ("1RB1LD_1RC0RB_1LA1RC_1LE0LA_1LC---", .sporadic),
-  ("1RB1LC_0RC0RB_1LD0LA_1LE---_1LA1RE", .sporadic),
-  ("1RB1LC_0RC0RB_1LD0LA_1LE---_1LA1RA", .sporadic),
-  ("1RB1LC_0RC0RB_1LD0LA_1LE---_1LA0LA", .sporadic)
-]
+def sporadicEntries : List Entry :=
+  sporadicCerts.map fun c => (machineCode c.machine, .sporadic)
 
 def initialEntries : List Entry :=
   sporadicEntries
