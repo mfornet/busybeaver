@@ -266,7 +266,6 @@ lemma run_implies_models_start {m : TickingMachine BM} {A B : TickingConfig BM} 
             cases hpre
           rw [PartialTape.preStep_apply, if_neg hi] at hpre
           have htail : B.tape.nth (i - shiftDelta (dirOfTick m (A.state, A.tape.head))) = s := by
-            change B.tape.nth (i - shiftDelta (dirOfTick m (A.state, A.tape.head))) = s
             have hpre' :
                 startConstraint m L (i - shiftDelta (dirOfTick m (A.state, A.tape.head))) = some s := by
               simpa using hpre
@@ -474,7 +473,7 @@ lemma startConstraint_zero_ne_none_of_ne_none
 /-- `shiftDelta` of any tick direction is `±1`. -/
 lemma shiftDelta_dirOfTick_eq (m : TickingMachine BM) (t : Tick BM) :
     shiftDelta (dirOfTick m t) = 1 ∨ shiftDelta (dirOfTick m t) = -1 := by
-  cases h : dirOfTick m t <;> simp [shiftDelta, h]
+  cases h : dirOfTick m t <;> simp [shiftDelta]
 
 /-- The set of offsets where the start constraint is defined is convex (an interval): this is the
 geometric content that the head walk visits a contiguous range. -/
@@ -546,12 +545,12 @@ lemma finish_boundary (m : TickingMachine BM) :
           rcases IH (by simp) with h | h
           · left
             rw [finishConstraint_cons, ne_eq, PartialTape.merge_eq_none]
-            push_neg
+            push Not
             intro hc
             exact absurd hc h
           · right
             rw [finishConstraint_cons, ne_eq, PartialTape.merge_eq_none]
-            push_neg
+            push Not
             intro hc
             exact absurd hc h
 
