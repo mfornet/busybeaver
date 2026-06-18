@@ -330,7 +330,7 @@ lemma Machine.ext {M M': Machine l s}: (∀ lab sym, M.get lab sym = M'.get lab 
   let idx : Fin C.size := ⟨i, hi⟩
   let ls := Mi.get_lab_sym idx
   have hls : Mi'.get_lab_sym ⟨i, hi'⟩ = ls := by
-    simpa [Mi, Mi', idx, ls] using (Machine.get_lab_sym.size_only (M:=Mi) (M':=Mi') (idx:=idx))
+    simpa [Mi, Mi', idx, ls] using (Machine.get_lab_sym.size_only (M:=Mi) (M':=Mi') (idx:=idx)).symm
   have hEq := hCC' ls.1 ls.2
   have hidx : Mi.get_index ls.1 ls.2 = idx := by
     simpa [ls] using (Machine.get_index_get_lab_sym (M:=Mi) (idx:=idx))

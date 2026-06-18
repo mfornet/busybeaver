@@ -151,14 +151,12 @@ by induction le, cu, ri, L using getBounds.induct with simp [getBounds]
   exact IH.2
 }
 | case3 left cur right _ rest IH => {
-  simp at IH
   exact IH
 }
 
 lemma getBounds.rightPos {L: List <| Line l s}: ri ≤ (getBounds le cu ri L).2 :=
 by induction le, cu, ri, L using getBounds.induct with simp [getBounds]
 | case2 left cur right _ rest IH => {
-  simp at IH
   exact IH
 }
 | case3 left cur right _ rest IH => {

@@ -38,25 +38,25 @@ def Base (n : ℕ) (finalState : SearchState l s) (C : Config l s) : Prop :=
 
 @[simp] lemma blank_leftWindowAt (n k : ℕ) :
     leftWindowAt (l := l) (s := s) n k init = Array.replicate n (default : Symbol s) := by
-  let C : Config l s := init
   apply Array.ext
   · simp [leftWindowAt, Turing.ListBlank.take.length]
   · intro i hi1 hi2
     have hi : i < n := by
       simpa [leftWindowAt, Turing.ListBlank.take.length] using hi1
-    simpa [leftWindowAt, Turing.ListBlank.drop_nth] using
-      (Turing.ListBlank.take_nth (Γ := Symbol s) (Lb := C.tape.left.drop k) (n := n) (i := i) hi)
+    have hleft : (init : Config l s).tape.left = default := rfl
+    simpa [leftWindowAt, Turing.ListBlank.drop_nth, hleft] using
+      (Turing.ListBlank.take_nth (Γ := Symbol s) (Lb := (init : Config l s).tape.left.drop k) (n := n) (i := i) hi)
 
 @[simp] lemma blank_rightWindowAt (n k : ℕ) :
     rightWindowAt (l := l) (s := s) n k init = Array.replicate n (default : Symbol s) := by
-  let C : Config l s := init
   apply Array.ext
   · simp [rightWindowAt, Turing.ListBlank.take.length]
   · intro i hi1 hi2
     have hi : i < n := by
       simpa [rightWindowAt, Turing.ListBlank.take.length] using hi1
-    simpa [rightWindowAt, Turing.ListBlank.drop_nth] using
-      (Turing.ListBlank.take_nth (Γ := Symbol s) (Lb := C.tape.right.drop k) (n := n) (i := i) hi)
+    have hright : (init : Config l s).tape.right = default := rfl
+    simpa [rightWindowAt, Turing.ListBlank.drop_nth, hright] using
+      (Turing.ListBlank.take_nth (Γ := Symbol s) (Lb := (init : Config l s).tape.right.drop k) (n := n) (i := i) hi)
 
 @[simp] lemma MatchesPartial_state {n : ℕ} {pc : PartialConfig l s} {C : Config l s}
     (h : MatchesPartial n pc C) : pc.state = C.state := h.1

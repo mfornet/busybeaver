@@ -94,7 +94,7 @@ private lemma tableHalts_to_modelHalts
   rcases h with ⟨n, C, hLast, hReach⟩
   exact ⟨n, ({ state := C.state, tape := C.tape } : TM.Model.Config (Machine l s)),
     tableLastState_to_modelLastState hLast, by
-    simpa using tableMultistep_to_modelMultistep hReach⟩
+    exact tableMultistep_to_modelMultistep hReach⟩
 
 private lemma modelMultistepBase_to_tableMultistep
     {l s : ℕ} {M : Machine l s}

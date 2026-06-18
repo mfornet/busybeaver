@@ -20,7 +20,6 @@ lemma BBResult.join.rightcomm: RightCommutative (BBResult.join (l:=l) (s:=s)) wh
 
 def waitMultiset (S: Multiset (Task α)): Task (Multiset α) :=
   Quotient.liftOn S (λ L ↦ List.waitAll L |>.map Quotient.mk'') (by {
-    simp
     intro A B hAB
     simp [Task.map]
     induction hAB using List.Perm.recOn with
@@ -205,6 +204,6 @@ lemma BBCompute.impl: @BBCompute = @BBComputeP := by {
         Multiset.map (fun a => (BBComputeP.loop decider a).get) next
           = Multiset.map (BBCompute decider) next := by
             exact Multiset.map_congr rfl hpt
-      simpa only [next] using (hAttachLoop.trans hLoopBB)
+      exact hAttachLoop.trans hLoopBB
   }
 }

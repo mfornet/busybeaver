@@ -33,7 +33,7 @@ def initial (m : TickingMachine BM) : TickCache m := {
 }
 
 lemma initial_valid (m : TickingMachine BM) : Valid m (initial m) := {
-  transcript := by simpa using TReach.MultiTStep.refl (default : TickingConfig BM)
+  transcript := by simpa [initial] using TReach.MultiTStep.refl (default : TickingConfig BM)
   multistepBase := .refl
 }
 
