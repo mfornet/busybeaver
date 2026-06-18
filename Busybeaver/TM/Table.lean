@@ -330,7 +330,7 @@ lemma Machine.ext {M M': Machine l s}: (∀ lab sym, M.get lab sym = M'.get lab 
   let idx : Fin C.size := ⟨i, hi⟩
   let ls := Mi.get_lab_sym idx
   have hls : Mi'.get_lab_sym ⟨i, hi'⟩ = ls := by
-    simpa [Mi, Mi', idx, ls] using (Machine.get_lab_sym.size_only (M:=Mi) (M':=Mi') (idx:=idx))
+    simpa [Mi, Mi', idx, ls] using (Machine.get_lab_sym.size_only (M:=Mi) (M':=Mi') (idx:=idx)).symm
   have hEq := hCC' ls.1 ls.2
   have hidx : Mi.get_index ls.1 ls.2 = idx := by
     simpa [ls] using (Machine.get_index_get_lab_sym (M:=Mi) (idx:=idx))
@@ -356,6 +356,10 @@ def Machine.eval (M : Machine l s) (bound : ℕ) (orig : Config l s) : Option (C
 def Machine.LastState (M : Machine l s) (σ : Config l s) : Bool := M.step σ |>.isNone
 
 def init : Config l s := default
+
+@[simp] lemma init_state : (init : Config l s).state = default := rfl
+
+@[simp] lemma init_tape : (init : Config l s).tape = default := rfl
 
 lemma Machine.step_eq_model_step (M : Machine l s) (orig : Config l s) :
     M.step orig =
