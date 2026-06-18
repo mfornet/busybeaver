@@ -149,8 +149,8 @@ elab "mach[" content:str "]" : term => do
   let lE : Expr := mkNatLit l
   let sE : Expr := mkNatLit s
   let stx: Syntax ← `(
-    fun (lab: Label $(← exprToSyntax lE)) (sym: Symbol $(← exprToSyntax sE)) ↦
-      ($(← exprToSyntax valE):term)[lab]![sym]!
+    (⟨$(← exprToSyntax valE):term, by decide⟩ :
+      Machine $(← exprToSyntax lE) $(← exprToSyntax sE))
   )
   elabTerm stx <| .some <| mkApp2 (.const ``Machine []) lE sE
 end MachNotation
