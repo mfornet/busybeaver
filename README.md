@@ -143,55 +143,31 @@ NGram, RepWL, halt, Loop1, FAR, WFAR, and sporadic entries.
 The library/proofs are contained in [Busybeaver](./Busybeaver/):
 
 - [Basic.lean](./Busybeaver/Basic.lean) contains the base definition of Turing machines
-- [Reachability.lean](./Busybeaver/Reachability.lean) contains many definitions related to reachability in TMs
 - [Problem.lean](./Busybeaver/Problem.lean) contains the definition of the busy beaver problem
-- [ClosedSet.lean](./Busybeaver/ClosedSet.lean) defines a tool to prove non-halting based on [Closed Sets](https://wiki.bbchallenge.org/wiki/Closed_Set). It also provides the very convenient `closed_set` tactic, to call within the proofs.
-- [Partial.lean](./Busybeaver/Partial.lean) defines TMs steps on finite tapes.
+- [TM](./Busybeaver/TM/) holds the machine abstractions: `Model/` is the
+  opaque higher-level machine interface and `Table/` is the base tabular
+  machine. Both provide a `Reachability.lean` and a `ClosedSet.lean`; the
+  latter defines a tool to prove non-halting based on [Closed
+  Sets](https://wiki.bbchallenge.org/wiki/Closed_Set) and exposes the very
+  convenient `closed_set` tactic
+  ([TM/Table/ClosedSet.lean](./Busybeaver/TM/Table/ClosedSet.lean)).
 - [Enumerate](./Busybeaver/Enumerate/) contains everything related to
   justify the machine enumeration algorithm, and especially
   [Alg.lean](./Busybeaver/Enumerate/Alg.lean) contains a
   [TNF](https://wiki.bbchallenge.org/wiki/Tree_Normal_Form)
   enumeration algorithm along with formal proofs.
-- [Deciders](./Busybeaver/Deciders/) contains the code of deciders.
-  They are designed as proof-carrying functions. Currently we have:
-  [cyclers](./Busybeaver/Deciders/Cyclers.lean) and [translated
-  cyclers](./Busybeaver/Deciders/TranslatedCyclers.lean).
-
-# TODOs
-
-You can find the ongoing tasks and goals [here](https://todo.sr.ht/~vigoux/busybeaver).
+- [Deciders](./Busybeaver/Deciders/) contains the code of deciders,
+  designed as proof-carrying functions. These include cyclers, translated
+  cyclers, backwards reasoning, bounded exploration, NGram CPS (with
+  History/LRU variants), RepWL, FAR/WFAR, Loop1, and the generated BB5
+  table.
 
 # Acknowledgment
 
 I am heavily inspired by the following Coq formalisation of the problem: [busycoq](https://github.com/meithecatte/busycoq).
 
-# Contibuting
+# Contributing
 
-This project follows the `sr.ht` workflow, we recommend to [setup git to
-send emails](https://git-send-email.io). Note that it is not required
-to create a `sr.ht` account to contribute, simply clone the repo and
-make your changes.
-
-To setup for this specific repo, a `lake` script is provided:
-
-```
-lake script run gitconfig
-```
-
-After running this command, and assuming that you are working off the
-`master` branch, it should be sufficient to:
-
-1. `git send-email master`
-2. Annotate the patch set, the first annotation will be the cover
-   letter, that describes broadly your changes
-3. Wait for a review !
-
-If you need to make changes and resubmit a patch, you can do that
-using:
-```bash
-# Replace 2 by the version of the patchset
-git send-email -v2 master
-```
-
-For additional guidelines about how to contribute and send patches, we
-recommend reading [aerc's contributing guidelines](https://git.sr.ht/~rjarry/aerc/tree/master/item/CONTRIBUTING.md).
+Development happens on [GitHub](https://github.com/mfornet/busybeaver).
+Fork the repository, branch off `main`, and open a pull request with your
+changes. CI runs `lake build` on every push and pull request.
