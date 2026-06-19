@@ -164,10 +164,23 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
 
 # Acknowledgment
 
-I am heavily inspired by the following Coq formalisation of the problem: [busycoq](https://github.com/meithecatte/busycoq).
+Much of the BB5 formalisation builds on [Coq-BB5](https://github.com/ccz181078/Coq-BB5),
+the Coq proof that `BB(5) = 47,176,870`, from which the deciders, the hardcoded
+machine table, and the sporadic-machine arguments are ported.
 
-# Contributing
+# Citation
 
-Development happens on [GitHub](https://github.com/mfornet/busybeaver).
-Fork the repository, branch off `main`, and open a pull request with your
-changes. CI runs `lake build` on every push and pull request.
+This work is described in the paper [*Determination of the fifth Busy Beaver
+value*](https://arxiv.org/abs/2509.12337) (arXiv:2509.12337):
+
+```bibtex
+@misc{busybeaver5,
+  title         = {Determination of the fifth Busy Beaver value},
+  author        = {{The bbchallenge Collaboration} and Blanchard, Justin and Briggs, Daniel and Deka, Konrad and Fenner, Nathan and Forster, Yannick and Georgiev, Georgi and House, Matthew L. and Hunter, Rachel and Iijil and K{\k{a}}dzio{\l}ka, Maja and Kropitz, Pavel and Ligocki, Shawn and mxdys and Na{\'s}ciszewski, Mateusz and savask and St{\'e}rin, Tristan and Xu, Chris and Yuen, Jason and Zimmermann, Th{\'e}o},
+  year          = {2025},
+  eprint        = {2509.12337},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.LO},
+  url           = {https://arxiv.org/abs/2509.12337}
+}
+```
