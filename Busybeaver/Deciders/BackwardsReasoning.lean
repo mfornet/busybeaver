@@ -131,56 +131,25 @@ def matchingConfig? (M: Machine l s) (C: SymbolicConfig l s) (L: Label l) (S: Sy
 
 lemma matchingConfig?.correct {C C': Config l s} {Cs: SymbolicConfig l s}
   (hC: C -[M]-> C') (hC': Cs.matchesConfig C'): ∃C₀ ∈ matchingConfig? M Cs C.state C.tape.head, C₀.matchesConfig C :=
-by {
+by
   obtain ⟨sym, dir, hM, hCt⟩ := Machine.step.some_rev hC
   obtain ⟨Csh, Cst⟩ := hC'
   simp at Csh
   simp [matchingConfig?, hM, Csh, and_assoc]
-  constructor
-  · cases dir
-    · simp [Turing.Dir.other, Turing.Tape.move]
-      simp [Turing.Tape.move] at hCt
-      specialize Cst 1
-      simp [Turing.Tape.nth] at Cst
-      rcases Cst with Cst | Cst
-      · right
-        exact Cst
-      · left
-        rw [hCt] at Cst
-        simp [Turing.Tape.write] at Cst
-        exact Cst
-    · simp [Turing.Dir.other, Turing.Tape.move]
-      simp [Turing.Tape.move] at hCt
-      specialize Cst (.negSucc 0)
-      simp [Turing.Tape.nth] at Cst
-      rcases Cst with Cst | Cst
-      · right
-        exact Cst
-      · left
-        rw [hCt] at Cst
-        simp [Turing.Tape.write] at Cst
-        exact Cst
-  · constructor
-    · simp
-    · simp
-      intro i
-      split
-      · rename_i heq
-        cases heq
-        simp
-      · rename_i heq
-        cases dir
-        · simp [Turing.Dir.other]
-          rw [hCt] at Cst
-          specialize Cst (i + 1)
-          simp [heq] at Cst
-          exact Cst
-        · simp [Turing.Dir.other]
-          rw [hCt] at Cst
-          specialize Cst (i - 1)
-          simp [heq] at Cst
-          exact Cst
-}
+  refine ⟨?_, by simp, ?_⟩
+  · cases dir <;>
+      [ rcases Cst 1 with Cst | Cst;
+        rcases Cst (.negSucc 0) with Cst | Cst ] <;>
+      simp_all [Turing.Dir.other, Turing.Tape.move, Turing.Tape.nth, Turing.Tape.write]
+  · simp
+    intro i
+    split
+    · rename_i heq; cases heq; simp
+    · rename_i heq
+      rw [hCt] at Cst
+      cases dir <;> simp only [Turing.Dir.other]
+      · simpa [heq] using Cst (i + 1)
+      · simpa [heq] using Cst (i - 1)
 
 def backward_step (M: Machine l s) (C: SymbolicConfig l s): Multiset (SymbolicConfig l s):=
     Finset.univ (α:=Label l × Symbol s) |>.val.filterMap (λ ⟨L, S⟩ ↦ matchingConfig? M C L S)
@@ -204,48 +173,10 @@ by induction S using Multiset.induction_on with
 }
 
 lemma backward_step.empty_step {C: SymbolicConfig l s} (h: backward_step M C = ∅) (hCC': C.matchesConfig C'): ¬(A -[M]-> C') :=
-by {
-  intro hAC'
-  obtain ⟨sym', dir, hM, hC't⟩ := Machine.step.some_rev hAC'
-  simp [backward_step] at h
-  obtain ⟨hCC's, hCC't⟩ := hCC'
-  simp at hCC's
-
-  rw [← hCC's] at hM
-
-  suffices (matchingConfig? M C A.state A.tape.head).isSome by {
-    simp [Option.isSome] at this
-    split at this
-    swap
-    · cases this
-
-    rename_i heq
-    specialize h A.state A.tape.head
-    rw [h] at heq
-    cases heq
-  }
-
-  simp [matchingConfig?, hM]
-  cases dir
-  · simp [Turing.Dir.other, Turing.Tape.move]
-    specialize hCC't 1
-    simp [Turing.Tape.nth] at hCC't
-    rcases hCC't with heq | heq
-    · right
-      exact heq
-    · left
-      rw [heq, hC't]
-      simp [Turing.Tape.write, Turing.Tape.move]
-  · simp [Turing.Dir.other, Turing.Tape.move]
-    specialize hCC't (.negSucc 0)
-    simp [Turing.Tape.nth] at hCC't
-    rcases hCC't with heq | heq
-    · right
-      exact heq
-    · left
-      rw [heq, hC't]
-      simp [Turing.Tape.write, Turing.Tape.move]
-}
+by
+  contrapose! h; simp_all +decide [ backward_step ] ;
+  obtain ⟨C₀, hC₀⟩ := matchingConfig?.correct h hCC';
+  grind
 
 lemma backward_step.correct {C C': Config l s} {Cs: SymbolicConfig l s}
   (hC: C -[M]-> C') (hC': Cs.matchesConfig C'): ∃C₀ ∈ backward_step M Cs, C₀.matchesConfig C :=
