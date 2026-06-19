@@ -886,8 +886,163 @@ theorem sporadicMachine5_nonHalting : ¬ sporadicMachine5.halts init := by
   sorry
 
 def sporadicMachine6 : Machine 4 1 := mach["1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB"]
-theorem sporadicMachine6_nonHalting : ¬ sporadicMachine6.halts init := by
+/-!
+### Non-halting proof for `sporadicMachine6` (WIP — reduced to one lemma)
+
+`1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB` is a Fibonacci-rate *multi-digit counter* (a
+genuine BB(5) sporadic holdout that no pipeline decider handles).  Non-halting is
+reduced — via the clean single-parameter family `RC n` (state C reading 0, right
+tape `1^(2n+3) 0^(n+1) 1`) plus the generic `ClosedSet` machinery — to the single
+`macroStep` lemma `RC n -[M]->+ RC (n+1)`.  `enters` (init reaches `RC 0`) and the
+closed-set assembly are fully proven; the reusable `cd_cross` sweep primitive is
+proven; `macroStep` (the multi-digit descent) is the remaining `sorry`, documented
+inline with its decoded structure.
+-/
+namespace SM6
+open Turing
+
+abbrev M : Machine 4 1 := sporadicMachine6
+
+-- Transitions (A=0,B=1,C=2,D=3,E=4)
+lemma gA0 : M.get 0 0 = .next 1 .right 1 := by decide
+lemma gA1 : M.get 0 1 = .next 0 .right 0 := by decide
+lemma gB0 : M.get 1 0 = .next 0 .left 2 := by decide
+lemma gB1 : M.get 1 1 = .next 1 .right 0 := by decide
+lemma gC0 : M.get 2 0 = .next 1 .right 4 := by decide
+lemma gC1 : M.get 2 1 = .next 1 .left 3 := by decide
+lemma gD0 : M.get 3 0 = .next 1 .left 2 := by decide
+lemma gD1 : M.get 3 1 = .next 0 .left 3 := by decide
+lemma gE1 : M.get 4 1 = .next 0 .right 1 := by decide
+-- blank-edge
+lemma gA0d : M.get 0 default = .next 1 .right 1 := by decide
+lemma gB0d : M.get 1 default = .next 0 .left 2 := by decide
+
+local notation "𝟙" => (1 : Symbol 1)
+local notation "𝟘" => (0 : Symbol 1)
+
+abbrev Bl (n : ℕ) (L : ListBlank (Symbol 1)) : ListBlank (Symbol 1) :=
+  List.replicate n (1 : Symbol 1) ++ L
+
+/-- `0^n` prepended. -/
+abbrev Zl (n : ℕ) (L : ListBlank (Symbol 1)) : ListBlank (Symbol 1) :=
+  List.replicate n (0 : Symbol 1) ++ L
+
+/-- `Reset(n+1)`: state C, head reads 0, right tape `1^(2n+3) 0^(n+1) 1`. -/
+def RC (n : ℕ) : Config 4 1 :=
+  ⟨2, Tape.mk' ∅ (ListBlank.cons 0 (Bl (2 * n + 3) (Zl (n + 1) (ListBlank.cons 1 ∅))))⟩
+
+lemma cons_zero_empty : ListBlank.cons (0 : Symbol 1) ∅ = ∅ := ListBlank.cons_default_empty
+
+/-- Alternating block (head-nearest first) `a1 a0 a1 a0 … a1` of length `2t-1`,
+prepended to `L`. Used for the `(D0 C1)` accumulator crossing. -/
+def altL (a0 a1 : Symbol 1) : ℕ → ListBlank (Symbol 1) → ListBlank (Symbol 1)
+  | 0, L => L
+  | t + 1, L => ListBlank.cons a1 (ListBlank.cons a0 (altL a0 a1 t L))
+
+/-- Two-state alternating leftward crossing with DIFFERENT read symbols:
+`q1` reads `a0` and `q2` reads `a1`, both write `b` and move left. Crossing `t`
+pairs (`2t` steps) rewrites them to `b`'s.  (The sweep primitive needed for SM6's
+descent — the existing `zigzag` requires both states to read the *same* symbol.) -/
+lemma cd_cross {q1 q2 : Label 4} {a0 a1 b : Symbol 1}
+    (h1 : M.get q1 a0 = .next b .left q2)
+    (h2 : M.get q2 a1 = .next b .left q1) :
+    ∀ (t : ℕ) (L R : ListBlank (Symbol 1)),
+      (⟨q1, Tape.mk' (altL a0 a1 t L) (ListBlank.cons a0 R)⟩ : Config 4 1)
+        -[M]{2 * t}->
+      ⟨q1, Tape.mk' L (ListBlank.cons a0 (List.replicate (2 * t) b ++ R))⟩
+  | 0, L, R => by simpa [altL] using Machine.Multistep.refl
+  | t + 1, L, R => by
+      simp only [altL]
+      have e1 := step_left_mk' (l₀ := a1) h1 (ListBlank.cons a0 (altL a0 a1 t L)) R
+      have e2 := step_left_mk' (l₀ := a0) h2 (altL a0 a1 t L) (ListBlank.cons b R)
+      have ih := cd_cross h1 h2 t L (ListBlank.cons b (ListBlank.cons b R))
+      have hcount : 2 * (t + 1) = 2 * t + 1 + 1 := by omega
+      have hrep : List.replicate (2 * (t + 1)) b ++ R
+          = List.replicate (2 * t) b ++ ListBlank.cons b (ListBlank.cons b R) := by
+        rw [show 2 * (t + 1) = 2 * t + 2 by omega]
+        rw [show (2 * t + 2) = (2 * t) + 1 + 1 by omega]
+        rw [replicate_succ_append, replicate_succ_append]
+      rw [hrep, hcount]
+      exact Machine.Multistep.succ e1 (Machine.Multistep.succ e2 ih)
+
+/-- `init` reaches `RC 0 = Reset(1)` in 14 explicit steps. -/
+lemma enters : init -[M]->* RC 0 := by
+  have s0 := step_right_blank gA0d (∅ : ListBlank (Symbol 1))
+  have s1 := step_left_blank (l₀ := 𝟙) gB0d (∅ : ListBlank (Symbol 1))
+  rw [cons_zero_empty] at s1
+  have s2 := step_left_edge gC1 (∅ : ListBlank (Symbol 1))
+  have s3 := step_left_edge gD0 (ListBlank.cons 𝟙 ∅)
+  have s4 := step_right_mk' gC0 (∅ : ListBlank (Symbol 1)) (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 ∅))
+  have s5 := step_right_mk' gE1 (ListBlank.cons 𝟙 ∅) (ListBlank.cons 𝟙 ∅)
+  have s6 := step_right_mk' gB1 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)) (∅ : ListBlank (Symbol 1))
+  have s7 := step_right_blank gA0d (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)))
+  have s8 := step_left_blank (l₀ := 𝟙) gB0d (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)))
+  rw [cons_zero_empty] at s8
+  have s9 := step_left_mk' (l₀ := 𝟙) gC1 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)) (∅ : ListBlank (Symbol 1))
+  have s10 := step_left_mk' (l₀ := 𝟘) gD1 (ListBlank.cons 𝟙 ∅) (ListBlank.cons 𝟙 ∅)
+  have s11 := step_left_mk' (l₀ := 𝟙) gD0 (∅ : ListBlank (Symbol 1)) (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))
+  have s12 := step_left_edge gC1 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)))
+  have s13 := step_left_edge gD0 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))))
+  have chain :=
+    (((((((((((((Machine.Multistep.single s0).trans (Machine.Multistep.single s1)).trans
+      (Machine.Multistep.single s2)).trans (Machine.Multistep.single s3)).trans
+      (Machine.Multistep.single s4)).trans (Machine.Multistep.single s5)).trans
+      (Machine.Multistep.single s6)).trans (Machine.Multistep.single s7)).trans
+      (Machine.Multistep.single s8)).trans (Machine.Multistep.single s9)).trans
+      (Machine.Multistep.single s10)).trans (Machine.Multistep.single s11)).trans
+      (Machine.Multistep.single s12)).trans (Machine.Multistep.single s13)
+  have htgt : (⟨2, Tape.mk' (∅ : ListBlank (Symbol 1))
+      (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙
+        (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))))))⟩ : Config 4 1) = RC 0 := by
+    unfold RC Bl Zl; rfl
+  rw [← htgt]
+  exact Machine.Multistep.to_evstep chain
+
+/-!
+#### Structure of `macroStep` (the remaining hard core)
+
+`RC n = Reset(n+1) = ⟨C, …0 1^(2n+3) 0^(n+1) 1 0…⟩` reaches `RC (n+1)` via a
+trajectory whose length is Fibonacci-rate (`gap(k)=gap(k-1)+gap(k-2)+2`), so it is
+*not* a fixed number of steps — it must be proven by induction over an internal
+counter.  Decoded phases (verified by simulation for `n+1 = 1..11`):
+
+1. **Ignition**: the leading `1^(2n+3)` block is consumed left-to-right, seeding
+   `1 0 1 0^(2n+1)` and leaving the head at the `0^(n+1) 1` gap in state `A`.
+2. **Descent loop** (the genuinely hard part — a *multi-digit* counter): the head
+   bounces, each pass moving one `0` from the main gap into a `(1 0)` accumulator
+   and decrementing a right-hand counter.  At every right turnaround the tape is
+     `(digit blocks) 0^(2g+1) (1 0)^i 1^(i+1)  [B0]  0^g 1`,
+   the sub-bounce `i → i+1` is uniform but its length grows with `i` (the head
+   crosses the accumulator via `cd_cross`); its phases are `C1·D1^i` (clear
+   `1^(i+1)`), `(D0 C1)^i` (cross `(1 0)^i`), `C0` gap-turn, `E1 B1 A1^i A0`, then a
+   mini-bounce.  When the counter underflows a CARRY appends a new digit block on
+   the left, so the number of digit blocks grows with `n`.
+3. **Compaction**: the accumulated `(1 0)^…` wall is rewritten into the new
+   `1^(2n+5)` block, yielding `RC (n+1)`.
+
+Because the left tape is `((1 0)^+ 0^+)^k` with `k` unbounded, the reachable tape
+language is NOT a finite closed tape language (RepWL / NGramCPS / CTL all fail —
+verified), so `macroStep` must be a `List`-indexed multi-digit induction:
+  1. `cd_cross` — DONE (above);
+  2. descent sub-bounce `D(i) -[M]->+ D(i+1)` (compose `cd_cross` + `D1`/`A1` runs);
+  3. descent-end + carry lemma;
+  4. outer induction over the digit list  ⇒  `macroStep`.
+-/
+lemma macroStep (n : ℕ) : RC n -[M]->+ RC (n + 1) := by
   sorry
+
+/-- `SM6` does not halt: the family `{RC n}` is closed and reachable. -/
+theorem nonHalting : ¬ M.halts init := by
+  have cs : ClosedSet M (fun C => ∃ n, C = RC n) init := by
+    refine ⟨?_, ?_⟩
+    · rintro ⟨C, n, rfl⟩
+      exact ⟨⟨RC (n + 1), n + 1, rfl⟩, macroStep n⟩
+    · exact ⟨⟨RC 0, 0, rfl⟩, enters⟩
+  exact cs.nonHalting
+
+end SM6
+
+theorem sporadicMachine6_nonHalting : ¬ sporadicMachine6.halts init := SM6.nonHalting
 
 def sporadicMachine7 : Machine 4 1 := mach["1RB---_1RC1LB_1LD1RE_1LB0LD_1RA0RC"]
 theorem sporadicMachine7_nonHalting : ¬ sporadicMachine7.halts init := by
