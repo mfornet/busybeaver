@@ -599,79 +599,64 @@ theorem LoopCert.nonHalting {M : Machine l s} (c : LoopCert M) :
     · have hvis' : ∀ i, i < c.p → (c.f i).pos ≠ x := fun i hi hix => hvis ⟨i, hi, hix⟩
       obtain ⟨hA, hB⟩ := (Jp x).2 hvis'
       rw [hA, hB]; exact hunv x hRx hvis'
+  -- Every recorded position is the start of the first window shifted by `0`, `d`, or `2d`.
+  have hwin : ∀ j, j ≤ 2 * c.p → ∃ i, i < c.p ∧
+      ((c.f j).pos = (c.f i).pos ∨ (c.f j).pos = (c.f i).pos + d ∨
+        (c.f j).pos = (c.f i).pos + 2 * d) := by
+    intro j hj
+    rcases Nat.lt_or_ge j c.p with h | h
+    · exact ⟨j, h, Or.inl rfl⟩
+    · rcases Nat.lt_or_ge j (2 * c.p) with h2 | h2
+      · refine ⟨j - c.p, by omega, Or.inr (Or.inl ?_)⟩
+        have := hposd (j - c.p) (by omega)
+        rw [show c.p + (j - c.p) = j from by omega] at this; omega
+      · refine ⟨0, by omega, Or.inr (Or.inr ?_)⟩
+        have h0 := hposd 0 (by omega)
+        rw [show c.p + 0 = c.p from by omega] at h0
+        rw [show j = 2 * c.p from by omega]; omega
+  -- The shared blank-cell extension argument, independent of the translation direction.
+  have finish_blank : ∀ x : ℤ, absSym (c.f 0) x = default → absSym (c.f 0) (x + d) = default →
+      (∀ i, i < c.p → (c.f i).pos ≠ x + d) → absSym (c.f c.p) (x + d) = absSym (c.f 0) x := by
+    intro x hbx hbxd hne
+    have hconst := absSym_const_of_unvisited (e := c.f) (x := x + d) (a := 0) c.p
+      (fun i hi => by simpa using hrun1 i hi) (fun i hi => by simpa using hne i hi)
+    rw [show (0 : ℕ) + c.p = c.p from by omega] at hconst
+    rw [hconst, hbxd, hbx]
   -- Extract the base check and split on the sign of the net shift.
   have hb := c.base
   rw [c.shift_eq, ← hd] at hb
   simp only [baseLoopCheck, beq_self_eq_true, Bool.true_and] at hb
   rcases lt_trichotomy d 0 with hdneg | hdzero | hdpos
   · -- Left translation.
-    rw [if_neg (by omega : ¬ d = 0), if_neg (by omega : ¬ d > 0)] at hb
-    rw [Bool.and_eq_true] at hb
+    rw [if_neg (by omega : ¬ d = 0), if_neg (by omega : ¬ d > 0), Bool.and_eq_true] at hb
     obtain ⟨hnvl, _⟩ := hb
     simp only [noVisitedLeft, decide_eq_true_eq] at hnvl
     refine loopCert_nonHalting_aux (Reg := fun x => ∃ i, i < c.p ∧ x ≤ (c.f i).pos)
-      hp c.traj (fun x => fun ⟨i, hi, hix⟩ => ⟨i, hi, by omega⟩) ?_ (mkbase _ ?_)
-    · -- `hregf2`
-      intro j hj
-      rcases Nat.lt_or_ge j c.p with h | h
-      · exact ⟨j, h, le_refl _⟩
-      · rcases Nat.lt_or_ge j (2 * c.p) with h2 | h2
-        · refine ⟨j - c.p, by omega, ?_⟩
-          have := hposd (j - c.p) (by omega)
-          rw [show c.p + (j - c.p) = j from by omega] at this; omega
-        · refine ⟨0, by omega, ?_⟩
-          have h0 := hposd 0 (by omega)
-          rw [show c.p + 0 = c.p from by omega] at h0
-          rw [show j = 2 * c.p from by omega]; omega
-    · -- `hunv`
-      intro x _ hvis'
-      rcases houtside x hvis' with hleft | hright
-      · have hx0 : x < (c.f 0).pos := hleft 0 (by omega)
-        have hbx : absSym (c.f 0) x = default := absSym_of_left_blank hnvl x hx0
-        have hconst := absSym_const_of_unvisited (e := c.f) (x := x + d) (a := 0) c.p
-          (fun i hi => by simpa using hrun1 i hi)
-          (fun i hi => by have := hleft i hi; simp only [Nat.zero_add]; omega)
-        rw [show (0 : ℕ) + c.p = c.p from by omega] at hconst
-        have hbxd : absSym (c.f 0) (x + d) = default := absSym_of_left_blank hnvl (x + d) (by omega)
-        rw [hconst, hbxd, hbx]
-      · obtain ⟨i, hi, hix⟩ := ‹∃ i, i < c.p ∧ x ≤ (c.f i).pos›
-        exact absurd (hright i hi) (by omega)
+      hp c.traj (fun x => fun ⟨i, hi, hix⟩ => ⟨i, hi, by omega⟩)
+      (fun j hj => by obtain ⟨i, hi, h⟩ := hwin j hj; exact ⟨i, hi, by rcases h with h | h | h <;> omega⟩)
+      (mkbase _ (fun x hRx hvis' => ?_))
+    rcases houtside x hvis' with hleft | hright
+    · exact finish_blank x (absSym_of_left_blank hnvl x (hleft 0 (by omega)))
+        (absSym_of_left_blank hnvl (x + d) (by have := hleft 0 (by omega); omega))
+        (fun i hi => by have := hleft i hi; omega)
+    · obtain ⟨i, hi, hix⟩ := hRx; exact absurd (hright i hi) (by omega)
   · -- Pure cycle (`d = 0`).
     refine loopCert_nonHalting_aux (Reg := fun _ => True) hp c.traj (fun _ _ => trivial)
       (fun _ _ => trivial) (mkbase _ (fun x _ hvis' => ?_))
     rw [hdzero, add_zero]; exact ((Jp x).2 hvis').2
   · -- Right translation.
-    rw [if_neg (by omega : ¬ d = 0), if_pos hdpos] at hb
-    rw [Bool.and_eq_true] at hb
+    rw [if_neg (by omega : ¬ d = 0), if_pos hdpos, Bool.and_eq_true] at hb
     obtain ⟨hnvr, _⟩ := hb
     simp only [noVisitedRight, decide_eq_true_eq] at hnvr
     refine loopCert_nonHalting_aux (Reg := fun x => ∃ i, i < c.p ∧ (c.f i).pos ≤ x)
-      hp c.traj (fun x => fun ⟨i, hi, hix⟩ => ⟨i, hi, by omega⟩) ?_ (mkbase _ ?_)
-    · -- `hregf2`
-      intro j hj
-      rcases Nat.lt_or_ge j c.p with h | h
-      · exact ⟨j, h, le_refl _⟩
-      · rcases Nat.lt_or_ge j (2 * c.p) with h2 | h2
-        · refine ⟨j - c.p, by omega, ?_⟩
-          have := hposd (j - c.p) (by omega)
-          rw [show c.p + (j - c.p) = j from by omega] at this; omega
-        · refine ⟨0, by omega, ?_⟩
-          have h0 := hposd 0 (by omega)
-          rw [show c.p + 0 = c.p from by omega] at h0
-          rw [show j = 2 * c.p from by omega]; omega
-    · -- `hunv`
-      intro x _ hvis'
-      rcases houtside x hvis' with hleft | hright
-      · obtain ⟨i, hi, hix⟩ := ‹∃ i, i < c.p ∧ (c.f i).pos ≤ x›
-        exact absurd (hleft i hi) (by omega)
-      · have hx0 : (c.f 0).pos < x := hright 0 (by omega)
-        have hbx : absSym (c.f 0) x = default := absSym_of_right_blank hnvr x hx0
-        have hconst := absSym_const_of_unvisited (e := c.f) (x := x + d) (a := 0) c.p
-          (fun i hi => by simpa using hrun1 i hi)
-          (fun i hi => by have := hright i hi; simp only [Nat.zero_add]; omega)
-        rw [show (0 : ℕ) + c.p = c.p from by omega] at hconst
-        have hbxd : absSym (c.f 0) (x + d) = default := absSym_of_right_blank hnvr (x + d) (by omega)
-        rw [hconst, hbxd, hbx]
+      hp c.traj (fun x => fun ⟨i, hi, hix⟩ => ⟨i, hi, by omega⟩)
+      (fun j hj => by obtain ⟨i, hi, h⟩ := hwin j hj; exact ⟨i, hi, by rcases h with h | h | h <;> omega⟩)
+      (mkbase _ (fun x hRx hvis' => ?_))
+    rcases houtside x hvis' with hleft | hright
+    · obtain ⟨i, hi, hix⟩ := hRx; exact absurd (hleft i hi) (by omega)
+    · exact finish_blank x (absSym_of_right_blank hnvr x (hright 0 (by omega)))
+        (absSym_of_right_blank hnvr (x + d) (by have := hright 0 (by omega); omega))
+        (fun i hi => by have := hright i hi; omega)
 
 /-! ### Decoding a successful `run` into a `LoopCert`
 
