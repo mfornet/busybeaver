@@ -114,25 +114,17 @@ lemma runRound_closed_preserves_partialConfig_mem
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              exact hpc
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          exact hpc
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              exact hpc
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          exact hpc
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -188,25 +180,17 @@ lemma runRound_closed_preserves_leftNGram_mem
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              exact hng
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          exact hng
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              exact hng
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          exact hng
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -262,25 +246,17 @@ lemma runRound_closed_preserves_rightNGram_mem
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              exact hng
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          exact hng
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              exact hng
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          exact hng
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -337,25 +313,17 @@ lemma runRound_restart_preserves_partialConfig_mem
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              exact hpc
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          exact hpc
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              exact hpc
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          exact hpc
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -411,25 +379,17 @@ lemma runRound_restart_preserves_leftNGram_mem
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              exact hng
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          exact hng
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              exact hng
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          exact hng
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -485,25 +445,17 @@ lemma runRound_restart_preserves_rightNGram_mem
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              exact hng
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          exact hng
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              exact hng
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          exact hng
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound

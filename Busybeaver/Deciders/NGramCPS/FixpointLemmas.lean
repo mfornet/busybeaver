@@ -300,21 +300,17 @@ lemma runRound_closed_changed_false
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              rfl
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed with
+          | false => rfl
+          | true => simp [runRound, hfrontier] at hRound
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ remaining IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              rfl
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed with
+          | false => rfl
+          | true => simp [runRound, hfrontier] at hRound
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -371,25 +367,17 @@ lemma runRound_closed_leftNGrams_eq
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              rfl
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          rfl
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ remaining IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              rfl
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          rfl
       | cons hd tl =>
           have hchangedFalse : changed = false :=
             runRound_closed_changed_false (l := l) (s := s) (M := M) hRound
@@ -451,25 +439,17 @@ lemma runRound_closed_rightNGrams_eq
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              rfl
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          rfl
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ remaining IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              rfl
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          rfl
       | cons hd tl =>
           have hchangedFalse : changed = false :=
             runRound_closed_changed_false (l := l) (s := s) (M := M) hRound
@@ -536,25 +516,17 @@ lemma runRound_restart_has_fullFrontier
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              simp
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          simp
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ bound IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              rcases hRound with ⟨rfl, rfl⟩
-              simp
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          rcases hRound with ⟨rfl, rfl⟩
+          simp
       | cons hd tl =>
           unfold runRound at hRound
           rw [hfrontier] at hRound
@@ -691,33 +663,21 @@ lemma runRound_closed_fixpoint_of_frontier_or_new
   | zero =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              cases hpc with
-              | inl hfront =>
-                  simp [hfrontier] at hfront
-              | inr hnew =>
-                  exact False.elim (hnew.2 hnew.1)
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          cases hpc with
+          | inl hfront => simp [hfrontier] at hfront
+          | inr hnew => exact False.elim (hnew.2 hnew.1)
       | cons hd tl =>
           simp [runRound, hfrontier] at hRound
   | succ remaining IH =>
       cases hfrontier : state.frontier with
       | nil =>
-          cases hchanged : changed with
-          | false =>
-              simp [runRound, hfrontier, hchanged] at hRound
-              cases hRound
-              cases hpc with
-              | inl hfront =>
-                  simp [hfrontier] at hfront
-              | inr hnew =>
-                  exact False.elim (hnew.2 hnew.1)
-          | true =>
-              simp [runRound, hfrontier, hchanged] at hRound
+          cases changed <;> simp [runRound, hfrontier] at hRound
+          cases hRound
+          cases hpc with
+          | inl hfront => simp [hfrontier] at hfront
+          | inr hnew => exact False.elim (hnew.2 hnew.1)
       | cons hd tl =>
           have hleftEq : state.leftNGrams = finalState.leftNGrams :=
             runRound_closed_leftNGrams_eq (l := l) (s := s) (M := M) hRound
