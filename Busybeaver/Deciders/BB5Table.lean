@@ -887,16 +887,17 @@ theorem sporadicMachine5_nonHalting : ¬ sporadicMachine5.halts init := by
 
 def sporadicMachine6 : Machine 4 1 := mach["1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB"]
 /-!
-### Non-halting proof for `sporadicMachine6` (WIP — reduced to one lemma)
+### Non-halting proof for `sporadicMachine6` (Skelet #10 — fully proven)
 
 `1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB` is a Fibonacci-rate *multi-digit counter* (a
-genuine BB(5) sporadic holdout that no pipeline decider handles).  Non-halting is
-reduced — via the clean single-parameter family `RC n` (state C reading 0, right
-tape `1^(2n+3) 0^(n+1) 1`) plus the generic `ClosedSet` machinery — to the single
-`macroStep` lemma `RC n -[M]->+ RC (n+1)`.  `enters` (init reaches `RC 0`) and the
-closed-set assembly are fully proven; the reusable `cd_cross` sweep primitive is
-proven; `macroStep` (the multi-digit descent) is the remaining `sorry`, documented
-inline with its decoded structure.
+genuine BB(5) sporadic holdout that no pipeline decider handles).  This is a
+faithful Lean port of the Coq `BusyCoq/Skelet10.v` proof (sligocki's analysis):
+the counter value lives in a *Zeckendorf digit string* `Dorf`, the configuration
+`Dcfg n` advances by exactly one increment per macro-step
+(`incr_D : Dcfg n -[M]->+ Dcfg (incr n)`), and the family `{Dcfg n}` is closed
+under progress and reached from `init`, so `ClosedSet` closes the machine.  The
+two block sweeps `incr_left`/`incr_right` and `incr_D`'s five-way case split
+(mirroring the Coq `destruct`) are all discharged — no `sorry`.
 -/
 namespace SM6
 open Turing
@@ -920,124 +921,227 @@ lemma gB0d : M.get 1 default = .next 0 .left 2 := by decide
 local notation "𝟙" => (1 : Symbol 1)
 local notation "𝟘" => (0 : Symbol 1)
 
-abbrev Bl (n : ℕ) (L : ListBlank (Symbol 1)) : ListBlank (Symbol 1) :=
-  List.replicate n (1 : Symbol 1) ++ L
-
-/-- `0^n` prepended. -/
-abbrev Zl (n : ℕ) (L : ListBlank (Symbol 1)) : ListBlank (Symbol 1) :=
-  List.replicate n (0 : Symbol 1) ++ L
-
-/-- `Reset(n+1)`: state C, head reads 0, right tape `1^(2n+3) 0^(n+1) 1`. -/
-def RC (n : ℕ) : Config 4 1 :=
-  ⟨2, Tape.mk' ∅ (ListBlank.cons 0 (Bl (2 * n + 3) (Zl (n + 1) (ListBlank.cons 1 ∅))))⟩
-
-lemma cons_zero_empty : ListBlank.cons (0 : Symbol 1) ∅ = ∅ := ListBlank.cons_default_empty
-
-/-- Alternating block (head-nearest first) `a1 a0 a1 a0 … a1` of length `2t-1`,
-prepended to `L`. Used for the `(D0 C1)` accumulator crossing. -/
-def altL (a0 a1 : Symbol 1) : ℕ → ListBlank (Symbol 1) → ListBlank (Symbol 1)
-  | 0, L => L
-  | t + 1, L => ListBlank.cons a1 (ListBlank.cons a0 (altL a0 a1 t L))
-
-/-- Two-state alternating leftward crossing with DIFFERENT read symbols:
-`q1` reads `a0` and `q2` reads `a1`, both write `b` and move left. Crossing `t`
-pairs (`2t` steps) rewrites them to `b`'s.  (The sweep primitive needed for SM6's
-descent — the existing `zigzag` requires both states to read the *same* symbol.) -/
-lemma cd_cross {q1 q2 : Label 4} {a0 a1 b : Symbol 1}
-    (h1 : M.get q1 a0 = .next b .left q2)
-    (h2 : M.get q2 a1 = .next b .left q1) :
-    ∀ (t : ℕ) (L R : ListBlank (Symbol 1)),
-      (⟨q1, Tape.mk' (altL a0 a1 t L) (ListBlank.cons a0 R)⟩ : Config 4 1)
-        -[M]{2 * t}->
-      ⟨q1, Tape.mk' L (ListBlank.cons a0 (List.replicate (2 * t) b ++ R))⟩
-  | 0, L, R => by simpa [altL] using Machine.Multistep.refl
-  | t + 1, L, R => by
-      simp only [altL]
-      have e1 := step_left_mk' (l₀ := a1) h1 (ListBlank.cons a0 (altL a0 a1 t L)) R
-      have e2 := step_left_mk' (l₀ := a0) h2 (altL a0 a1 t L) (ListBlank.cons b R)
-      have ih := cd_cross h1 h2 t L (ListBlank.cons b (ListBlank.cons b R))
-      have hcount : 2 * (t + 1) = 2 * t + 1 + 1 := by omega
-      have hrep : List.replicate (2 * (t + 1)) b ++ R
-          = List.replicate (2 * t) b ++ ListBlank.cons b (ListBlank.cons b R) := by
-        rw [show 2 * (t + 1) = 2 * t + 2 by omega]
-        rw [show (2 * t + 2) = (2 * t) + 1 + 1 by omega]
-        rw [replicate_succ_append, replicate_succ_append]
-      rw [hrep, hcount]
-      exact Machine.Multistep.succ e1 (Machine.Multistep.succ e2 ih)
-
-/-- `init` reaches `RC 0 = Reset(1)` in 14 explicit steps. -/
-lemma enters : init -[M]->* RC 0 := by
-  have s0 := step_right_blank gA0d (∅ : ListBlank (Symbol 1))
-  have s1 := step_left_blank (l₀ := 𝟙) gB0d (∅ : ListBlank (Symbol 1))
-  rw [cons_zero_empty] at s1
-  have s2 := step_left_edge gC1 (∅ : ListBlank (Symbol 1))
-  have s3 := step_left_edge gD0 (ListBlank.cons 𝟙 ∅)
-  have s4 := step_right_mk' gC0 (∅ : ListBlank (Symbol 1)) (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 ∅))
-  have s5 := step_right_mk' gE1 (ListBlank.cons 𝟙 ∅) (ListBlank.cons 𝟙 ∅)
-  have s6 := step_right_mk' gB1 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)) (∅ : ListBlank (Symbol 1))
-  have s7 := step_right_blank gA0d (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)))
-  have s8 := step_left_blank (l₀ := 𝟙) gB0d (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)))
-  rw [cons_zero_empty] at s8
-  have s9 := step_left_mk' (l₀ := 𝟙) gC1 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)) (∅ : ListBlank (Symbol 1))
-  have s10 := step_left_mk' (l₀ := 𝟘) gD1 (ListBlank.cons 𝟙 ∅) (ListBlank.cons 𝟙 ∅)
-  have s11 := step_left_mk' (l₀ := 𝟙) gD0 (∅ : ListBlank (Symbol 1)) (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))
-  have s12 := step_left_edge gC1 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅)))
-  have s13 := step_left_edge gD0 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))))
-  have chain :=
-    (((((((((((((Machine.Multistep.single s0).trans (Machine.Multistep.single s1)).trans
-      (Machine.Multistep.single s2)).trans (Machine.Multistep.single s3)).trans
-      (Machine.Multistep.single s4)).trans (Machine.Multistep.single s5)).trans
-      (Machine.Multistep.single s6)).trans (Machine.Multistep.single s7)).trans
-      (Machine.Multistep.single s8)).trans (Machine.Multistep.single s9)).trans
-      (Machine.Multistep.single s10)).trans (Machine.Multistep.single s11)).trans
-      (Machine.Multistep.single s12)).trans (Machine.Multistep.single s13)
-  have htgt : (⟨2, Tape.mk' (∅ : ListBlank (Symbol 1))
-      (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙
-        (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))))))⟩ : Config 4 1) = RC 0 := by
-    unfold RC Bl Zl; rfl
-  rw [← htgt]
-  exact Machine.Multistep.to_evstep chain
+@[simp] lemma cons_zero_empty : ListBlank.cons (0 : Symbol 1) ∅ = ∅ := ListBlank.cons_default_empty
 
 /-!
-#### Structure of `macroStep` (the remaining hard core)
+### Non-halting proof for `sporadicMachine6` via a Zeckendorf counter
 
-`RC n = Reset(n+1) = ⟨C, …0 1^(2n+3) 0^(n+1) 1 0…⟩` reaches `RC (n+1)` via a
-trajectory whose length is Fibonacci-rate (`gap(k)=gap(k-1)+gap(k-2)+2`), so it is
-*not* a fixed number of steps — it must be proven by induction over an internal
-counter.  Decoded phases (verified by simulation for `n+1 = 1..11`):
-
-1. **Ignition**: the leading `1^(2n+3)` block is consumed left-to-right, seeding
-   `1 0 1 0^(2n+1)` and leaving the head at the `0^(n+1) 1` gap in state `A`.
-2. **Descent loop** (the genuinely hard part — a *multi-digit* counter): the head
-   bounces, each pass moving one `0` from the main gap into a `(1 0)` accumulator
-   and decrementing a right-hand counter.  At every right turnaround the tape is
-     `(digit blocks) 0^(2g+1) (1 0)^i 1^(i+1)  [B0]  0^g 1`,
-   the sub-bounce `i → i+1` is uniform but its length grows with `i` (the head
-   crosses the accumulator via `cd_cross`); its phases are `C1·D1^i` (clear
-   `1^(i+1)`), `(D0 C1)^i` (cross `(1 0)^i`), `C0` gap-turn, `E1 B1 A1^i A0`, then a
-   mini-bounce.  When the counter underflows a CARRY appends a new digit block on
-   the left, so the number of digit blocks grows with `n`.
-3. **Compaction**: the accumulated `(1 0)^…` wall is rewritten into the new
-   `1^(2n+5)` block, yielding `RC (n+1)`.
-
-Because the left tape is `((1 0)^+ 0^+)^k` with `k` unbounded, the reachable tape
-language is NOT a finite closed tape language (RepWL / NGramCPS / CTL all fail —
-verified), so `macroStep` must be a `List`-indexed multi-digit induction:
-  1. `cd_cross` — DONE (above);
-  2. descent sub-bounce `D(i) -[M]->+ D(i+1)` (compose `cd_cross` + `D1`/`A1` runs);
-  3. descent-end + carry lemma;
-  4. outer induction over the digit list  ⇒  `macroStep`.
+Port of the Coq `BusyCoq/Skelet10.v` argument (sligocki's Skelet #10 analysis).
+`1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB` is a Fibonacci-rate counter whose value is
+carried in a *Zeckendorf digit string* `Dorf`.  The configuration `Dcfg n`
+advances by one counter increment per macro-step,
+`Dcfg n -[M]->+ Dcfg (incr n)`, and the family `{Dcfg n}` is closed under
+progress and reached from `init` — so `ClosedSet` closes the machine.
 -/
-lemma macroStep (n : ℕ) : RC n -[M]->+ RC (n + 1) := by
-  sorry
 
-/-- `SM6` does not halt: the family `{RC n}` is closed and reachable. -/
+/-- Zeckendorf digit string (Coq `dorf`): `zO` = digit `0`, `zIO` = digit `10`. -/
+inductive Dorf where
+  | zend : Dorf
+  | zO : Dorf → Dorf
+  | zIO : Dorf → Dorf
+
+open Dorf
+
+/-- The Fibonacci "prepend a leading 1" carry rewrite `zI` (Coq `zI`). -/
+def zI : Dorf → Dorf
+  | zend => zIO zend
+  | zO n => zIO n
+  | zIO n => zO (zO (zI n))
+
+/-- Increment of the Zeckendorf counter (Coq `incr`). -/
+def incr : Dorf → Dorf
+  | zend => zIO zend
+  | zO n => zI n
+  | zIO n => zO (zI n)
+
+/-- Right-side counter tape `Z` (head-nearest first). -/
+def Zs : Dorf → ListBlank (Symbol 1)
+  | zend => ∅
+  | zO n => ListBlank.cons 𝟘 (Zs n)
+  | zIO n => ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (Zs n))
+
+/-- Left-side accumulator `T` (head-nearest first); the Coq `<[…]` literal
+reverses, so `zO ↦ 0 0` and `zIO ↦ 0 1 0 1`. -/
+def Ts : Dorf → ListBlank (Symbol 1)
+  | zend => ∅
+  | zO n => ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (Ts n))
+  | zIO n => ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (Ts n))))
+
+/-- Left-side counter `L` (Coq `L`); `zIO` carries an extra `0 1` over `T`. -/
+def Ls : Dorf → ListBlank (Symbol 1)
+  | zend => ∅
+  | zO n => Ts n
+  | zIO n => ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (Ts n))
+
+/-- Head-on-left directed configuration (Coq `l <{{q}} r`): the head reads the
+top of `L`, so the underlying tape is `mk' L.tail (L.head :: R)`. -/
+def headL (q : Label 4) (L R : ListBlank (Symbol 1)) : Config 4 1 :=
+  ⟨q, Tape.mk' L.tail (ListBlank.cons L.head R)⟩
+
+@[simp] lemma headL_cons (q : Label 4) (a : Symbol 1) (L R : ListBlank (Symbol 1)) :
+    headL q (ListBlank.cons a L) R = ⟨q, Tape.mk' L (ListBlank.cons a R)⟩ := by
+  simp [headL]
+
+lemma headL_empty (q : Label 4) (R : ListBlank (Symbol 1)) :
+    headL q ∅ R = ⟨q, Tape.mk' ∅ (ListBlank.cons 𝟘 R)⟩ := rfl
+
+/-- A leftward step with the left side abstract, landing in `headL` form
+(the general form of `step_left_mk'`). -/
+lemma step_left_head {q q' : Label 4} {a b : Symbol 1}
+    (h : M.get q a = .next b .left q') (L R : ListBlank (Symbol 1)) :
+    (⟨q, Tape.mk' L (ListBlank.cons a R)⟩ : Config 4 1) -[M]-> headL q' L (ListBlank.cons b R) := by
+  refine Machine.step.some' h ?_ ?_
+  · simp
+  · simp [Tape.write_mk', Tape.move_left_mk']
+
+/-- The complete-behaviour configuration `D n` (Coq Skelet10 `D`). -/
+def Dcfg (n : Dorf) : Config 4 1 := headL 3 (Ls n) (Zs (incr n))
+
+/-- Right-counter increment sweep (Coq `incr_right`): with the head entering the
+right counter from the left in state `B`, the Zeckendorf carry `zI` is applied
+and the head returns to the left of the block in state `D`. -/
+lemma incr_right : ∀ (n : Dorf) (l : ListBlank (Symbol 1)),
+    (⟨1, Tape.mk' (ListBlank.cons 𝟙 l) (Zs n)⟩ : Config 4 1) -[M]->* headL 3 l (Zs (zI n))
+  | zend, l => by
+      have sB := step_left_blank (l₀ := 𝟙) gB0d l
+      have sC := step_left_head gC1 l (∅ : ListBlank (Symbol 1))
+      simp only [cons_zero_empty] at sB
+      simp only [Zs, zI, cons_zero_empty]
+      exact Machine.EvStep.step sB (Machine.EvStep.step sC Machine.EvStep.refl)
+  | zO n, l => by
+      have sB := step_left_mk' (l₀ := 𝟙) gB0 l (Zs n)
+      have sC := step_left_head gC1 l (ListBlank.cons 𝟘 (Zs n))
+      simp only [Zs, zI]
+      exact Machine.EvStep.step sB (Machine.EvStep.step sC Machine.EvStep.refl)
+  | zIO n, l => by
+      have sB := step_right_mk' gB1 (ListBlank.cons 𝟙 l) (ListBlank.cons 𝟘 (Zs n))
+      have sA := step_right_mk' gA0 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 l)) (Zs n)
+      have ih := incr_right n (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 l))
+      have sD1 := step_left_mk' (l₀ := 𝟙) gD1 l (Zs (zI n))
+      have sD2 := step_left_head gD1 l (ListBlank.cons 𝟘 (Zs (zI n)))
+      simp only [headL_cons] at ih
+      simp only [Zs, zI]
+      exact Machine.EvStep.step sB (Machine.EvStep.step sA
+        (ih.trans (Machine.EvStep.step sD1 (Machine.EvStep.step sD2 Machine.EvStep.refl))))
+
+/-- Left-counter increment sweep (Coq `incr_left`): the head, entering the left
+accumulator in state `D`, applies the Zeckendorf carry `zI` to it and returns to
+the right boundary in state `A`.  Forward `refine` steps; Lean infers the tapes. -/
+lemma incr_left : ∀ (n : Dorf) (r : ListBlank (Symbol 1)),
+    headL 3 (Ts n) (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 r))
+      -[M]->* (⟨0, Tape.mk' (Ts (zI n)) r⟩ : Config 4 1)
+  | zend, r => by
+      simp only [Ts, zI, headL_empty]
+      refine Machine.EvStep.step (step_left_edge gD0 _) ?_
+      refine Machine.EvStep.step (step_right_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gE1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gA1 _ _) Machine.EvStep.refl
+  | zO n, r => by
+      simp only [Ts, zI, headL_cons]
+      refine Machine.EvStep.step (step_left_mk' (l₀ := 𝟘) gD0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gE1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gA1 _ _) Machine.EvStep.refl
+  | zIO n, r => by
+      simp only [Ts, zI, headL_cons]
+      refine Machine.EvStep.step (step_left_mk' (l₀ := 𝟙) gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' (l₀ := 𝟘) gC1 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' (l₀ := 𝟙) gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_head gC1 _ _) ?_
+      refine (incr_left n _).trans ?_
+      refine Machine.EvStep.step (step_right_mk' gA1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gA1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gA1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gA1 _ _) Machine.EvStep.refl
+
+/-- One macro-step: the counter increments (Coq `incr_D`). -/
+lemma incr_D (n : Dorf) : Dcfg n -[M]->+ Dcfg (incr n) := by
+  cases n with
+  | zend =>
+      simp only [Dcfg, incr, zI, Ls, Zs, Ts, headL_empty, headL_cons, cons_zero_empty]
+      refine Trans.trans (Machine.Progress.single (step_left_edge gD0 _))
+        (?_ : _ -[M]->* _)
+      refine Machine.EvStep.step (step_right_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gE1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_blank gA0d _) ?_
+      refine Machine.EvStep.step (step_left_blank (l₀ := 𝟙) gB0d _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC1 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+      simp only [cons_zero_empty]
+      exact Machine.EvStep.refl
+  | zO n =>
+      cases n with
+      | zend =>
+          simp only [Dcfg, incr, zI, Ls, Zs, Ts, headL_empty, headL_cons, cons_zero_empty]
+          refine Trans.trans (Machine.Progress.single (step_left_edge gD0 _))
+            (?_ : _ -[M]->* _)
+          refine Machine.EvStep.step (step_right_mk' gC0 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gE1 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+          refine Machine.EvStep.step (step_right_blank gA0d _) ?_
+          refine Machine.EvStep.step (step_left_blank (l₀ := 𝟙) gB0d _) ?_
+          refine Machine.EvStep.step (step_left_mk' gC1 _ _) ?_
+          refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+          simp only [cons_zero_empty]
+          exact Machine.EvStep.refl
+      | zO n =>
+          simp only [Dcfg, incr, zI, Ls, Zs, Ts, headL_cons]
+          refine Trans.trans (Machine.Progress.single (step_left_mk' gD0 _ _))
+            (?_ : _ -[M]->* _)
+          refine Machine.EvStep.step (step_right_mk' gC0 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gE1 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+          refine (incr_right n _).trans ?_
+          simp only [headL_cons]
+          refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+          exact Machine.EvStep.refl
+      | zIO n =>
+          simp only [Dcfg, incr, zI, Ls, Zs, Ts, headL_cons]
+          refine Trans.trans (Machine.Progress.single (step_left_mk' gD0 _ _))
+            (?_ : _ -[M]->* _)
+          refine Machine.EvStep.step (step_left_mk' gC1 _ _) ?_
+          refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+          refine Machine.EvStep.step (step_left_head gC1 _ _) ?_
+          refine (incr_left n _).trans ?_
+          refine Machine.EvStep.step (step_right_mk' gA1 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gA1 _ _) ?_
+          refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+          refine Machine.EvStep.step (step_left_mk' gB0 _ _) ?_
+          refine Machine.EvStep.step (step_left_mk' gC1 _ _) ?_
+          exact Machine.EvStep.refl
+  | zIO n =>
+      simp only [Dcfg, incr, Ls, Zs, headL_cons]
+      refine Trans.trans (Machine.Progress.single (step_left_mk' gD0 _ _))
+        (?_ : _ -[M]->* _)
+      refine Machine.EvStep.step (step_left_head gC1 _ _) ?_
+      refine (incr_left n _).trans ?_
+      refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+      exact incr_right (zI n) _
+
+/-- `init` reaches `Dcfg zend` in three steps. -/
+lemma enters : init -[M]->* Dcfg zend := by
+  have s0 := step_right_blank gA0d (∅ : ListBlank (Symbol 1))
+  have s1 := step_left_blank (l₀ := 𝟙) gB0d (∅ : ListBlank (Symbol 1))
+  have s2 := step_left_edge gC1 (∅ : ListBlank (Symbol 1))
+  simp only [cons_zero_empty] at s1
+  have hd0 : Dcfg zend = (⟨3, Tape.mk' (∅ : ListBlank (Symbol 1))
+      (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 ∅))⟩ : Config 4 1) := by
+    simp only [Dcfg, incr, Zs, Ls, headL_empty, cons_zero_empty]
+  rw [hd0]
+  exact Machine.EvStep.step s0 (Machine.EvStep.step s1
+    (Machine.EvStep.step s2 Machine.EvStep.refl))
+
+/-- `SM6` does not halt: the Zeckendorf family `{Dcfg n}` is closed and reachable. -/
 theorem nonHalting : ¬ M.halts init := by
-  have cs : ClosedSet M (fun C => ∃ n, C = RC n) init := by
+  have cs : ClosedSet M (fun C => ∃ n, C = Dcfg n) init := by
     refine ⟨?_, ?_⟩
     · rintro ⟨C, n, rfl⟩
-      exact ⟨⟨RC (n + 1), n + 1, rfl⟩, macroStep n⟩
-    · exact ⟨⟨RC 0, 0, rfl⟩, enters⟩
+      exact ⟨⟨Dcfg (incr n), incr n, rfl⟩, incr_D n⟩
+    · exact ⟨⟨Dcfg zend, zend, rfl⟩, enters⟩
   exact cs.nonHalting
 
 end SM6
