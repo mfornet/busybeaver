@@ -1,3 +1,4 @@
+import Mathlib.Tactic
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.FAR
 import Busybeaver.Deciders.Loop1
@@ -8,6 +9,10 @@ import Busybeaver.Deciders.WFAR
 import Busybeaver.Parse
 import Busybeaver.TM.Table.ClosedSet
 import Std.Data.HashMap
+import Busybeaver.Deciders.Skelet.FixedBin
+import Busybeaver.Deciders.Skelet.ShiftOverflow
+import Busybeaver.Deciders.Skelet.ShiftOverflowBins
+import Busybeaver.Deciders.Skelet.TapeCalc
 
 /-!
 Executable support for the BB(5) table-based layer.
@@ -20,6 +25,619 @@ algorithmic evaluator for the entries we already have executable support for.
 The large Coq parameter lists are intentionally not copied here by hand.  They
 are generated into `Entry` values by `scripts/generate_bb5_table.py`.
 -/
+
+/-!
+## Skelet #26 (`sporadicMachine9`) development
+
+Inlined from the former `Busybeaver/Deciders/Skelet/Skelet26.lean`.  This is a
+Lean port of `Coq-BB5/BusyCoq/Skelet26.v` (sligocki's Skelet #26 analysis) up to
+and including `step_reset0`.  It lives in its own `Deciders.Skelet.Skelet26`
+namespace, kept inside a `section` so the local `open`s do not leak into the rest
+of the table file.
+-/
+section Skelet26Inline
+open Turing
+open TM.Table
+open Deciders.Skelet.ShiftOverflowBins
+open Deciders.Skelet.ShiftOverflow
+open Deciders.Skelet.FixedBin
+
+namespace Deciders.Skelet.Skelet26
+
+abbrev M : Machine 4 1 := mach["1RB1LD_1RC0RB_1LA1RC_1LE0LA_1LC---"]
+
+local notation "𝟙" => (1 : Symbol 1)
+local notation "𝟘" => (0 : Symbol 1)
+
+-- Transitions (A=0, B=1, C=2, D=3, E=4).
+lemma gA0 : M.get 0 0 = .next 1 .right 1 := by decide
+lemma gA1 : M.get 0 1 = .next 1 .left 3 := by decide
+lemma gB0 : M.get 1 0 = .next 1 .right 2 := by decide
+lemma gB1 : M.get 1 1 = .next 0 .right 1 := by decide
+lemma gC0 : M.get 2 0 = .next 1 .left 0 := by decide
+lemma gC1 : M.get 2 1 = .next 1 .right 2 := by decide
+lemma gD0 : M.get 3 0 = .next 1 .left 4 := by decide
+lemma gD1 : M.get 3 1 = .next 0 .left 0 := by decide
+lemma gE0 : M.get 4 0 = .next 1 .left 2 := by decide
+-- blank-edge
+lemma gA0d : M.get 0 default = .next 1 .right 1 := by decide
+lemma gB0d : M.get 1 default = .next 1 .right 2 := by decide
+lemma gC0d : M.get 2 default = .next 1 .left 0 := by decide
+lemma gD0d : M.get 3 default = .next 1 .left 4 := by decide
+lemma gE0d : M.get 4 default = .next 1 .left 2 := by decide
+
+/-- Rightward directed configuration (Coq `l {{q}}> r`): head reads the top of
+`R`, left side is `L`. -/
+def headR (q : Label 4) (L R : ListBlank (Symbol 1)) : Config 4 1 := ⟨q, Tape.mk' L R⟩
+
+open TM.Table (headL)
+
+/-- The counter configuration `D n a m` (Coq `D`): `L n <{{D}} 1 0 1 a *> R m`. -/
+def D (n : Num) (a : Symbol 1) (m : PosNum) : Config 4 1 :=
+  headL 3 (L n) (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+
+/-- Left counter increment sweep, base case `n = 0` (7 steps). -/
+lemma L_inc_zero (r : ListBlank (Symbol 1)) :
+    headL 3 (L 0) r -[M]->* headR 1 (L' .one) r := by
+  rw [show (L 0) = (∅ : ListBlank (Symbol 1)) from rfl, TM.Table.headL_empty]
+  simp only [L', headR]
+  refine Machine.EvStep.step (step_left_edge gD0 r) ?_
+  refine Machine.EvStep.step (step_left_edge gE0 _) ?_
+  refine Machine.EvStep.step (step_left_edge gC0 _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+  exact Machine.EvStep.step (step_right_mk' gB1 _ _) Machine.EvStep.refl
+
+/-
+Left counter increment sweep on a positive counter (Coq `L_inc`, positive part).
+Induction on `p`.
+-/
+lemma L'_inc (p : PosNum) (r : ListBlank (Symbol 1)) :
+    headL 3 (L' p) r -[M]->* headR 1 (L' (PosNum.succ p)) r := by
+  revert r;
+  induction p using PosNum.recOn ; simp_all +decide [ L', headR, headL_cons, PosNum.succ ];
+  · intro r
+    constructor;
+    exact step_left_mk' gD0 _ _;
+    refine' Machine.EvStep.step ( step_left_mk' gE0 _ _ ) _;
+    refine' Machine.EvStep.step ( step_left_mk' gC0 _ _ ) _;
+    refine' Machine.EvStep.step ( step_left_edge gA1 _ ) _;
+    convert L_inc_zero _ |> Machine.EvStep.trans <| _ using 1;
+    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
+    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
+    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
+    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
+    constructor;
+  · rename_i k ih; intro r; simp_all +decide [ L', headL_cons, headR, PosNum.succ ] ;
+    convert Machine.EvStep.trans _ ( ih _ ) |> Machine.EvStep.trans <| _ using 1;
+    convert Machine.EvStep.step ( step_left_mk' gD0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gE0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gC0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gA1 _ _ ) Machine.EvStep.refl ) ) ) using 1;
+    rotate_left;
+    exact r;
+    · convert Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) Machine.EvStep.refl ) ) ) using 1;
+    · cases k <;> aesop;
+  · intro r; exact (by
+    rename_i k ih
+    simp [L', headR, headL_cons, PosNum.succ] at *;
+    convert Machine.EvStep.step ( step_left_mk' gD0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gE0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gC0 _ _ ) ( Machine.EvStep.step ( step_right_mk' gA0 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.refl ) ) ) ) ) ) ) using 1);
+
+/-- Left counter increment sweep (Coq `L_inc`). -/
+lemma L_inc (n : Num) (r : ListBlank (Symbol 1)) :
+    headL 3 (L n) r -[M]->* headR 1 (L (Num.succ n)) r := by
+  cases n with
+  | zero => exact L_inc_zero r
+  | pos p => exact L'_inc p r
+
+/-
+Right counter increment with no overflow (Coq `R_inc_has0`).  Induction on `h`.
+-/
+lemma R_inc_has0 {n : PosNum} (h : Has0 n) (l : ListBlank (Symbol 1)) :
+    headR 2 l (R n) -[M]->* headL 3 l (R n.succ) := by
+  induction h generalizing l with
+  | bit0 n =>
+      show headR 2 l (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (R n)))
+        -[M]->* headL 3 l (R (PosNum.succ (.bit0 n)))
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+      exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+  | @bit1 n h ih =>
+      show headR 2 l (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (R n)))
+        -[M]->* headL 3 l (R (PosNum.succ (.bit1 n)))
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine (ih (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 l))).trans ?_
+      rw [headL_cons]
+      refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+      exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+/-- Right counter increment with overflow (Coq `R_inc_all1`).  Induction on `h`. -/
+lemma R_inc_all1 {n : PosNum} (h : All1 n) (l : ListBlank (Symbol 1)) :
+    headR 2 (ListBlank.cons 𝟙 l) (R n) -[M]->* headL 3 l (R n.succ) := by
+  induction h generalizing l with
+  | one =>
+      show headR 2 (ListBlank.cons 𝟙 l) (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 ∅))
+        -[M]->* headL 3 l (R (PosNum.succ .one))
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine Machine.EvStep.step (step_left_blank gC0 _) ?_
+      refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+      exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+  | @bit1 n h ih =>
+      show headR 2 (ListBlank.cons 𝟙 l) (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (R n)))
+        -[M]->* headL 3 l (R (PosNum.succ (.bit1 n)))
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+      refine (ih (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 l))).trans ?_
+      rw [headL_cons]
+      refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+      exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+/-- `D_inc` for `a = 0`. -/
+lemma D_inc_zero {n : Num} {m : PosNum} (h : Has0 m) :
+    D n 0 m -[M]->* D (Num.succ n) 0 m.succ := by
+  unfold D
+  refine (L_inc n _).trans ?_
+  refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine (R_inc_has0 h _).trans ?_
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+/-- `D_inc` for `a = 1`. -/
+lemma D_inc_one {n : Num} {m : PosNum} (h : Has0 m) :
+    D n 1 m -[M]->* D (Num.succ n) 1 m.succ := by
+  unfold D
+  refine (L_inc n _).trans ?_
+  refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine (R_inc_has0 h _).trans ?_
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+/-- One counter increment (Coq `D_inc`). -/
+lemma D_inc {n : Num} {a : Symbol 1} {m : PosNum} (h : Has0 m) :
+    D n a m -[M]->* D (Num.succ n) a m.succ := by
+  match a with
+  | 0 => exact D_inc_zero h
+  | 1 => exact D_inc_one h
+
+/-- Iterated increment by `u ≤ b m` (Coq `D_run`).  Induction on `u`. -/
+lemma D_run {n : Num} {a : Symbol 1} {m : PosNum} (u : ℕ) (hu : u ≤ b m) :
+    D n a m -[M]->* D ((u : Num) + n) a (addN u m) := by
+  induction u generalizing n m with
+  | zero => simpa using Machine.EvStep.refl
+  | succ u ih =>
+      have hbm : 0 < b m := by omega
+      refine (D_inc (bgt0_has0 hbm)).trans ?_
+      have hbound : u ≤ b m.succ := by rw [b_succ hbm]; omega
+      have key := ih (n := Num.succ n) (m := m.succ) hbound
+      have hw : addN (u + 1) m = addN u m.succ := Function.iterate_succ_apply PosNum.succ u m
+      have hc : ((u + 1 : ℕ) : Num) + n = (u : Num) + Num.succ n := by
+        rw [Nat.cast_add_one, ← Num.add_one, add_assoc, add_comm (1 : Num) n]
+      have htgt : D ((u : Num) + Num.succ n) a (addN u m.succ)
+          = D (((u + 1 : ℕ) : Num) + n) a (addN (u + 1) m) := by
+        rw [hc, hw]
+      rw [← htgt]
+      exact key
+
+/-- Run to saturation (Coq `D_finish`). -/
+lemma D_finish {n : Num} {a : Symbol 1} {m : PosNum} :
+    D n a m -[M]->* D ((b m : Num) + n) a (addN (b m) m) :=
+  D_run (b m) le_rfl
+
+/-! ## The `J`/`K` representations and reset machinery -/
+
+/-- Coq `J'`. -/
+def J' : PosNum → side
+  | .one => ListBlank.cons 𝟙 ∅
+  | .bit0 n => ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J' n))))
+  | .bit1 n => ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J' n))))
+
+/-- Coq `J`. -/
+def J : Num → side
+  | .zero => ∅
+  | .pos n => J' n
+
+lemma L'_as_J' : ∀ p, L' p = ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J' p)))
+  | .one => rfl
+  | .bit0 p => by simp only [L', J', L'_as_J' p]
+  | .bit1 p => by simp only [L', J', L'_as_J' p]
+
+lemma K'_as_J' : ∀ p, K' p = ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J' p))
+  | .one => rfl
+  | .bit0 p => by simp only [K', J', K'_as_J' p]
+  | .bit1 p => by simp only [K', J', K'_as_J' p]
+
+/-- Coq `L_as_J`. -/
+lemma L_as_J (n : Num) : L n = ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J n))) := by
+  cases n with
+  | zero => simp only [L, J, cons0_empty]
+  | pos p => exact L'_as_J' p
+
+/-- Coq `K_as_J`. -/
+lemma K_as_J (n : Num) : K n = ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J n)) := by
+  cases n with
+  | zero => simp only [K, J, cons0_empty]
+  | pos p => exact K'_as_J' p
+
+/-- Counter configuration `E0` (Coq `E0`). -/
+def E0 (n : Num) (a : Symbol 1) (m : PosNum) : Config 4 1 :=
+  headL 3 (K n) (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+
+/-- Counter configuration `E1` (Coq `E1`). -/
+def E1 (n : Num) (a : Symbol 1) (m : PosNum) : Config 4 1 :=
+  headL 3 (J n) (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+
+/-- Coq `eat_LI`. -/
+lemma eat_LI (l : side) (t : PosNum) :
+    headL 3 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 l)))) (R t)
+      -[M]->* headL 3 l (R t.bit1.bit1) := by
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+/-- Coq `eat_KI`. -/
+lemma eat_KI {t : PosNum} (h : Has0 t) (l : side) :
+    headL 3 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l)))) (R t)
+      -[M]->* headL 3 l (R t.succ.bit1.bit0) := by
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine (R_inc_has0 h _).trans ?_
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+/-- Coq `eat_JI`. -/
+lemma eat_JI {t : PosNum} (h : Has0 t) (l : side) :
+    headL 3 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l)) (R t)
+      -[M]->* headL 3 l (R t.succ.bit0) := by
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine (R_inc_has0 h _).trans ?_
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+open Deciders.Skelet.FixedBin in
+/-- Increment of a fixed-width `Lk` block (Coq `Lk_inc`).  Induction on the `Succ` proof. -/
+lemma Lk_inc {k : ℕ} {n n' : Bin k} (hn : Succ n n') (l : side) (r : side) :
+    headL 3 ((Lk n : List (Symbol 1)) ++ l) r -[M]->* headR 1 ((Lk n' : List (Symbol 1)) ++ l) r := by
+  induction hn generalizing l r with
+  | b0 n =>
+      simp only [Lk, ListBlank.append_cons]
+      rw [headL_cons]
+      refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gB1 _ _) Machine.EvStep.refl
+  | @b1 k' np ns hp ih =>
+      simp only [Lk, ListBlank.append_cons]
+      rw [headL_cons]
+      refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_left_head gA1 _ _) ?_
+      refine (ih l (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 r))))).trans ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gB1 _ _) Machine.EvStep.refl
+
+open Deciders.Skelet.FixedBin in
+/-- `LaR_inc` for `a = 0`. -/
+lemma LaR_inc_zero {k : ℕ} {np ns : Bin k} (hn : Succ np ns) {m : PosNum} (hm : Has0 m) (l : side) :
+    headL 3 ((Lk np : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (R m)))))
+      -[M]->* headL 3 ((Lk ns : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (R m.succ))))) := by
+  refine (Lk_inc hn l _).trans ?_
+  refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine (R_inc_has0 hm _).trans ?_
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+open Deciders.Skelet.FixedBin in
+/-- `LaR_inc` for `a = 1`. -/
+lemma LaR_inc_one {k : ℕ} {np ns : Bin k} (hn : Succ np ns) {m : PosNum} (hm : Has0 m) (l : side) :
+    headL 3 ((Lk np : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (R m)))))
+      -[M]->* headL 3 ((Lk ns : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (R m.succ))))) := by
+  refine (Lk_inc hn l _).trans ?_
+  refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine (R_inc_has0 hm _).trans ?_
+  rw [headL_cons]
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
+  refine Machine.EvStep.step (step_right_mk' gC1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+  refine Machine.EvStep.step (step_left_mk' gD1 _ _) ?_
+  exact Machine.EvStep.step (step_left_head gA1 _ _) Machine.EvStep.refl
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `LaR_inc`. -/
+lemma LaR_inc {k : ℕ} (a : Symbol 1) {np ns : Bin k} (hn : Succ np ns) {m : PosNum} (hm : Has0 m)
+    (l : side) :
+    headL 3 ((Lk np : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+      -[M]->* headL 3 ((Lk ns : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m.succ))))) := by
+  match a with
+  | 0 => exact LaR_inc_zero hn hm l
+  | 1 => exact LaR_inc_one hn hm l
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `LaR_incs`.  Induction on the `Plus` proof. -/
+lemma LaR_incs {k : ℕ} (a : Symbol 1) {u : ℕ} {np ns : Bin k} (hp : Plus u np ns) {m : PosNum}
+    (hu : u ≤ b m) (l : side) :
+    headL 3 ((Lk np : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+      -[M]->* headL 3 ((Lk ns : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R (addN u m)))))) := by
+  induction hp generalizing m with
+  | zero n => simpa using Machine.EvStep.refl
+  | @succ ucount bnp bmid bns s p ih =>
+      have hbm : 0 < b m := by omega
+      refine (LaR_inc a s (bgt0_has0 hbm) l).trans ?_
+      have hbound : ucount ≤ b m.succ := by rw [b_succ hbm]; omega
+      have key := ih (m := m.succ) hbound
+      have hw : addN (ucount + 1) m = addN ucount m.succ :=
+        Function.iterate_succ_apply PosNum.succ ucount m
+      rw [hw]
+      exact key
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `LaR_max`. -/
+lemma LaR_max {k : ℕ} (a : Symbol 1) {m : PosNum} (hm : 2 ^ k - 1 ≤ b m) (l : side) :
+    headL 3 ((Lk (binMin k) : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+      -[M]->* headL 3 ((Lk (binMax k) : List (Symbol 1)) ++ l)
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R (addN (2 ^ k - 1) m)))))) :=
+  LaR_incs a (inc_to_max k) hm l
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `eat_bin_max0`.  Induction on `k`. -/
+lemma eat_bin_max0 (k : ℕ) {t : PosNum} (h : Has0 t) (l : side) :
+    headL 3 ((Lk (binMax k) : List (Symbol 1)) ++
+        ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l)))) (R t)
+      -[M]->* headL 3 l
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (R (pow4 k t.succ)))))) := by
+  induction k generalizing t with
+  | zero =>
+      simp only [binMax, Lk, ListBlank.append_empty]
+      exact eat_KI h l
+  | succ k ih =>
+      simp only [binMax, Lk, ListBlank.append_cons]
+      refine (eat_LI _ t).trans ?_
+      exact ih (Has0.bit1 (Has0.bit1 h))
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `eat_bin_max1`.  Induction on `k`. -/
+lemma eat_bin_max1 (k : ℕ) {t : PosNum} (h : Has0 t) (l : side) :
+    headL 3 ((Lk (binMax k) : List (Symbol 1)) ++ ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l)) (R t)
+      -[M]->* headL 3 l (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (R (pow4 k t.succ)))) := by
+  induction k generalizing t with
+  | zero =>
+      simp only [binMax, Lk, ListBlank.append_empty]
+      exact eat_JI h l
+  | succ k ih =>
+      simp only [binMax, Lk, ListBlank.append_cons]
+      refine (eat_LI _ t).trans ?_
+      exact ih (Has0.bit1 (Has0.bit1 h))
+
+/-- Coq `f`. -/
+def f (m : PosNum) (a : Symbol 1) (k : ℕ) : PosNum :=
+  if a = 0 then (addN (2 ^ k - 1) m).bit0.bit0 else (addN (2 ^ k - 1) m).bit1.bit0
+
+/-- Coq `f1`. -/
+def f1 (m : PosNum) (a : Symbol 1) (k : ℕ) : PosNum :=
+  if a = 0 then (addN (2 ^ k - 1) m).bit0 else (addN (2 ^ k - 1) m).bit1
+
+/-- Coq `f_as_f1`. -/
+lemma f_as_f1 (m : PosNum) (a : Symbol 1) (k : ℕ) : f m a k = (f1 m a k).bit0 := by
+  unfold f f1; split <;> rfl
+
+/-- Coq `has0_f`. -/
+lemma has0_f (m : PosNum) (a : Symbol 1) (k : ℕ) : Has0 (f m a k) := by
+  unfold f; split <;> exact Has0.bit0 _
+
+/-
+Coq `f_lt`.
+-/
+lemma f_lt (m : PosNum) (a : Symbol 1) (k : ℕ) :
+    ∃ x : PosNum, ((f m a k).succ : ℕ) = 4 * ((addN (2 ^ k - 1) m : PosNum) : ℕ) + (x : ℕ) ∧ (x : ℕ) ≤ 3 := by
+  unfold f
+  split
+  · refine ⟨1, ?_, by decide⟩
+    simp only [PosNum.cast_succ, PosNum.cast_bit0, PosNum.cast_one]
+    omega
+  · refine ⟨3, ?_, by decide⟩
+    have h3 : ((3 : PosNum) : ℕ) = 3 := by decide
+    simp only [PosNum.cast_succ, PosNum.cast_bit0, PosNum.cast_bit1, h3]
+    omega
+
+/-- Reinterpret the `1 0 1 a` prefix over `R (addN (2^k-1) m)` as `R (f m a k)`. -/
+lemma R_f (m : PosNum) (a : Symbol 1) (k : ℕ) :
+    ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R (addN (2 ^ k - 1) m)))))
+      = R (f m a k) := by
+  match a with
+  | 0 => rfl
+  | 1 => rfl
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `drop_KI`. -/
+lemma drop_KI {k : ℕ} (a : Symbol 1) {m : PosNum} (hm : 2 ^ k - 1 ≤ b m) (l : side) :
+    headL 3 ((Lk (binMin k) : List (Symbol 1)) ++
+        ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l))))
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+      -[M]->* headL 3 l
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (R (pow4 k (f m a k).succ)))))) := by
+  refine (LaR_max a hm _).trans ?_
+  rw [R_f]
+  exact eat_bin_max0 k (has0_f m a k) l
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `drop_JI`. -/
+lemma drop_JI {k : ℕ} (a : Symbol 1) {m : PosNum} (hm : 2 ^ k - 1 ≤ b m) (l : side) :
+    headL 3 ((Lk (binMin k) : List (Symbol 1)) ++ ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l))
+        (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
+      -[M]->* headL 3 l (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (R (pow4 k (f m a k).succ)))) := by
+  refine (LaR_max a hm _).trans ?_
+  rw [R_f]
+  exact eat_bin_max1 k (has0_f m a k) l
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `prepare_K`. -/
+lemma prepare_K (n : Num) (hn : 0 < (n : ℕ)) : ∃ (k : ℕ) (n' : Num),
+    K n = (Lk (binMin k) : List (Symbol 1)) ++
+        ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (K n'))))
+      ∧ (n : ℕ) = 2 ^ k + 2 ^ (k + 1) * (n' : ℕ) := by
+  obtain ⟨p, rfl⟩ : ∃ p, n = Num.pos p := by
+    cases n <;> aesop;
+  induction p using PosNum.recOn <;> simp_all +decide [ pow_succ' ];
+  · exists 0, 0;
+  · rename_i p ih; use 0, Num.pos p; simp +decide [ *, pow_succ' ] ;
+    exact ⟨ ListBlank.ext (congrFun rfl) , by ring ⟩;
+  · rename_i p hp;
+    obtain ⟨ k, n', hk, hn' ⟩ := hp; use k + 1, n'; simp_all +decide [ pow_succ', mul_assoc ] ;
+    simp_all +decide [ K, K', binMin, Lk ] ; ring
+
+open Deciders.Skelet.FixedBin in
+/-- Coq `prepare_J`. -/
+lemma prepare_J (k : ℕ) (n' : Num) :
+    J (2 ^ k + 2 ^ (k + 1) * n') = (Lk (binMin k) : List (Symbol 1)) ++
+        ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J n')))) := by
+  induction' k with k ih generalizing n';
+  · cases n' <;> simp +decide [ ListBlank.append ];
+    rename_i p;
+    -- By definition of `PosNum`, we know that `p.bit1` is equivalent to `1 + 2 * p`.
+    have h_pos : p.bit1 = Num.succ (2 * Num.pos p) := by
+      grind +suggestions;
+    convert congr_arg ( fun x : Num => J x ) h_pos.symm using 1;
+    simp +decide [ J, J' ];
+    rw [ show ( Num.pos p + Num.pos p + 1 : Num ) = Num.pos ( p.bit1 ) from ?_ ];
+    · cases p <;> rfl;
+    · grind +suggestions;
+  · -- By definition of $J$, we know that $J(2^{k+1} + 2^{k+2} n') = J(2(2^k + 2^{k+1} n'))$.
+    have hJ_succ : J (2 ^ (k + 1) + 2 ^ (k + 2) * n') = J (2 * (2 ^ k + 2 ^ (k + 1) * n')) := by
+      ring;
+    rw [ hJ_succ, show J ( 2 * ( 2 ^ k + 2 ^ ( k + 1 ) * n' ) ) = ListBlank.cons 0 ( ListBlank.cons 0 ( ListBlank.cons 0 ( ListBlank.cons 0 ( J ( 2 ^ k + 2 ^ ( k + 1 ) * n' ) ) ) ) ) from ?_ ];
+    · rw [ ih ];
+      exact ListBlank.ext (congrFun rfl);
+    · have hJ_def : ∀ p : PosNum, J (Num.pos p.bit0) = ListBlank.cons 0 (ListBlank.cons 0 (ListBlank.cons 0 (ListBlank.cons 0 (J (Num.pos p))))) := by
+        intros p
+        simp [J, J'];
+      cases h : 2 ^ k + 2 ^ ( k + 1 ) * n' <;> simp_all +decide [ two_mul ];
+      convert hJ_def _ using 2 ; ring!;
+      exact Num.to_nat_inj.mp rfl
+
+/-- Coq `reset_invariant`. -/
+def reset_invariant (m : PosNum) : Prop :=
+  2 ≤ (m : ℕ) ∧ ∃ (k : ℕ) (n' : ℕ), b m + 1 = 2 ^ k + 2 ^ (k + 1) * n' ∧ 2 ≤ n'
+
+/-
+Coq `step_reset0`.
+-/
+lemma step_reset0 (n : Num) (m : PosNum) (a : Symbol 1) (hinv : (n : ℕ) ≤ b m) (hpos : 0 < (n : ℕ)) :
+    ∃ (n' : Num) (m' : PosNum),
+      (E0 n a m -[M]->* E0 n' 1 m') ∧ (n' : ℕ) < (n : ℕ) ∧ (n' : ℕ) ≤ b m' ∧ reset_invariant m' := by
+  obtain ⟨ k, n', hK, hn ⟩ := prepare_K n hpos;
+  refine' ⟨ n', pow4 k ( f m a k |> PosNum.succ ), _, _, _, _ ⟩;
+  · unfold E0; rw [ hK ] ; exact drop_KI a ( by omega ) ( K n' ) ;
+  · nlinarith [ Nat.one_le_pow k 2 zero_lt_two, Nat.one_le_pow ( k + 1 ) 2 zero_lt_two ];
+  · have hbt : b (addN (2^k - 1) m) = b m - (2^k - 1) := by
+      apply b_add;
+      grind;
+    have hbf1 : b (f1 m a k) ≥ 2 * b (addN (2^k - 1) m) := by
+      unfold f1; split_ifs <;> simp_all +decide [ b ] ;
+    have hbm' : b (pow4 k (f m a k).succ) ≥ 2 * b (f1 m a k) := by
+      rw [ b_pow4 ];
+      rw [ show b ( f m a k |> PosNum.succ ) = b ( f1 m a k ) * 2 from ?_ ];
+      · exact Nat.le_sub_one_of_lt ( by nlinarith only [ Nat.one_le_pow ( 2 * k ) 2 zero_lt_two, Nat.zero_le ( b ( f1 m a k ) ) ] );
+      · rw [ show f m a k = ( f1 m a k ).bit0 from ?_, b_succ ];
+        · exact Nat.sub_eq_of_eq_add <| by rw [ show b ( f1 m a k |> PosNum.bit0 ) = 2 * b ( f1 m a k ) + 1 from rfl ] ; ring;
+        · exact Nat.succ_pos _;
+        · exact f_as_f1 m a k;
+    nlinarith [ Nat.sub_add_cancel ( show 1 ≤ 2 ^ k from Nat.one_le_pow _ _ ( by decide ) ), Nat.sub_add_cancel ( show 2 ^ k - 1 ≤ b m from by omega ), pow_pos ( show 0 < 2 by decide ) k, pow_succ' 2 k ];
+  · refine' ⟨ _, 2 * k, b ( f1 m a k ), _, _ ⟩ <;> norm_num [ b_pow4 ];
+    · have h_pow4_ge_two : ∀ k : ℕ, ∀ y : PosNum, 2 ≤ (y : ℕ) → 2 ≤ (pow4 k y : ℕ) := by
+        intro k y hy; induction' k with k ih <;> simp_all +decide [ pow_succ', pow4 ] ;
+        grind +suggestions;
+      exact h_pow4_ge_two k _ ( by
+        cases a ; simp +decide [ f ] );
+    · rw [ b_succ ];
+      · rw [ f_as_f1, b ] ;
+        zify ; norm_num ; ring;
+      · cases a ; simp +decide [ f ];
+        split_ifs <;> simp +decide [ b ];
+    · -- By definition of $f1$, we know that $b (f1 m a k) \geq 2 * b t$.
+      have hbf1 : b (f1 m a k) ≥ 2 * b (addN (2^k - 1) m) := by
+        unfold f1; split_ifs <;> simp_all +decide [ b ] ;
+      grind +suggestions
+
+end Deciders.Skelet.Skelet26
+end Skelet26Inline
 
 open TM.Table
 
