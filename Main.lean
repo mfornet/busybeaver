@@ -46,6 +46,7 @@ inductive DeciderConfig where
 | repWL : RepWLConfig → DeciderConfig
 | bb5TableExecutable : DeciderConfig
 | bb5TableAll : DeciderConfig
+| bb5TableNF : DeciderConfig
 deriving FromJson, ToJson
 
 instance: ToString DeciderConfig where
@@ -64,6 +65,7 @@ instance: ToString DeciderConfig where
       s!"RepWL len={cfg.len} threshold={cfg.threshold} maxT={cfg.maxT} bound={cfg.bound}"
   | .bb5TableExecutable => "BB5 executable hardcoded table"
   | .bb5TableAll => "BB5 full hardcoded table"
+  | .bb5TableNF => "BB5 normal-form hardcoded table"
 
 def DeciderConfig.deciderModel {M : Type _} [TM.Model M] (cfg: DeciderConfig) (m : M) :
     TM.Model.HaltM m Unit := match cfg with
@@ -79,6 +81,11 @@ def runBB5Table (table : Deciders.BB5Table.Table) (M : Machine l s) : HaltM M Un
   | 4, 1 => Deciders.BB5Table.tableDecider table M
   | _, _ => .unknown ()
 
+def runBB5TableNF (table : Deciders.BB5Table.Table) (M : Machine l s) : HaltM M Unit :=
+  match l, s with
+  | 4, 1 => Deciders.BB5Table.nfTableDecider table M
+  | _, _ => .unknown ()
+
 def DeciderConfig.deciderTable (cfg: DeciderConfig) (M: Machine l s) : HaltM M Unit := match cfg with
 | .backwardsReasoning n => backwardsReasoningDecider n M
 | .nGramCPS cfg => nGramCPSDecider cfg M
@@ -88,6 +95,7 @@ def DeciderConfig.deciderTable (cfg: DeciderConfig) (M: Machine l s) : HaltM M U
 | .loop1 n => Deciders.Loop1.decider n M
 | .bb5TableExecutable => runBB5Table Deciders.BB5Table.Generated.executableTable M
 | .bb5TableAll => runBB5Table Deciders.BB5Table.Generated.allTable M
+| .bb5TableNF => runBB5TableNF Deciders.BB5Table.Generated.executableTable M
 | _ => TM.Table.Model.modelHaltMToTableHaltM (cfg.deciderModel M)
 
 @[inline]
@@ -159,6 +167,11 @@ def bb5DefaultConfig: List DeciderConfig := [
   .explore 4100,
   .loop1 4100,
   .bb5TableExecutable,
+  -- Normal-form table lookup (Coq's `NF_decider table_based_decider`): canonicalise
+  -- with `TM_to_NF` then look up the table.  Cheap, and the only path for FAR / WFAR /
+  -- sporadic machines reached in a non-canonical orbit representative — the heavy
+  -- NGram passes below cannot decide those, so run this before them.
+  .bb5TableNF,
   .repWL { len := 2, threshold := 3, maxT := 320, bound := 400 },
   .nGramCPSLRU { left := 2, right := 2, bound := 1000 },
   .nGramCPSHistory { history := 2, left := 2, right := 2, bound := 3000 },
@@ -171,7 +184,15 @@ def bb5DefaultConfig: List DeciderConfig := [
   .nGramCPSLRU { left := 3, right := 3, bound := 20000 },
   .repWL { len := 4, threshold := 2, maxT := 320, bound := 2000 },
   .repWL { len := 6, threshold := 2, maxT := 320, bound := 2000 },
-  .nGramCPS { n := 4, bound := 20000 }
+  .nGramCPS { n := 4, bound := 20000 },
+  -- Our NGramCPS abstraction is coarser than Coq's at equal window sizes, so the
+  -- table's hardcoded params (and Coq's generic passes) underdecide for us.  These
+  -- larger-window passes recover the machines that need them.
+  .nGramCPS { n := 6, bound := 300000 },
+  .nGramCPS { n := 8, bound := 300000 },
+  .nGramCPSHistory { history := 2, left := 6, right := 6, bound := 300000 },
+  .nGramCPSHistory { history := 4, left := 6, right := 6, bound := 300000 },
+  .nGramCPSHistory { history := 8, left := 8, right := 8, bound := 500000 }
 ]
 
 def defaultConfigFor (l s : ℕ) : List DeciderConfig :=

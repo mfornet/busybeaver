@@ -5,6 +5,8 @@ import Busybeaver.Deciders.NGramCPS
 import Busybeaver.Deciders.RepWL
 import Busybeaver.Deciders.Sweep
 import Busybeaver.Deciders.WFAR
+import Busybeaver.Enumerate.Perm
+import Busybeaver.Enumerate.Symmetry
 import Busybeaver.TM.Table.Parse
 import Busybeaver.TM.Table.ClosedSet
 import Std.Data.HashMap
@@ -1274,5 +1276,87 @@ def initialEntries : List Entry :=
 
 def initialTable : Table :=
   tableOfEntries initialEntries
+
+/-!
+## Normal-form (NF) table lookup
+
+Coq's BB5 pipeline ends with `NF_decider table_based_decider`, which canonicalises
+each machine with `TM_to_NF` before the table lookup.  This catches machines the
+enumeration emits in a different orbit representative than the hardcoded key (mirror
+images, or machines whose leading transition writes a blank).  We port `TM_to_NF`
+(`List_Tape.v`) as an executable transform built from the existing `perm` (state
+swap) and `symm` (tape reversal) symmetries.
+
+The transform preserves non-halting, so a non-halting verdict for `toNF M` transfers
+to `M`.  That preservation lemma is currently `sorry`: the executable behaviour is
+correct, the proof is future work.  See [bb5-undecided-holdouts-diagnosis].
+-/
+
+/-- `St_suc`, saturating at the top state, matching Coq's `St_suc` (`St4 ↦ St4`). -/
+def stSuc (cur : Label l) : Label l :=
+  if h : cur.val + 1 ≤ l then ⟨cur.val + 1, by omega⟩ else cur
+
+/-- `TM_to_write_nonzero_first`: relabel so the first transition writes a non-blank
+symbol, by repeatedly swapping the start state with the target of a blank-writing
+first move. -/
+def writeNonzeroFirst : ℕ → Machine l s → Machine l s
+  | 0, M => M
+  | T + 1, M =>
+    match M.get default default with
+    | .next sym _ tgt =>
+        if sym = default ∧ tgt ≠ default then
+          writeNonzeroFirst T (M.perm default tgt)
+        else M
+    | .halt => M
+
+/-- `TM_to_TNF_NF`: simulate from the blank tape and rename states into first-visit
+order via state swaps. -/
+def tnfRelabel : ℕ → Machine l s → Label l → Config l s → Machine l s
+  | 0, M, _, _ => M
+  | T + 1, M, cur, C =>
+    match M.step C with
+    | none => M
+    | some C0 =>
+        if cur.val < C0.state.val then
+          let nxt := stSuc cur
+          if nxt = C0.state then
+            tnfRelabel T M nxt C0
+          else
+            tnfRelabel T (M.perm nxt C0.state) nxt ⟨nxt, C0.tape⟩
+        else
+          tnfRelabel T M cur C0
+
+/-- `TM_to_rev_NF`: mirror the machine if its first move is to the left. -/
+def revNF (M : Machine l s) : Machine l s :=
+  match M.get default default with
+  | .next _ .left _ => M.symm
+  | _ => M
+
+/-- Coq's `TM_to_NF`: write-nonzero-first, then TNF relabel (110 steps), then
+reverse-if-left.  `TM_simplify` is the identity here and is omitted. -/
+def toNF (M : Machine l s) : Machine l s :=
+  revNF (tnfRelabel 110 (writeNonzeroFirst 100 M) default init)
+
+/-- `toNF` preserves non-halting.  TODO: discharge from `Machine.perm.nz_equi`,
+`Machine.symm.equiv`, and the triviality of a blank-writing first step. -/
+theorem toNF_nonHalting {M : Machine l s} (h : ¬ (toNF M).halts init) : ¬ M.halts init :=
+  sorry
+
+/-- Normal-form table decider: canonicalise with `toNF`, look the result up in the
+table, and transfer a non-halting verdict back to the original machine.  Mirrors
+Coq's `NF_decider table_based_decider` (only the non-halting direction propagates).
+
+A `.halt` row is skipped before running its decider: `toNF` preserves halting in both
+directions, so a normalised machine matching a halt row necessarily halts, and the
+only verdict its `haltDecider` could produce is a `.halts_prf` we discard here.
+Running it would spend tens of millions of steps in a halting search for nothing. -/
+def nfTableDecider (table : Table) (M : Machine 4 1) : HaltM M Unit :=
+  match findInTable? table (toNF M) with
+  | some (.halt _) => .unknown ()
+  | some d =>
+      match d.run (toNF M) with
+      | .loops_prf hnh => .loops_prf (toNF_nonHalting hnh)
+      | _ => .unknown ()
+  | none => .unknown ()
 
 end Deciders.BB5Table
