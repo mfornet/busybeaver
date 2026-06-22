@@ -7,7 +7,7 @@ function pct(n: number, total: number): string {
 }
 
 function SizeCard({ s }: { s: Summary["sizes"][number] }) {
-  const decided = s.n_halt + s.n_loop;
+  const decided = s.n_halt + s.n_nonhalt;
   return (
     <Link className="sizecard" to={`/size/${s.states}/${s.symbols}`}>
       <div className="sizecard-title">
@@ -16,12 +16,12 @@ function SizeCard({ s }: { s: Summary["sizes"][number] }) {
       <div className="sizecard-total">{s.total.toLocaleString()} machines</div>
       <div className="bar">
         <span className="seg seg-halt" style={{ width: pct(s.n_halt, s.total) }} />
-        <span className="seg seg-loop" style={{ width: pct(s.n_loop, s.total) }} />
+        <span className="seg seg-nonhalt" style={{ width: pct(s.n_nonhalt, s.total) }} />
         <span className="seg seg-undecided" style={{ width: pct(s.n_undecided, s.total) }} />
       </div>
       <div className="sizecard-stats">
         <span>{s.n_halt.toLocaleString()} halt</span>
-        <span>{s.n_loop.toLocaleString()} loop</span>
+        <span>{s.n_nonhalt.toLocaleString()} non-halt</span>
         <span>{s.n_undecided.toLocaleString()} holdout</span>
       </div>
       <div className="sizecard-foot">

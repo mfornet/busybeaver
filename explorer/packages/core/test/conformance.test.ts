@@ -1,11 +1,13 @@
 /**
  * Conformance: every TNF code emitted by the Lean enumerator must be a fixed point of the
  * TypeScript canonicalizer (canonicalize(code).code === code) and survive a parse/serialize
- * round-trip. This is what pins the TS port to the Lean ground truth.
+ * round-trip. This is what pins the TS port to the Lean ground truth — and the canonical code
+ * is the database lookup key, so a divergence silently breaks paste-to-lookup.
  *
- * In CI, `explorer/ingest/gen_conformance.py` (run via `lake exe beaver`) writes real codes
- * to `test/fixtures/tnf-codes.txt`. Locally, when that file is absent, we fall back to a small
- * set of hand-verified TNF codes so the suite always runs.
+ * The fixture is committed (`test/fixtures/tnf-codes.txt`), generated from real
+ * `lake exe beaver enumerate` output by `explorer/ingest gen-conformance`. It MUST be present,
+ * non-empty, and cover the full BB(2,2)..BB(5,2) ladder — a missing/empty/width-incomplete
+ * fixture fails the suite rather than passing trivially.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -13,31 +15,32 @@ import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { canonicalize, parseMachine, serializeMachine } from "../src/index.js";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const fixture = join(here, "fixtures", "tnf-codes.txt");
+const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "tnf-codes.txt");
 
-// Hand-traced TNF fixed points. Real BB(3..5) conformance comes from the Lean-generated
-// fixture (`explorer/ingest/gen_conformance.py`) loaded in CI; this fallback is a smoke check.
-const FALLBACK = [
-  "1RB1LB_1LA---", // BB(2,2) champion
-  "1RB0RB_1LB1LA", // small 2-state non-halter
-];
-
-function loadCodes(): { source: string; codes: string[] } {
-  if (existsSync(fixture)) {
-    const codes = readFileSync(fixture, "utf8")
-      .split("\n")
-      .map((l) => l.trim().split(/\s+/)[0] ?? "")
-      .filter((l) => l.length > 0 && !l.startsWith("#"));
-    if (codes.length > 0) return { source: `fixture (${codes.length} codes)`, codes };
+function loadCodes(): string[] {
+  if (!existsSync(fixture)) {
+    throw new Error(
+      `conformance fixture missing: ${fixture}. Regenerate with ` +
+        `\`bb-ingest gen-conformance --file <export.tsv> --out test/fixtures/tnf-codes.txt\`.`,
+    );
   }
-  return { source: "fallback (hand-verified)", codes: FALLBACK };
+  return readFileSync(fixture, "utf8")
+    .split("\n")
+    .map((l) => l.trim().split(/\s+/)[0] ?? "")
+    .filter((l) => l.length > 0 && !l.startsWith("#"));
 }
 
+const codes = loadCodes();
+const widths = new Set(codes.map((c) => c.split("_").length));
+
 describe("Lean TNF conformance", () => {
-  const { source, codes } = loadCodes();
-  it(`source: ${source}`, () => {
-    expect(codes.length).toBeGreaterThan(0);
+  it("fixture is non-empty and covers the BB(2,2)..BB(5,2) ladder", () => {
+    expect(codes.length).toBeGreaterThan(100);
+    // Every size on the ladder must be represented — especially width 5, the largest and the
+    // one with the most relabeling complexity. Without this, a 5-state divergence ships green.
+    for (const w of [2, 3, 4, 5]) {
+      expect(widths.has(w), `fixture is missing any width-${w} (BB(${w},2)) codes`).toBe(true);
+    }
   });
 
   it("every code round-trips through parse/serialize", () => {
@@ -47,8 +50,7 @@ describe("Lean TNF conformance", () => {
   });
 
   it("every code is a fixed point of canonicalize", () => {
-    // 5000 steps covers the enumeration's explore horizon (≤4100 for BB5) while staying fast
-    // across the full fixture.
+    // 5000 steps covers the enumeration's explore horizon (≤4100 for BB5) while staying fast.
     const offenders: string[] = [];
     for (const code of codes) {
       const out = canonicalize(parseMachine(code), { maxSteps: 5000 }).code;

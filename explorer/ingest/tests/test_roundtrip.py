@@ -22,11 +22,11 @@ from bb_ingest.parse import parse_stream  # noqa: E402
 
 SCHEMA = Path(__file__).resolve().parents[2] / "db" / "schema.sql"
 
-# Synthetic export: 2 halts (one champion, one fast), 1 loop, 1 holdout.
+# Synthetic export: 2 halts (one champion, one fast), 1 non-halter, 1 holdout.
 SAMPLE = "\n".join([
     "1RB1LB_1LA---\thalt\t6\t{\"explore\":130}",
     "0RB---_1LA---\thalt\t3\t{\"explore\":130}",
-    "1RB0RB_1LB1LA\tloop\t\t{\"cycler\":300}",
+    "1RB0RB_1LB1LA\tnonhalt\t\t{\"cycler\":300}",
     "1RB1RB_1LB1LA\tundecided\t\t",
 ]) + "\n"
 
@@ -54,10 +54,10 @@ def main() -> int:
 
             counts = dict(conn.execute(
                 "SELECT verdict, count(*) FROM machines GROUP BY verdict").fetchall())
-            assert counts == {"halt": 2, "loop": 1, "undecided": 1}, counts
+            assert counts == {"halt": 2, "nonhalt": 1, "undecided": 1}, counts
 
             summary = conn.execute(
-                "SELECT total, n_halt, n_loop, n_undecided, max_steps, decided_fully "
+                "SELECT total, n_halt, n_nonhalt, n_undecided, max_steps, decided_fully "
                 "FROM size_summary WHERE states=2 AND symbols=2").fetchone()
             assert summary == (4, 2, 1, 1, 6, False), summary
 

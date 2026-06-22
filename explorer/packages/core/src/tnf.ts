@@ -123,6 +123,12 @@ export function canonicalize(m: Machine, opts: CanonOptions = {}): CanonResult {
   const reachableStates = nextState;
   const reachableSymbols = nextSym;
 
+  // Note: nStates/nSymbols are deliberately preserved (not trimmed to the reachable count).
+  // The enumerator emits leaves with fully-unreachable trailing states as all-halt groups
+  // (e.g. BB(3,2) `0RB---_0LA---_------`), so an N-state machine that only reaches k<N states
+  // is a *distinct* TNF leaf in the N-state size class — its N-group code is the correct DB
+  // key. Trimming would wrongly redirect it to a different machine in a smaller size class.
+
   // Assign the remaining (unreached) states/symbols arbitrary canonical labels so the
   // maps are total bijections. Their rows/columns are all halt and so do not affect code.
   for (let q = 0; q < m.nStates; q++) if (!stateMap.has(q)) stateMap.set(q, nextState++);

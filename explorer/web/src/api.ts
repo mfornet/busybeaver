@@ -4,7 +4,16 @@ import type { DeciderJson } from "@bb/core";
 // Configured at build time. Falls back to same-origin "/api" for local proxying.
 const API_BASE = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
-export type Verdict = "halt" | "loop" | "undecided";
+// Canonical verdict vocabulary (mirrors the `verdict` enum in db/schema.sql). 'nonhalt' is
+// "proven not to halt" by any decider — not necessarily a periodic cycler — so its label is
+// "Non-halting", not "Loops".
+export const VERDICTS = ["halt", "nonhalt", "undecided"] as const;
+export type Verdict = (typeof VERDICTS)[number];
+export const VERDICT_LABEL: Record<Verdict, string> = {
+  halt: "Halts",
+  nonhalt: "Non-halting",
+  undecided: "Holdout",
+};
 
 export interface MachineRow {
   code: string;
@@ -27,7 +36,7 @@ export interface SizeSummary {
   symbols: number;
   total: number;
   n_halt: number;
-  n_loop: number;
+  n_nonhalt: number;
   n_undecided: number;
   max_steps: number | null;
   decided_fully: boolean;

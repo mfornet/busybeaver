@@ -17,9 +17,12 @@ export function MachineView() {
   const { code: rawCode } = useParams();
   const code = decodeURIComponent(rawCode ?? "");
   const machine = useMemo(() => tryParseMachine(code), [code]);
-  const canon = useMemo(() => (machine ? canonicalize(machine) : null), [machine]);
+  // Bound work on the render path. 10k steps covers the enumeration's reachability horizon
+  // (≤4100 for BB5), so the canonical code still matches the DB key, while a pathological
+  // non-halting paste can't run the canonicalizer for its full default budget here.
+  const canon = useMemo(() => (machine ? canonicalize(machine, { maxSteps: 10_000 }) : null), [machine]);
   const localRun = useMemo(
-    () => (machine ? simulate(machine, 100_000) : null),
+    () => (machine ? simulate(machine, 50_000) : null),
     [machine],
   );
 

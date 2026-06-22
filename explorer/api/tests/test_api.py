@@ -23,7 +23,7 @@ SAMPLE = [
     # code, states, symbols, ordinal, verdict, steps, decider(json|None), kind
     ("1RB1LB_1LA---", 2, 2, 0, "halt", 6, {"explore": 130}, "explore"),
     ("0RB---_1LA---", 2, 2, 1, "halt", 3, {"explore": 130}, "explore"),
-    ("1RB0RB_1LB1LA", 2, 2, 2, "loop", None, {"cycler": 300}, "cycler"),
+    ("1RB0RB_1LB1LA", 2, 2, 2, "nonhalt", None, {"cycler": 300}, "cycler"),
     ("1RB1RB_1LB1LA", 2, 2, 3, "undecided", None, None, None),
 ]
 
@@ -61,7 +61,7 @@ async def run_checks(dsn: str) -> None:
             body = r.json()
             assert r.headers["cache-control"].startswith("public")
             size = next(s for s in body["sizes"] if s["states"] == 2 and s["symbols"] == 2)
-            assert (size["total"], size["n_halt"], size["n_loop"], size["n_undecided"]) == (4, 2, 1, 1)
+            assert (size["total"], size["n_halt"], size["n_nonhalt"], size["n_undecided"]) == (4, 2, 1, 1)
             assert size["max_steps"] == 6 and size["decided_fully"] is False
 
             r = await c.get("/api/sizes/2/2/summary")

@@ -6,7 +6,7 @@
   --card: #fafafa;
   --accent: #2563eb;
   --halt: #2563eb;
-  --loop: #10b981;
+  --nonhalt: #10b981;
   --undecided: #f59e0b;
   --cell-0: #f4f4f5;
   --cell-1: #2563eb;
@@ -42,7 +42,7 @@ a:hover { text-decoration: underline; }
 .mono, code, pre { font-family: var(--mono); }
 .muted { color: var(--muted); }
 .error { color: #ef4444; }
-.ok { color: var(--loop); font-weight: 600; }
+.ok { color: var(--nonhalt); font-weight: 600; }
 h1 { font-size: 1.6rem; }
 h2 { font-size: 1.15rem; margin-top: 1.5rem; }
 
@@ -120,7 +120,7 @@ h2 { font-size: 1.15rem; margin-top: 1.5rem; }
 .bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--cell-0); }
 .seg { display: block; height: 100%; }
 .seg-halt { background: var(--halt); }
-.seg-loop { background: var(--loop); }
+.seg-nonhalt { background: var(--nonhalt); }
 .seg-undecided { background: var(--undecided); }
 .sizecard-stats { display: flex; justify-content: space-between; font-size: 0.78rem; margin-top: 0.5rem; color: var(--muted); }
 .sizecard-foot { margin-top: 0.5rem; font-size: 0.82rem; }
@@ -148,7 +148,7 @@ table.machine-list { width: 100%; border-collapse: collapse; font-size: 0.85rem;
 
 .badge { font-size: 0.72rem; padding: 0.12rem 0.5rem; border-radius: 999px; font-weight: 600; color: white; }
 .badge-halt { background: var(--halt); }
-.badge-loop { background: var(--loop); }
+.badge-nonhalt { background: var(--nonhalt); }
 .badge-undecided { background: var(--undecided); }
 
 /* Machine view */

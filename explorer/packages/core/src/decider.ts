@@ -95,6 +95,35 @@ export function deciderConfigFile(d: Decider): string {
   return JSON.stringify([deciderToJson(d)], null, 2);
 }
 
+/** Top-level kind of a raw DeciderConfig JSON value (string variant, or the single object key). */
+export function deciderKindFromJson(j: DeciderJson): string {
+  if (typeof j === "string") return j;
+  const keys = Object.keys(j);
+  return keys[0] ?? "unknown";
+}
+
+/**
+ * Resilient label for a raw DeciderConfig JSON. Falls back to the bare kind if the variant is
+ * not one this build knows about — so a newly-added Lean decider degrades gracefully in the UI
+ * instead of throwing. (`@bb/core` is a hand-port of Lean's derived `DeciderConfig`; new
+ * variants must be added here, and `decider.test.ts` pins the known ones.)
+ */
+export function deciderLabelFromJson(j: DeciderJson): string {
+  try {
+    return deciderLabel(deciderFromJson(j));
+  } catch {
+    return deciderKindFromJson(j);
+  }
+}
+
+/**
+ * The reproducible single-decider config file, built directly from the raw JSON (passthrough),
+ * so it works even for decider variants this build doesn't model structurally.
+ */
+export function deciderConfigFileFromJson(j: DeciderJson): string {
+  return JSON.stringify([j], null, 2);
+}
+
 /**
  * The reproducible CLI command. When `configPath` is given, points `--config` at a file
  * holding `[deciderToJson(decider)]`; otherwise the caller is expected to create one.

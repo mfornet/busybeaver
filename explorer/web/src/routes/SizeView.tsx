@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { api, type MachineRow, type SizeDetail, type Verdict } from "../api.js";
+import { api, type MachineRow, type SizeDetail, type Verdict, VERDICTS, VERDICT_LABEL } from "../api.js";
 import { VerdictBadge } from "../components/Badge.js";
 
 const PAGE = 100;
@@ -71,7 +71,7 @@ export function SizeView() {
           <div className="sizehead-stats">
             <span>{detail.summary.total.toLocaleString()} machines</span>
             <span>{detail.summary.n_halt.toLocaleString()} halt</span>
-            <span>{detail.summary.n_loop.toLocaleString()} loop</span>
+            <span>{detail.summary.n_nonhalt.toLocaleString()} non-halt</span>
             <span>{detail.summary.n_undecided.toLocaleString()} holdout</span>
             {detail.summary.decided_fully && (
               <span className="ok">BB = {detail.summary.max_steps?.toLocaleString()}</span>
@@ -83,13 +83,13 @@ export function SizeView() {
       <div className="filters">
         <div className="filtergroup">
           <span>Verdict:</span>
-          {(["halt", "loop", "undecided"] as Verdict[]).map((v) => (
+          {VERDICTS.map((v) => (
             <button
               key={v}
               className={verdict === v ? "chip active" : "chip"}
               onClick={() => setFilter("verdict", verdict === v ? undefined : v)}
             >
-              {v}
+              {VERDICT_LABEL[v]}
             </button>
           ))}
         </div>

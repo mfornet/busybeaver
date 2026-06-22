@@ -120,11 +120,14 @@ export interface SpaceTime {
 export function spaceTimeDiagram(machine: Machine, opts: SpaceTimeOptions = {}): SpaceTime {
   const maxSteps = opts.maxSteps ?? 1000;
 
-  // Pass 1: discover bounds and total recorded steps.
+  // Pass 1: discover bounds and total recorded steps. The head can finish one cell past
+  // the written region (it moves after the final write, or halts on an unwritten cell), so
+  // widen the window to include the final head position — otherwise its column is off-grid.
   const probe = simulate(machine, maxSteps);
   const recordedSteps = probe.steps;
-  const origin = probe.leftmost;
-  const width = Math.max(1, probe.rightmost - probe.leftmost + 1);
+  const origin = Math.min(probe.leftmost, probe.head);
+  const right = Math.max(probe.rightmost, probe.head);
+  const width = Math.max(1, right - origin + 1);
   const height = recordedSteps + 1;
 
   const symbols = new Uint8Array(height * width);

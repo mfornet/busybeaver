@@ -29,7 +29,7 @@ class SizeSummary(BaseModel):
     symbols: int
     total: int
     n_halt: int
-    n_loop: int
+    n_nonhalt: int
     n_undecided: int
     max_steps: Optional[int] = None
     decided_fully: bool

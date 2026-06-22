@@ -72,7 +72,8 @@ def cmd_gen_conformance(args: argparse.Namespace) -> int:
     codes: list[str] = []
     with Path(args.file).open() as fh:
         for i, row in enumerate(parse_stream(fh)):
-            if args.sample and i % max(1, args.stride) != 0:
+            # Stride applies on its own; --sample (when > 0) caps the total kept.
+            if i % max(1, args.stride) != 0:
                 continue
             codes.append(row.code)
             if args.sample and len(codes) >= args.sample:

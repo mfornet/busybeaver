@@ -13,7 +13,7 @@ class MachineRow:
     states: int
     symbols: int
     ordinal: int
-    verdict: str  # 'halt' | 'loop' | 'undecided'
+    verdict: str  # 'halt' | 'nonhalt' | 'undecided'
     steps: Optional[int]
     decider: Optional[dict | str]  # parsed DeciderConfig JSON, or None for holdouts
     decider_kind: Optional[str]
@@ -53,7 +53,7 @@ def parse_stream(lines: Iterator[str]) -> Iterator[MachineRow]:
         if len(parts) != 4:
             raise ValueError(f"malformed export line (want 4 tab fields): {line!r}")
         code, verdict, steps_s, decider_s = parts
-        if verdict not in ("halt", "loop", "undecided"):
+        if verdict not in ("halt", "nonhalt", "undecided"):
             raise ValueError(f"unknown verdict {verdict!r} on line: {line!r}")
         states, symbols = shape_from_code(code)
         steps = int(steps_s) if steps_s else None

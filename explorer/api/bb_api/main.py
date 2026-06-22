@@ -81,7 +81,7 @@ async def list_machines(
     resp: Response,
     states: int = Query(..., ge=1),
     symbols: int = Query(..., ge=1),
-    verdict: Optional[str] = Query(None, pattern="^(halt|loop|undecided)$"),
+    verdict: Optional[str] = Query(None, pattern="^(halt|nonhalt|undecided)$"),
     decider_kind: Optional[str] = Query(None, max_length=64),
     after_ordinal: int = Query(-1, ge=-1),
     limit: int = Query(100, ge=1),

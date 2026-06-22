@@ -17,7 +17,8 @@ export function MachineSearch() {
     }
     setError(null);
     // Navigate by canonical TNF code so equivalent inputs land on the same page.
-    const { code } = canonicalize(machine);
+    // Bounded budget keeps the submit handler responsive even for non-halting pastes.
+    const { code } = canonicalize(machine, { maxSteps: 10_000 });
     navigate(`/machine/${encodeURIComponent(code)}`);
     setValue("");
   }

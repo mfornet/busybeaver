@@ -13,7 +13,9 @@
 
 BEGIN;
 
-CREATE TYPE verdict AS ENUM ('halt', 'loop', 'undecided');
+-- Canonical verdict vocabulary. 'nonhalt' = proven not to halt by any decider (not
+-- necessarily a periodic cycler). Mirrored by the API, the TS client, and Main.lean.
+CREATE TYPE verdict AS ENUM ('halt', 'nonhalt', 'undecided');
 
 -- One row per enumerated machine.
 CREATE TABLE machines (
@@ -64,7 +66,7 @@ CREATE TABLE size_summary (
     symbols       SMALLINT    NOT NULL,
     total         BIGINT      NOT NULL,
     n_halt        BIGINT      NOT NULL,
-    n_loop        BIGINT      NOT NULL,
+    n_nonhalt     BIGINT      NOT NULL,
     n_undecided   BIGINT      NOT NULL,
     max_steps     BIGINT,                          -- BB(states,symbols) when n_undecided = 0
     decided_fully BOOLEAN     NOT NULL,            -- n_undecided = 0
@@ -100,13 +102,13 @@ CREATE TABLE ingest_runs (
 CREATE OR REPLACE FUNCTION refresh_summaries() RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     INSERT INTO size_summary AS ss
-        (states, symbols, total, n_halt, n_loop, n_undecided, max_steps, decided_fully,
+        (states, symbols, total, n_halt, n_nonhalt, n_undecided, max_steps, decided_fully,
          pipeline_hash, refreshed_at)
     SELECT
         states, symbols,
         count(*),
         count(*) FILTER (WHERE verdict = 'halt'),
-        count(*) FILTER (WHERE verdict = 'loop'),
+        count(*) FILTER (WHERE verdict = 'nonhalt'),
         count(*) FILTER (WHERE verdict = 'undecided'),
         max(steps),
         bool_and(verdict <> 'undecided'),
@@ -117,7 +119,7 @@ BEGIN
     ON CONFLICT (states, symbols) DO UPDATE SET
         total = EXCLUDED.total,
         n_halt = EXCLUDED.n_halt,
-        n_loop = EXCLUDED.n_loop,
+        n_nonhalt = EXCLUDED.n_nonhalt,
         n_undecided = EXCLUDED.n_undecided,
         max_steps = EXCLUDED.max_steps,
         decided_fully = EXCLUDED.decided_fully,

@@ -429,7 +429,7 @@ unsafe def exploreCmd := `[Cli|
 
     `<code>\t<verdict>\t<steps>\t<deciderJson>`
 
-where `verdict ∈ {halt, loop, undecided}`, `steps` is the halting step count (`n+1`) for
+where `verdict ∈ {halt, nonhalt, undecided}`, `steps` is the halting step count (`n+1`) for
 halting machines and empty otherwise, and `deciderJson` is the compact JSON of the deciding
 `DeciderConfig` (empty for holdouts). This is the source feed for the explorer database; the
 DFS emission order is a stable enumeration ordinal. -/
@@ -442,7 +442,9 @@ unsafe def exportRec (cfg: List DeciderConfig) (M: Machine l s)
       let dj := (Lean.toJson d).compress
       match res with
       | .unknown _ => emit s!"{code}\tundecided\t\t"
-      | .loops_prf _ => emit s!"{code}\tloop\t\t{dj}"
+      -- `.loops_prf` carries a `¬ halts` proof from any decider, not necessarily a periodicity
+      -- proof, so the verdict is the honest "nonhalt" rather than "loop".
+      | .loops_prf _ => emit s!"{code}\tnonhalt\t\t{dj}"
       | .halts_prf n C _ =>
           emit s!"{code}\thalt\t{n + 1}\t{dj}"
           -- Expand the halting transition only when other cells remain to be filled.

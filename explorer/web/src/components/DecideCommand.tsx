@@ -1,9 +1,8 @@
 import { useState } from "react";
 import {
   type DeciderJson,
-  deciderConfigFile,
-  deciderFromJson,
-  deciderLabel,
+  deciderConfigFileFromJson,
+  deciderLabelFromJson,
   decideCommand,
 } from "@bb/core";
 
@@ -28,14 +27,14 @@ function Copy({ text }: { text: string }) {
  * stored decider decide this machine: write the one-decider config, then `beaver decide`.
  */
 export function DecideCommand({ code, decider }: { code: string; decider: DeciderJson }) {
-  const d = deciderFromJson(decider);
-  const configFile = deciderConfigFile(d);
+  // Built from the raw JSON so an unknown/new Lean decider still renders (no crash).
+  const configFile = deciderConfigFileFromJson(decider);
   const command = decideCommand(code);
 
   return (
     <div className="decide">
       <p>
-        Decided by <strong>{deciderLabel(d)}</strong>. Reproduce it in the{" "}
+        Decided by <strong>{deciderLabelFromJson(decider)}</strong>. Reproduce it in the{" "}
         <a href="https://github.com/mfornet/busybeaver">Lean project</a>:
       </p>
       <div className="codeblock">

@@ -32,7 +32,7 @@ async def create_pool(dsn: str, *, mn: int, mx: int) -> asyncpg.Pool:
 async def fetch_summary(pool: asyncpg.Pool) -> dict[str, list[dict[str, Any]]]:
     async with pool.acquire() as con:
         sizes = await con.fetch(
-            "SELECT states, symbols, total, n_halt, n_loop, n_undecided, max_steps, "
+            "SELECT states, symbols, total, n_halt, n_nonhalt, n_undecided, max_steps, "
             "decided_fully FROM size_summary ORDER BY states, symbols"
         )
         deciders = await con.fetch(
@@ -50,7 +50,7 @@ async def fetch_size_detail(
 ) -> Optional[dict[str, Any]]:
     async with pool.acquire() as con:
         summary = await con.fetchrow(
-            "SELECT states, symbols, total, n_halt, n_loop, n_undecided, max_steps, "
+            "SELECT states, symbols, total, n_halt, n_nonhalt, n_undecided, max_steps, "
             "decided_fully FROM size_summary WHERE states=$1 AND symbols=$2",
             states, symbols,
         )

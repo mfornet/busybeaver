@@ -32,4 +32,15 @@ describe("simulate", () => {
     // Head column for row 0 maps to absolute position 0.
     expect(st.heads[0]! + st.origin).toBe(0);
   });
+
+  it("keeps every head column in-grid even when the head ends past the written region", () => {
+    // '1RA---' marches right writing 1s; after the budget the head sits one cell past the
+    // rightmost write. Every recorded head (including the last) must be within [0, width).
+    const m = parseMachine("1RA---");
+    const st = spaceTimeDiagram(m, { maxSteps: 3 });
+    for (let t = 0; t < st.height; t++) {
+      expect(st.heads[t]!, `row ${t} head off-grid`).toBeGreaterThanOrEqual(0);
+      expect(st.heads[t]!).toBeLessThan(st.width);
+    }
+  });
 });
