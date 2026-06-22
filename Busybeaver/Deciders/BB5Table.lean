@@ -1344,10 +1344,19 @@ theorem toNF_nonHalting {M : Machine l s} (h : ¬ (toNF M).halts init) : ¬ M.ha
 
 /-- Normal-form table decider: canonicalise with `toNF`, look the result up in the
 table, and transfer a non-halting verdict back to the original machine.  Mirrors
-Coq's `NF_decider table_based_decider` (only the non-halting direction propagates). -/
+Coq's `NF_decider table_based_decider` (only the non-halting direction propagates).
+
+A `.halt` row is skipped before running its decider: `toNF` preserves halting in both
+directions, so a normalised machine matching a halt row necessarily halts, and the
+only verdict its `haltDecider` could produce is a `.halts_prf` we discard here.
+Running it would spend tens of millions of steps in a halting search for nothing. -/
 def nfTableDecider (table : Table) (M : Machine 4 1) : HaltM M Unit :=
-  match tableDecider table (toNF M) with
-  | .loops_prf hnh => .loops_prf (toNF_nonHalting hnh)
-  | _ => .unknown ()
+  match findInTable? table (toNF M) with
+  | some (.halt _) => .unknown ()
+  | some d =>
+      match d.run (toNF M) with
+      | .loops_prf hnh => .loops_prf (toNF_nonHalting hnh)
+      | _ => .unknown ()
+  | none => .unknown ()
 
 end Deciders.BB5Table
