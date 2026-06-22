@@ -1,12 +1,10 @@
 import Busybeaver.TM.Table
 import Lean.Data.AssocList
-import Busybeaver.Parse
+import Busybeaver.TM.Table.Parse
 
 /-!
 Generates a time diagram for a TM as an SVG.
 -/
-
--- TODO: Move SpaceTimeDiagram to Busybeaver/Utils/SpaceTimeDiagram.lean
 
 open TM.Table
 

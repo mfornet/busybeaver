@@ -17,6 +17,7 @@ import Busybeaver.Deciders.Skelet.ShiftOverflowBins
 
 import Busybeaver.Enumerate.Alg
 import Busybeaver.Enumerate.Impl
-import Busybeaver.Parse
+import Busybeaver.TM.Table.Model
+import Busybeaver.TM.Table.Parse
 
-import Busybeaver.SpaceTimeDiagram
+import Busybeaver.Utils.SpaceTimeDiagram

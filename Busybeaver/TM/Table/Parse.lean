@@ -1,7 +1,8 @@
 /-
 Parsing machines in standard format for convenience.
+
+This module is particular to tabular machines, hence it lives under `TM/Table/`.
 -/
--- TODO: Move Parse.lean into TM/Table/Parse.lean as it is particular to tabular machines.
 import Busybeaver.TM.Table
 import Std.Internal.Parsec.String
 

@@ -7,7 +7,7 @@ import Busybeaver.Deciders.Sweep
 import Busybeaver.Deciders.WFAR
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Symmetry
-import Busybeaver.Parse
+import Busybeaver.TM.Table.Parse
 import Busybeaver.TM.Table.ClosedSet
 import Std.Data.HashMap
 
