@@ -1,0 +1,16 @@
+{
+  "name": "bb-explorer",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Busy Beaver formalization explorer — workspace root",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "dev": "pnpm --filter web dev",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@10.0.0"
+}

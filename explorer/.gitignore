@@ -1,0 +1,17 @@
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python
+.venv/
+__pycache__/
+*.egg-info/
+
+# Lean export artifacts
+.export_*.tsv
+export_*.tsv
+
+# dev-stack runtime logs
+.api.log
+.web.log

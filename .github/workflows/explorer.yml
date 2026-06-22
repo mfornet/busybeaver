@@ -1,0 +1,89 @@
+name: Explorer
+
+on:
+  push:
+    paths: ["explorer/**", ".github/workflows/explorer.yml"]
+  pull_request:
+    paths: ["explorer/**", ".github/workflows/explorer.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: explorer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core + web (build, test, TNF conformance)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: explorer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: explorer/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      # @bb/core unit tests + TNF conformance against the committed Lean-generated fixture.
+      - run: pnpm --filter @bb/core test
+      - run: pnpm --filter @bb/core build
+      - run: pnpm --filter web typecheck
+      - run: pnpm --filter web build
+        env:
+          VITE_BASE: ${{ vars.EXPLORER_BASE || '/' }}
+          VITE_API_BASE: ${{ vars.EXPLORER_API_BASE || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist
+          path: explorer/web/dist
+
+  python:
+    name: Ingest + API tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Put Postgres binaries on PATH
+        run: echo "$(ls -d /usr/lib/postgresql/*/bin | tail -1)" >> "$GITHUB_PATH"
+      - name: Ingest roundtrip
+        working-directory: explorer/ingest
+        run: |
+          uv venv
+          uv pip install 'psycopg[binary]>=3.2'
+          . .venv/bin/activate
+          python -m tests.test_roundtrip
+      - name: API smoke
+        working-directory: explorer/api
+        run: |
+          uv venv
+          uv pip install 'fastapi>=0.115' 'asyncpg>=0.30' 'pydantic>=2.9' 'httpx>=0.27'
+          . .venv/bin/activate
+          python -m tests.test_api
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [core, python]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: dist
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4

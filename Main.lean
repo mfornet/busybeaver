@@ -221,6 +221,17 @@ def firstDecision?: List DeciderConfig → (M: Machine l s) → Option (String �
     else
       firstDecision? ds M
 
+/-- Like `firstDecision?`, but returns the deciding `DeciderConfig` together with the full
+`HaltM` result (needed to read the halting config for tree expansion in `export`). -/
+def firstDecisionFull?: List DeciderConfig → (M: Machine l s) → Option (DeciderConfig × HaltM M Unit)
+| [], _ => none
+| d :: ds, M =>
+    let res := d.deciderTable M
+    if HaltM.decided res then
+      some (d, res)
+    else
+      firstDecisionFull? ds M
+
 def configFromFile (path: String): IO (Option <| List DeciderConfig) := do
   let content ← IO.FS.readFile path
   let Except.ok parsed := Json.parse content | throw <| IO.userError "Invalid JSON"
@@ -414,6 +425,60 @@ unsafe def exploreCmd := `[Cli|
     output: String; "Path to write the output"
 ]
 
+/-- Walk the TNF enumeration tree, emitting one tab-separated line per enumerated machine:
+
+    `<code>\t<verdict>\t<steps>\t<deciderJson>`
+
+where `verdict ∈ {halt, loop, undecided}`, `steps` is the halting step count (`n+1`) for
+halting machines and empty otherwise, and `deciderJson` is the compact JSON of the deciding
+`DeciderConfig` (empty for holdouts). This is the source feed for the explorer database; the
+DFS emission order is a stable enumeration ordinal. -/
+unsafe def exportRec (cfg: List DeciderConfig) (M: Machine l s)
+    (emit: String → IO Unit): IO Unit := do
+  let code := s!"{repr M}"
+  match firstDecisionFull? cfg M with
+  | none => emit s!"{code}\tundecided\t\t"
+  | some (d, res) =>
+      let dj := (Lean.toJson d).compress
+      match res with
+      | .unknown _ => emit s!"{code}\tundecided\t\t"
+      | .loops_prf _ => emit s!"{code}\tloop\t\t{dj}"
+      | .halts_prf n C _ =>
+          emit s!"{code}\thalt\t{n + 1}\t{dj}"
+          -- Expand the halting transition only when other cells remain to be filled.
+          if M.n_halting_trans > 1 then
+            for M' in Quot.unquot (Busybeaver.next_machines M C.state C.tape.head).val do
+              exportRec cfg M' emit
+
+unsafe def runExportCmd (p: Parsed): IO UInt32 := do
+  let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
+  let s := (p.positionalArg! "nsyms" |>.as! ℕ) - 1
+  let output := p.positionalArg! "output" |>.as! String
+  let cfg ← determineConfig l s ((p.flag? "config").map (Parsed.Flag.as! · String))
+
+  IO.FS.withFile output IO.FS.Mode.write fun h => do
+    let emit (line: String): IO Unit := h.putStrLn line
+    if l = 0 then
+      -- Single-state machines are trivial; emit the lone seed result.
+      exportRec cfg (Busybeaver.BBCompute.m1RB l s) emit
+    else
+      exportRec cfg (Busybeaver.BBCompute.m0RB l s) emit
+      exportRec cfg (Busybeaver.BBCompute.m1RB l s) emit
+  return 0
+
+unsafe def exportCmd := `[Cli|
+  enumerate VIA runExportCmd;
+  "Streams every TNF-enumerated machine with its verdict and deciding decider to a file."
+
+  FLAGS:
+    c, config: String; "Configuration of the deciders to run"
+
+  ARGS:
+    nlabs: ℕ; "Number of labels (states) for the machines"
+    nsyms: ℕ; "Number of symbols for the machines"
+    output: String; "Path to write the enumeration stream"
+]
+
 unsafe def computeCmd (p: Parsed): IO UInt32 := do
   let start ← IO.monoMsNow
   let l := (p.positionalArg! "nlabs" |>.as! ℕ) - 1
@@ -463,7 +528,8 @@ unsafe def mainCmd := `[Cli|
   SUBCOMMANDS:
     decideCmd;
     auditCmd;
-    exploreCmd
+    exploreCmd;
+    exportCmd
 ]
 
 unsafe def main (args: List String): IO UInt32 := do

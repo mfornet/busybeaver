@@ -1,0 +1,18 @@
+[project]
+name = "bb-ingest"
+version = "0.0.0"
+description = "Admin ingestion CLI: enumerate via `lake exe beaver enumerate` and bulk-load into Postgres."
+requires-python = ">=3.11"
+dependencies = [
+    "psycopg[binary]>=3.2",
+]
+
+[project.scripts]
+bb-ingest = "bb_ingest.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["bb_ingest"]
