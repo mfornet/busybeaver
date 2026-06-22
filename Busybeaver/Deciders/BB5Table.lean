@@ -5,7 +5,7 @@ import Busybeaver.Deciders.NGramCPS
 import Busybeaver.Deciders.RepWL
 import Busybeaver.Deciders.Sweep
 import Busybeaver.Deciders.WFAR
-import Busybeaver.Parse
+import Busybeaver.TM.Table.Parse
 import Busybeaver.TM.Table.ClosedSet
 import Std.Data.HashMap
 
