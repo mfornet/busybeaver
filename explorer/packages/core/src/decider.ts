@@ -125,9 +125,9 @@ export function deciderConfigFileFromJson(j: DeciderJson): string {
 }
 
 /**
- * The reproducible CLI command. When `configPath` is given, points `--config` at a file
- * holding `[deciderToJson(decider)]`; otherwise the caller is expected to create one.
+ * The reproducible CLI command. `--config` points at `decider.json`, the file the UI shows
+ * alongside it holding `[<the decider JSON>]`.
  */
-export function decideCommand(code: string, configPath = "decider.json"): string {
-  return `lake exe beaver decide ${code} --config ${configPath}`;
+export function decideCommand(code: string): string {
+  return `lake exe beaver decide ${code} --config decider.json`;
 }
