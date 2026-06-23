@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { canonicalize, tryParseMachine } from "@bb/core";
+import { INTERACTIVE_CANON_STEPS, canonicalize, tryParseMachine } from "@bb/core";
 
 /** Paste any machine code; we canonicalize to TNF and navigate to its detail page. */
 export function MachineSearch() {
@@ -18,7 +18,7 @@ export function MachineSearch() {
     setError(null);
     // Navigate by canonical TNF code so equivalent inputs land on the same page.
     // Bounded budget keeps the submit handler responsive even for non-halting pastes.
-    const { code } = canonicalize(machine, { maxSteps: 10_000 });
+    const { code } = canonicalize(machine, { maxSteps: INTERACTIVE_CANON_STEPS });
     navigate(`/machine/${encodeURIComponent(code)}`);
     setValue("");
   }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { canonicalize, simulate, tryParseMachine } from "@bb/core";
+import { INTERACTIVE_CANON_STEPS, canonicalize, simulate, tryParseMachine } from "@bb/core";
 import { ApiError, api, type MachineRow } from "../api.js";
 import { VerdictBadge } from "../components/Badge.js";
 import { SpaceTime } from "../components/SpaceTime.js";
@@ -17,10 +17,13 @@ export function MachineView() {
   const { code: rawCode } = useParams();
   const code = decodeURIComponent(rawCode ?? "");
   const machine = useMemo(() => tryParseMachine(code), [code]);
-  // Bound work on the render path. 10k steps covers the enumeration's reachability horizon
-  // (≤4100 for BB5), so the canonical code still matches the DB key, while a pathological
+  // Bound work on the render path (see INTERACTIVE_CANON_STEPS): covers the enumeration's
+  // reachability horizon so the canonical code still matches the DB key, while a pathological
   // non-halting paste can't run the canonicalizer for its full default budget here.
-  const canon = useMemo(() => (machine ? canonicalize(machine, { maxSteps: 10_000 }) : null), [machine]);
+  const canon = useMemo(
+    () => (machine ? canonicalize(machine, { maxSteps: INTERACTIVE_CANON_STEPS }) : null),
+    [machine],
+  );
   const localRun = useMemo(
     () => (machine ? simulate(machine, 50_000) : null),
     [machine],

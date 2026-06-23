@@ -52,6 +52,16 @@ export interface CanonResult {
   halted: boolean;
 }
 
+/**
+ * Step budget for canonicalizing pasted machines on an interactive (render/submit) path.
+ *
+ * Enumerated leaves reach every non-halt cell within the decider's explore horizon (≤ a few
+ * thousand steps for the BB(2,2)..BB(5,2) ladder), so this is comfortably sufficient to compute
+ * the correct DB lookup key, while still bounding a pathological non-halting paste so it can't
+ * spin for the full default budget. Centralized here so the UI call sites stay in sync.
+ */
+export const INTERACTIVE_CANON_STEPS = 10_000;
+
 export interface CanonOptions {
   /**
    * Step budget for discovering reachable cells (default 100,000). Enumerated leaves reach
