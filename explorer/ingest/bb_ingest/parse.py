@@ -6,6 +6,10 @@ import json
 from dataclasses import dataclass
 from typing import Iterator, Optional
 
+# Canonical verdict vocabulary. Mirrors the `verdict` ENUM in db/schema.sql (the cross-language
+# source of truth), the API's query validator, and the TS client's VERDICTS.
+VERDICTS = ("halt", "nonhalt", "undecided")
+
 
 @dataclass(frozen=True)
 class MachineRow:
@@ -13,7 +17,7 @@ class MachineRow:
     states: int
     symbols: int
     ordinal: int
-    verdict: str  # 'halt' | 'nonhalt' | 'undecided'
+    verdict: str  # one of VERDICTS
     steps: Optional[int]
     decider: Optional[dict | str]  # parsed DeciderConfig JSON, or None for holdouts
     decider_kind: Optional[str]
@@ -53,7 +57,7 @@ def parse_stream(lines: Iterator[str]) -> Iterator[MachineRow]:
         if len(parts) != 4:
             raise ValueError(f"malformed export line (want 4 tab fields): {line!r}")
         code, verdict, steps_s, decider_s = parts
-        if verdict not in ("halt", "nonhalt", "undecided"):
+        if verdict not in VERDICTS:
             raise ValueError(f"unknown verdict {verdict!r} on line: {line!r}")
         states, symbols = shape_from_code(code)
         steps = int(steps_s) if steps_s else None

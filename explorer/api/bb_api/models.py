@@ -6,6 +6,10 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
+# Canonical verdict vocabulary. Mirrors the `verdict` ENUM in db/schema.sql (the cross-language
+# source of truth), the ingest parser's VERDICTS, and the TS client's VERDICTS.
+VERDICTS = ("halt", "nonhalt", "undecided")
+
 
 class Machine(BaseModel):
     code: str
