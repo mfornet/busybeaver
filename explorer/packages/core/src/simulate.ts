@@ -6,8 +6,22 @@
  * head position, `L` decrements it. A `halt` transition stops the machine; reaching a
  * state/symbol whose statement is `halt` is the only way to terminate.
  */
-import type { Machine } from "./types.js";
+import type { Machine, Stmt } from "./types.js";
 import { BLANK, START_STATE } from "./types.js";
+
+/**
+ * The transition out of `(state, sym)`, or `null` if the machine halts there (an explicit
+ * `---` halt, or a cell with no statement). This is the single point where the transition
+ * table is consulted, so `simulate` and `spaceTimeDiagram` step identically.
+ */
+function transition(
+  machine: Machine,
+  state: number,
+  sym: number,
+): Extract<Stmt, { kind: "next" }> | null {
+  const stmt = machine.table[state]?.[sym];
+  return stmt && stmt.kind === "next" ? stmt : null;
+}
 
 export type RunStatus = "halt" | "running";
 
@@ -58,9 +72,8 @@ export function simulate(machine: Machine, maxSteps = 100_000): RunResult {
   let steps = 0;
 
   while (steps < maxSteps) {
-    const sym = tape.get(head);
-    const stmt = machine.table[state]?.[sym];
-    if (!stmt || stmt.kind === "halt") {
+    const stmt = transition(machine, state, tape.get(head));
+    if (!stmt) {
       return {
         status: "halt",
         steps,
@@ -144,14 +157,12 @@ export function spaceTimeDiagram(machine: Machine, opts: SpaceTimeOptions = {}):
     symbols.set(row, t * width);
     heads[t] = head - origin;
     states[t] = state;
+    const stmt = transition(machine, state, row[head - origin] ?? BLANK);
     if (t === height - 1) {
-      const sym = row[head - origin] ?? BLANK;
-      halted = machine.table[state]?.[sym]?.kind !== "next";
+      halted = stmt === null;
       break;
     }
-    const sym = row[head - origin] ?? BLANK;
-    const stmt = machine.table[state]![sym]!;
-    if (stmt.kind === "halt") {
+    if (!stmt) {
       halted = true;
       break;
     }
