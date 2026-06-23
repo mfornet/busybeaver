@@ -93,7 +93,9 @@ def load_rows(
                 )
                 n += 1
 
-        cur.execute("SELECT refresh_summaries()")
+        # Scope the recompute to the size just loaded — refreshing all sizes here would
+        # re-scan the whole table (dominated by BB(5,2)) on every per-size ingest.
+        cur.execute("SELECT refresh_summaries(%s, %s)", (states, symbols))
         cur.execute(
             "UPDATE ingest_runs SET finished_at = now(), rows_loaded = %s WHERE id = %s",
             (n, run_id),

@@ -99,7 +99,14 @@ CREATE TABLE ingest_runs (
 );
 
 -- Recompute summary tables from `machines`. Run after each ingestion (see ingest CLI).
-CREATE OR REPLACE FUNCTION refresh_summaries() RETURNS void LANGUAGE plpgsql AS $$
+--
+-- Scope to a single size by passing (p_states, p_symbols); ingestion loads one size at a
+-- time, so this avoids re-scanning the whole table (dominated by the ~10^8 BB(5,2) rows) on
+-- every per-size load. Pass NULL for both to rebuild every size (full manual refresh).
+CREATE OR REPLACE FUNCTION refresh_summaries(
+    p_states  SMALLINT DEFAULT NULL,
+    p_symbols SMALLINT DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
     INSERT INTO size_summary AS ss
         (states, symbols, total, n_halt, n_nonhalt, n_undecided, max_steps, decided_fully,
@@ -115,6 +122,8 @@ BEGIN
         max(pipeline_hash),
         now()
     FROM machines
+    WHERE (p_states IS NULL OR states = p_states)
+      AND (p_symbols IS NULL OR symbols = p_symbols)
     GROUP BY states, symbols
     ON CONFLICT (states, symbols) DO UPDATE SET
         total = EXCLUDED.total,
@@ -126,11 +135,15 @@ BEGIN
         pipeline_hash = EXCLUDED.pipeline_hash,
         refreshed_at = EXCLUDED.refreshed_at;
 
-    DELETE FROM decider_summary;
+    DELETE FROM decider_summary
+    WHERE (p_states IS NULL OR states = p_states)
+      AND (p_symbols IS NULL OR symbols = p_symbols);
     INSERT INTO decider_summary (states, symbols, decider_kind, n)
     SELECT states, symbols, decider_kind, count(*)
     FROM machines
     WHERE decider_kind IS NOT NULL
+      AND (p_states IS NULL OR states = p_states)
+      AND (p_symbols IS NULL OR symbols = p_symbols)
     GROUP BY states, symbols, decider_kind;
 END;
 $$;
