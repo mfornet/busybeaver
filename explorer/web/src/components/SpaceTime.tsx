@@ -1,17 +1,23 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type Machine, spaceTimeDiagram } from "@bb/core";
 
-// Symbol colors (index 0 = blank). Read from CSS variables so theming stays consistent.
-function symbolColors(): string[] {
+// One color per symbol (index 0 = blank). The small alphabets are themed via CSS variables so
+// theming stays consistent; any further symbols (machines can have >2) get distinct generated
+// hues so they don't all collapse onto one color.
+function symbolColors(nSymbols: number): string[] {
   const css = getComputedStyle(document.documentElement);
   const v = (name: string, fallback: string) =>
     css.getPropertyValue(name).trim() || fallback;
-  return [
+  const themed = [
     v("--cell-0", "#f4f4f5"),
     v("--cell-1", "#2563eb"),
     v("--cell-2", "#f59e0b"),
     v("--cell-3", "#10b981"),
   ];
+  return Array.from({ length: nSymbols }, (_, s) =>
+    // Golden-angle hue spacing keeps generated colors visually distinct.
+    themed[s] ?? `hsl(${(s * 137.508) % 360} 70% 55%)`,
+  );
 }
 
 export function SpaceTime({ machine }: { machine: Machine }) {
@@ -26,6 +32,10 @@ export function SpaceTime({ machine }: { machine: Machine }) {
     () => spaceTimeDiagram(machine, { maxSteps: deferredSteps }),
     [machine, deferredSteps],
   );
+
+  // Palette only depends on the symbol count; computing it here keeps the per-redraw
+  // getComputedStyle (a forced style read) off the hot canvas path.
+  const colors = useMemo(() => symbolColors(machine.nSymbols), [machine.nSymbols]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -44,7 +54,6 @@ export function SpaceTime({ machine }: { machine: Machine }) {
 
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const colors = symbolColors();
 
     for (let t = 0; t < height; t++) {
       const base = t * width;
@@ -61,7 +70,7 @@ export function SpaceTime({ machine }: { machine: Machine }) {
         ctx.fillRect(hc * cell, t * cell, Math.max(1, cell), Math.max(1, cell));
       }
     }
-  }, [diagram]);
+  }, [diagram, colors]);
 
   return (
     <div className="spacetime">
