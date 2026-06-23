@@ -3,3 +3,8 @@
 
 *.swp
 next.md
+
+# Witness store databases (generated)
+*.db
+*.db-wal
+*.db-shm

@@ -16,8 +16,16 @@ rev = "v4.31.0"
 name = "checkdecls"
 git = "https://github.com/PatrickMassot/checkdecls.git"
 
+[[require]]
+name = "leansqlite"
+git = "https://github.com/leanprover/leansqlite"
+rev = "v4.31.0"
+
 [[lean_lib]]
 name = "Busybeaver"
+
+[[lean_lib]]
+name = "Witness"
 
 [[lean_exe]]
 name = "beaver"
