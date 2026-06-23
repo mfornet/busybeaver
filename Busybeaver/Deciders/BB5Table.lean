@@ -1,4 +1,6 @@
-import Mathlib.Tactic
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Cases
 import Busybeaver.Deciders.BoundExplore
 import Busybeaver.Deciders.FAR
 import Busybeaver.Deciders.Loop1
@@ -557,7 +559,7 @@ lemma prepare_K (n : Num) (hn : 0 < (n : ℕ)) : ∃ (k : ℕ) (n' : Num),
     cases n <;> aesop;
   induction p using PosNum.recOn <;> simp_all +decide [ pow_succ' ];
   · exists 0, 0;
-  · rename_i p ih; use 0, Num.pos p; simp +decide [ *, pow_succ' ] ;
+  · rename_i p ih; use 0, Num.pos p; simp +decide [*] ;
     exact ⟨ ListBlank.ext (congrFun rfl) , by ring ⟩;
   · rename_i p hp;
     obtain ⟨ k, n', hk, hn' ⟩ := hp; use k + 1, n'; simp_all +decide [ pow_succ', mul_assoc ] ;
@@ -569,19 +571,19 @@ lemma prepare_J (k : ℕ) (n' : Num) :
     J (2 ^ k + 2 ^ (k + 1) * n') = (Lk (binMin k) : List (Symbol 1)) ++
         ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J n')))) := by
   induction' k with k ih generalizing n';
-  · cases n' <;> simp +decide [ ListBlank.append ];
+  · cases n' <;> simp +decide;
     rename_i p;
     -- By definition of `PosNum`, we know that `p.bit1` is equivalent to `1 + 2 * p`.
     have h_pos : p.bit1 = Num.succ (2 * Num.pos p) := by
       grind +suggestions;
     convert congr_arg ( fun x : Num => J x ) h_pos.symm using 1;
-    simp +decide [ J, J' ];
+    simp +decide [J];
     rw [ show ( Num.pos p + Num.pos p + 1 : Num ) = Num.pos ( p.bit1 ) from ?_ ];
     · cases p <;> rfl;
     · grind +suggestions;
   · -- By definition of $J$, we know that $J(2^{k+1} + 2^{k+2} n') = J(2(2^k + 2^{k+1} n'))$.
     have hJ_succ : J (2 ^ (k + 1) + 2 ^ (k + 2) * n') = J (2 * (2 ^ k + 2 ^ (k + 1) * n')) := by
-      ring;
+      ring_nf;
     rw [ hJ_succ, show J ( 2 * ( 2 ^ k + 2 ^ ( k + 1 ) * n' ) ) = ListBlank.cons 0 ( ListBlank.cons 0 ( ListBlank.cons 0 ( ListBlank.cons 0 ( J ( 2 ^ k + 2 ^ ( k + 1 ) * n' ) ) ) ) ) from ?_ ];
     · rw [ ih ];
       exact ListBlank.ext (congrFun rfl);
@@ -589,7 +591,7 @@ lemma prepare_J (k : ℕ) (n' : Num) :
         intros p
         simp [J, J'];
       cases h : 2 ^ k + 2 ^ ( k + 1 ) * n' <;> simp_all +decide [ two_mul ];
-      convert hJ_def _ using 2 ; ring!;
+      convert hJ_def _ using 2 ; ring_nf!;
       exact Num.to_nat_inj.mp rfl
 
 /-- Coq `reset_invariant`. -/
@@ -673,7 +675,7 @@ lemma start_reset0 (n : Num) {m : PosNum} (h : All1 m) :
 lemma J_double (n : Num) :
     J (2 * (n + 1))
       = ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J (n + 1))))) := by
-  cases n <;> simp +decide [ two_mul, Num.add ];
+  cases n <;> simp +decide [two_mul];
   rename_i n;
   rw [ show ( Num.pos n + 1 + ( Num.pos n + 1 ) : Num ) = Num.pos ( n + 1 |> PosNum.bit0 ) by
         -- By definition of `Num.add`, we can rewrite the left-hand side as `Num.pos (n + 1 + (n + 1))`.
@@ -1095,7 +1097,7 @@ lemma cons_zero_empty : ListBlank.cons (0 : Symbol 1) ∅ = ∅ :=
 /-- The zigzag accumulator (with writes `1`, `0`) collapses to the `0 :: (10)^k` tail. -/
 lemma zztp (k : ℕ) : zigzagAcc (1 : Symbol 1) 0 k ∅ = ListBlank.cons 0 (tp k) := by
   induction k with
-  | zero => simp [zigzagAcc, tp, cons_zero_empty]
+  | zero => simp [zigzagAcc, tp]
   | succ k ih => simp [zigzagAcc, tp, ih]
 
 /-- One bounce: `F m (r+1)` reaches `F (m+1) r` (left edge → left edge). -/
