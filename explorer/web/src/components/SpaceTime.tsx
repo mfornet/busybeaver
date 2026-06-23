@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { type Machine, spaceTimeDiagram } from "@bb/core";
 
 // Symbol colors (index 0 = blank). Read from CSS variables so theming stays consistent.
@@ -18,7 +18,14 @@ export function SpaceTime({ machine }: { machine: Machine }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [maxSteps, setMaxSteps] = useState(400);
 
-  const diagram = useMemo(() => spaceTimeDiagram(machine, { maxSteps }), [machine, maxSteps]);
+  // The slider stays responsive (live `maxSteps`), but the full two-pass simulation only
+  // re-runs on the deferred value, so dragging across the range coalesces into one recompute
+  // at settle instead of one per 50-step tick.
+  const deferredSteps = useDeferredValue(maxSteps);
+  const diagram = useMemo(
+    () => spaceTimeDiagram(machine, { maxSteps: deferredSteps }),
+    [machine, deferredSteps],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
