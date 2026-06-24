@@ -171,7 +171,7 @@ def translatedCyclerDecider (bound : Nat) (m : BM) : TM.Model.HaltM m Unit :=
       let hWrapped := haltsResult_gives_wrappedHalts (TickCache.initial_valid wm) hSearch
       let hBase := TM.Wrappers.Ticking.halts_of_wrapped_halts (m := m) hWrapped
       .halts_prf cache.baseSteps (TM.Wrappers.Ticking.forgetConfig cache.cfg) hBase
-  | .loops cache loopWitness =>
+  | .loops _cache _loopWitness =>
       .loops_prf fun hBase =>
         loopResult_gives_wrappedNonHalting hSearch
           (TM.Wrappers.Ticking.wrapped_halts_of_halts (m := m) hBase)
