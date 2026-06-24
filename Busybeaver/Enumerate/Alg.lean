@@ -97,22 +97,10 @@ def BBResult.join (t₁ t₂: BBResult l s): BBResult l s := {
 }
 
 instance BBResult.join.commutative: Std.Commutative (BBResult.join (l:=l) (s:=s)) :=
-by {
-  constructor
-  intro A B
-  simp [BBResult.join]
-  constructor
-  · exact Nat.max_comm _ _
-  · exact AddCommMagma.add_comm A.undec B.undec
-}
+⟨fun A B => by simp only [BBResult.join, BBResult.mk.injEq]; exact ⟨Nat.max_comm _ _, add_comm _ _⟩⟩
 
 instance BBResult.join.associative: Std.Associative (BBResult.join (l:=l) (s:=s)) :=
-by {
-  constructor
-  intro A B C
-  simp [BBResult.join]
-  grind
-}
+⟨fun A B C => by simp only [BBResult.join, BBResult.mk.injEq]; exact ⟨Nat.max_assoc _ _ _, add_assoc _ _ _⟩⟩
 
 @[simp]
 def BBResult.join.fold_max [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
@@ -122,18 +110,10 @@ by induction S using Finset.induction with
 | @insert a S' hA IH => simp [Finset.fold_insert hA, join, IH]
 
 instance Multiset.add.associative {α}: Std.Associative (λ (A B: Multiset α) ↦ A + B):=
-by {
-  constructor
-  intro A B C
-  exact add_assoc A B C
-}
+⟨add_assoc⟩
 
 instance Multiset.add.commutative {α}: Std.Commutative (λ (A B: Multiset α) ↦ A + B):=
-by {
-  constructor
-  intro A B
-  exact AddCommMagma.add_comm A B
-}
+⟨add_comm⟩
 
 @[simp]
 def BBResult.join.fold_join [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
@@ -142,12 +122,8 @@ def BBResult.join.fold_join [DecidableEq α] {f: α → BBResult l s} {S: Finset
   :=
 by induction S using Finset.induction with
 | empty => simp
-| @insert a S' hA IH => {
-  simp [Finset.fold_insert hA, join, Finset.sum_insert hA]
-  conv_rhs =>
-    rw [← add_assoc, AddCommMonoid.add_comm B.undec, add_assoc]
-  simp [IH]
-}
+| @insert a S' hA IH =>
+  simp only [Finset.fold_insert hA, join, Finset.sum_insert hA, IH]; exact add_left_comm _ _ _
 
 @[simp]
 def Multiset.mem_sum [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
@@ -160,31 +136,8 @@ by induction S using Finset.induction with
 
 @[simp]
 def Multiset.add_empty [DecidableEq α] {A B: Multiset α}: A + B = 0 ↔ A = 0 ∧ B = 0 :=
-by {
-  constructor
-  · intro h
-    have hABc: ∀ a, (A + B).count a = 0 := by {
-      rw [h]
-      intro a
-      rfl
-    }
-    constructor <;>
-    · apply Multiset.le_zero.mp
-      rw [Multiset.le_iff_count]
-      intro a
-      specialize hABc a
-      rw [Multiset.count_add] at hABc
-      conv_rhs => simp
-      first
-      | exact Nat.le.intro hABc
-      | {
-          conv_lhs at hABc => rw [AddCommMonoid.add_comm]
-          exact Nat.le.intro hABc
-        }
-  · intro h
-    rw [h.1, h.2]
-    simp
-}
+by rw [← Multiset.card_eq_zero, ← Multiset.card_eq_zero, ← Multiset.card_eq_zero,
+       Multiset.card_add, Nat.add_eq_zero_iff]
 
 @[simp]
 def Multiset.sum_empty_iff_all_empty [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
@@ -677,44 +630,7 @@ by match hM'C: M'.get C.state C.tape.head with
 
 lemma Finset.fold_attach {S: Finset α} [DecidableEq α] [Std.Commutative op] [Std.Associative op]:
   Finset.fold op B (f ∘ Subtype.val) S.attach = Finset.fold op B f S :=
-by induction S using Finset.induction with
-| empty => simp
-| @insert A S hA IH => {
-  conv_rhs => rw [Finset.fold_insert hA]
-  conv_lhs =>
-    simp
-    rw [Finset.fold_insert (by {
-      simp
-      exact hA
-    })]
-  congr 1
-  simp at IH
-  calc
-    Finset.fold op B (fun x : { x // x ∈ insert A S } => f x.1)
-      (Finset.image
-        (fun x : { x // x ∈ S } =>
-          (⟨↑x, by exact Finset.mem_insert_of_mem x.prop⟩ : { x // x ∈ insert A S }))
-        S.attach)
-      = Finset.fold op B
-          ((fun x : { x // x ∈ insert A S } => f x.1) ∘
-            (fun x : { x // x ∈ S } =>
-              (⟨↑x, by exact Finset.mem_insert_of_mem x.prop⟩ : { x // x ∈ insert A S })))
-          S.attach := by
-            simpa using (Finset.fold_image (op:=op)
-              (f := (fun x : { x // x ∈ insert A S } => f x.1))
-              (b := B)
-              (g := (fun x : { x // x ∈ S } =>
-                (⟨↑x, by exact Finset.mem_insert_of_mem x.prop⟩ : { x // x ∈ insert A S })))
-              (s := S.attach)
-              (by
-                intro x hx y hy hxy
-                simpa using congrArg Subtype.val hxy))
-    _ = Finset.fold op B (fun x : { x // x ∈ S } => f x.1) S.attach := by
-      apply Finset.fold_congr
-      intro x hx
-      rfl
-    _ = Finset.fold op B f S := IH
-}
+by rw [← Finset.fold_image Subtype.coe_injective.injOn, Finset.attach_image_val]
 
 /--
 The BBCompute function is correct when called on a machine that uses the default symbol and state.
