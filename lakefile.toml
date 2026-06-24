@@ -16,6 +16,11 @@ rev = "v4.31.0"
 name = "checkdecls"
 git = "https://github.com/PatrickMassot/checkdecls.git"
 
+[[require]]
+name = "lean-tqdm"
+git = "https://github.com/mfornet/lean-tqdm"
+rev = "main"
+
 [[lean_lib]]
 name = "Busybeaver"
 
