@@ -232,13 +232,9 @@ def In_RepWL (x : RepWLES l s) (C : Config l s) : Prop :=
 lemma replicate_append_default (n : ℕ) :
     (List.replicate n (default : Symbol s)) ++ (default : Turing.ListBlank (Symbol s))
       = default := by
-  apply Turing.ListBlank.ext
-  intro i
+  refine Turing.ListBlank.ext fun i => ?_
   rw [Turing.ListBlank.append_nth]
-  split
-  · rename_i h
-    simp [List.getElem_replicate]
-  · simp
+  split <;> simp [List.getElem_replicate]
 
 /-- A word recognised by `allBlank` is a list of blanks. -/
 lemma allBlank_eq_replicate {w : Word s} (h : allBlank w = true) :
@@ -418,23 +414,9 @@ lemma wordUpdateStep_sound (M : Machine l s) (x : ListES l s)
   cases hget : M.get xs xh with
   | halt => simp [wordUpdateStep, hget]
   | next out dir q' =>
-      cases dir with
-      | right =>
-          cases xr with
-          | nil =>
-              simp only [wordUpdateStep, hget, toConfig, exitConfig]
-              simp [Machine.step, hget, Turing.Tape.write, Turing.Tape.move]
-          | cons m1 r1 =>
-              simp only [wordUpdateStep, hget, toConfig]
-              simp [Machine.step, hget, Turing.Tape.write, Turing.Tape.move]
-      | left =>
-          cases xl with
-          | nil =>
-              simp only [wordUpdateStep, hget, toConfig, exitConfig]
-              simp [Machine.step, hget, Turing.Tape.write, Turing.Tape.move]
-          | cons m1 l1 =>
-              simp only [wordUpdateStep, hget, toConfig]
-              simp [Machine.step, hget, Turing.Tape.write, Turing.Tape.move]
+      cases dir <;> [cases xl; cases xr] <;>
+        simp only [wordUpdateStep, hget, toConfig, exitConfig] <;>
+        simp [Machine.step, hget, Turing.Tape.write, Turing.Tape.move]
 
 /-- A successful bounded simulation (`wordUpdateSteps`) corresponds to one or more real
 TM steps ending at the exit configuration. -/
@@ -687,46 +669,15 @@ lemma insertAllNew_spec [DecidableEq α] (items : List α) :
       · simp only [insertAllNew, insertNew, if_pos ha]
         obtain ⟨IH1, IH2⟩ := IH queue seen
         refine ⟨fun z => ?_, fun z hz => ?_⟩
-        · rw [IH1 z]
-          constructor
-          · rintro (h | h)
-            · exact Or.inl h
-            · exact Or.inr (List.mem_cons_of_mem _ h)
-          · rintro (h | h)
-            · exact Or.inl h
-            · rcases List.mem_cons.mp h with rfl | h
-              · exact Or.inl ha
-              · exact Or.inr h
-        · apply IH2 z
-          rcases hz with h | ⟨hmem, hns⟩
-          · exact Or.inl h
-          · rcases List.mem_cons.mp hmem with rfl | h
-            · exact absurd ha hns
-            · exact Or.inr ⟨h, hns⟩
+        · rw [IH1 z]; aesop
+        · exact IH2 z (by aesop)
       · simp only [insertAllNew, insertNew, if_neg ha]
         obtain ⟨IH1, IH2⟩ := IH (a :: queue) (seen.push a)
         refine ⟨fun z => ?_, fun z hz => ?_⟩
-        · rw [IH1 z, Array.mem_push]
-          constructor
-          · rintro ((h | h) | h)
-            · exact Or.inl h
-            · exact Or.inr (List.mem_cons.2 (Or.inl h))
-            · exact Or.inr (List.mem_cons_of_mem _ h)
-          · rintro (h | h)
-            · exact Or.inl (Or.inl h)
-            · rcases List.mem_cons.mp h with rfl | h
-              · exact Or.inl (Or.inr rfl)
-              · exact Or.inr h
-        · apply IH2 z
-          rcases hz with h | ⟨hmem, hns⟩
-          · exact Or.inl (List.mem_cons_of_mem _ h)
-          · rcases List.mem_cons.mp hmem with rfl | h
-            · exact Or.inl (List.mem_cons.2 (Or.inl rfl))
-            · by_cases hza : z = a
-              · subst hza; exact Or.inl (List.mem_cons.2 (Or.inl rfl))
-              · refine Or.inr ⟨h, ?_⟩
-                rw [Array.mem_push]
-                exact not_or.mpr ⟨hns, hza⟩
+        · rw [IH1 z, Array.mem_push, List.mem_cons]; tauto
+        · refine IH2 z ?_
+          simp only [List.mem_cons, Array.mem_push] at hz ⊢
+          tauto
 
 /-- BFS search invariant: every seen configuration is still queued or already has all its
 successors recorded. -/
@@ -799,8 +750,7 @@ lemma search_sound (cfg : RepWLConfig) (M : Machine l s) :
 
 lemma cons_default_self :
     Turing.ListBlank.cons (default : Symbol s) default = default := by
-  apply Turing.ListBlank.ext
-  intro i
+  refine Turing.ListBlank.ext fun i => ?_
   cases i with
   | zero => simp only [Turing.ListBlank.cons_nth_zero, Turing.ListBlank.default_nth]
   | succ j => simp only [Turing.ListBlank.cons_nth_succ, Turing.ListBlank.default_nth]
