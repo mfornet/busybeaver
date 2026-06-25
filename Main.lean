@@ -452,7 +452,12 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
     IO.println s!"Busybeaver(1, {s+1}) = 1"
   else
     IO.println "Starting computation"
-    Tqdm.withProgressBar (cfg := {}) fun pb => do
+    -- Run the computation *inside* the progress-bar block (so the bar ticks live), but
+    -- collect the result lines and print them only *after* the bar closes.  Writing to
+    -- stdout while the bar is active desyncs the shared-terminal cursor from the bar
+    -- manager's bookkeeping, so the final `pb.close` redraw clears/overwrites the result
+    -- line in an interactive run.  Returning the lines defers all user-visible stdout.
+    let resultLines ← Tqdm.withProgressBar (cfg := {}) fun pb => do
       pb.setDescription s!"BB({l + 1}, {s + 1})"
       -- `tickDecider pb dec` is the identity `dec` to the kernel (proof below is unaffected) but
       -- advances `pb` once per visited machine when compiled, giving a live count during the
@@ -464,12 +469,14 @@ unsafe def computeCmd (p: Parsed): IO UInt32 := do
           simp [compute]
           exact Eq.symm (Busybeaver.BBCompute.correct_complete hl hcomp)
         }
-        IO.println s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"
+        return #[s!"Busybeaver({l + 1}, {s + 1}) = {comp.val + 1}"]
       else
-        IO.println s!"#Undec: {Multiset.card comp.undec}"
-        IO.println s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"
         if let some path := p.flag? "output" then
           save_to_file (path.as! String) comp.undec
+        return #[s!"#Undec: {Multiset.card comp.undec}",
+                 s!"Busybeaver({l + 1}, {s + 1}) ≥ {comp.val + 1}"]
+    for line in resultLines do
+      IO.println line
   IO.println s!"In: {(← IO.monoMsNow) - start}ms"
   return 0
 
