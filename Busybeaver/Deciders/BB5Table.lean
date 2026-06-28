@@ -95,33 +95,52 @@ lemma L_inc_zero (r : ListBlank (Symbol 1)) :
 Left counter increment sweep on a positive counter (Coq `L_inc`, positive part).
 Induction on `p`.
 -/
+/-- `headL` over a positive left-counter body `L' k`, in explicit `Tape.mk'` form
+(uses `L'_as_K'`). -/
+lemma headL_L' (k : PosNum) (R : ListBlank (Symbol 1)) :
+    headL 3 (L' k) R
+      = (⟨3, Tape.mk' (K' k) (ListBlank.cons (0 : Symbol 1) R)⟩ : Config 4 1) := by
+  rw [L'_as_K']; simp [headL_cons]
+
 lemma L'_inc (p : PosNum) (r : ListBlank (Symbol 1)) :
     headL 3 (L' p) r -[M]->* headR 1 (L' (PosNum.succ p)) r := by
-  revert r;
-  induction p using PosNum.recOn ; simp_all +decide [ L', headR, headL_cons, PosNum.succ ];
-  · intro r
-    constructor;
-    exact step_left_mk' gD0 _ _;
-    refine' Machine.EvStep.step ( step_left_mk' gE0 _ _ ) _;
-    refine' Machine.EvStep.step ( step_left_mk' gC0 _ _ ) _;
-    refine' Machine.EvStep.step ( step_left_edge gA1 _ ) _;
-    convert L_inc_zero _ |> Machine.EvStep.trans <| _ using 1;
-    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
-    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
-    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
-    refine' Machine.EvStep.step ( step_right_mk' gB1 _ _ ) _;
-    constructor;
-  · rename_i k ih; intro r; simp_all +decide [ L', headL_cons, headR, PosNum.succ ] ;
-    convert Machine.EvStep.trans _ ( ih _ ) |> Machine.EvStep.trans <| _ using 1;
-    convert Machine.EvStep.step ( step_left_mk' gD0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gE0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gC0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gA1 _ _ ) Machine.EvStep.refl ) ) ) using 1;
-    rotate_left;
-    exact r;
-    · convert Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) Machine.EvStep.refl ) ) ) using 1;
-    · cases k <;> aesop;
-  · intro r; exact (by
-    rename_i k ih
-    simp [L', headR, headL_cons, PosNum.succ] at *;
-    convert Machine.EvStep.step ( step_left_mk' gD0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gE0 _ _ ) ( Machine.EvStep.step ( step_left_mk' gC0 _ _ ) ( Machine.EvStep.step ( step_right_mk' gA0 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.step ( step_right_mk' gB1 _ _ ) ( Machine.EvStep.refl ) ) ) ) ) ) ) using 1);
+  induction p using PosNum.recOn generalizing r with
+  | one =>
+      simp only [L', headR, headL_cons, PosNum.succ]
+      refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_left_edge gA1 _) ?_
+      refine Machine.EvStep.trans (L_inc_zero _) ?_
+      simp only [L', headR]
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gB1 _ _) Machine.EvStep.refl
+  | bit1 k ih =>
+      simp only [L', headR, headL_cons, PosNum.succ]
+      refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+      rw [L'_as_K']
+      refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
+      have key := ih (ListBlank.cons 1 (ListBlank.cons 1 (ListBlank.cons 1 (ListBlank.cons 1 r))))
+      rw [headL_L'] at key
+      refine Machine.EvStep.trans key ?_
+      simp only [headR]
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gB1 _ _) Machine.EvStep.refl
+  | bit0 k ih =>
+      simp only [L', headR, headL_cons, PosNum.succ]
+      refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_
+      refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
+      exact Machine.EvStep.step (step_right_mk' gB1 _ _) Machine.EvStep.refl
 
 /-- Left counter increment sweep (Coq `L_inc`). -/
 lemma L_inc (n : Num) (r : ListBlank (Symbol 1)) :
@@ -963,7 +982,7 @@ lemma D_next (m : PosNum) (a : Symbol 1) (hinv : reset_invariant m) :
     ∃ (m' : PosNum) (a' : Symbol 1), (D 0 a m -[M]->+ D 0 a' m') ∧ reset_invariant m' := by
   rcases a with ( _ | _ | a );
   · exact Exists.elim ( D0_next m ) fun m' hm' => ⟨ m', 1, hm'.1, hm'.2 ⟩;
-  · convert D1_next m hinv using 1;
+  · exact D1_next m hinv
   · contradiction
 
 /-- `n`-fold application of the machine step (computable). -/
