@@ -590,16 +590,20 @@ lemma prepare_J (k : ℕ) (n' : Num) :
     J (2 ^ k + 2 ^ (k + 1) * n') = (Lk (binMin k) : List (Symbol 1)) ++
         ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (J n')))) := by
   induction' k with k ih generalizing n';
-  · cases n' <;> simp +decide;
-    rename_i p;
-    -- By definition of `PosNum`, we know that `p.bit1` is equivalent to `1 + 2 * p`.
-    have h_pos : p.bit1 = Num.succ (2 * Num.pos p) := by
-      grind +suggestions;
-    convert congr_arg ( fun x : Num => J x ) h_pos.symm using 1;
-    simp +decide [J];
-    rw [ show ( Num.pos p + Num.pos p + 1 : Num ) = Num.pos ( p.bit1 ) from ?_ ];
-    · cases p <;> rfl;
-    · grind +suggestions;
+  · -- k = 0: normalise the powers so the `Num` argument is `1 + 2 * n'`.
+    simp only [pow_zero, pow_one, zero_add]
+    cases n' with
+    | zero => simp +decide
+    | pos p =>
+      -- The argument equals `Num.pos p.bit1`; we prove the `Num` identity via the
+      -- cast to `ℕ`, which avoids depending on the exact `simp`-normal form.
+      have hnum : (1 + 2 * Num.pos p : Num) = Num.pos p.bit1 := by
+        apply Num.to_nat_inj.mp
+        simp only [Num.cast_add, Num.cast_mul, Num.cast_one, Num.cast_pos, PosNum.cast_bit1,
+          show ((2 : Num) : ℕ) = 2 from rfl]
+        ring
+      rw [hnum]
+      simp +decide [J, J', binMin, Lk]
   · -- By definition of $J$, we know that $J(2^{k+1} + 2^{k+2} n') = J(2(2^k + 2^{k+1} n'))$.
     have hJ_succ : J (2 ^ (k + 1) + 2 ^ (k + 2) * n') = J (2 * (2 ^ k + 2 ^ (k + 1) * n')) := by
       ring_nf;
@@ -955,8 +959,10 @@ lemma D1_next (m : PosNum) (hinv : reset_invariant m) :
   -- - `hle : ((2*((b m:Num)+1):Num):ℕ) ≤ 4 * b m'`: the LHS casts to `2*(b m + 1)` (push the Num→ℕ cast with `Num.to_of_nat`); from `hbm'` (so `2*b m' = b m + (m:ℕ) - 1 ≥ b m + 1` since `(m:ℕ) ≥ 2`) conclude by `omega`.
   have hle : ((2 * ((b m : Num) + 1) : Num) : ℕ) ≤ 4 * b m' := by
     have hbm' : 2 * b m' + 1 = b m + (m : ℕ) := by
-      convert congr_arg b hm' using 1;
-      rw [ b0_succ ( b_add_self m ), addN_cast ];
+      have h1 : b m'.bit0 = b m0.succ := congr_arg b hm'
+      simp only [b] at h1
+      rw [hm0, b0_succ (b_add_self m), addN_cast] at h1
+      exact h1
     norm_num +zetaDelta at *;
     exact show 2 * ( b m + 1 ) ≤ 4 * b m' from by show ( 2 : ℕ ) * ( b m + 1 ) ≤ 4 * b m'; linarith! [ show ( m : ℕ ) ≥ 2 by assumption ] ;
   obtain ⟨m'', a'', H2, hreset⟩ := do_reset1 (2 * ((b m : Num) + 1)) m' 0 hle ⟨k, n', by
@@ -964,8 +970,10 @@ lemma D1_next (m : PosNum) (hinv : reset_invariant m) :
     grind, by
     have hkey : 2 * b m' + 2 = 2 ^ k + 2 ^ (k + 1) * n' + (m : ℕ) := by
       have hkey : 2 * b m' + 1 = b m + (m : ℕ) := by
-        convert congr_arg b hm' using 1;
-        rw [ b0_succ ( b_add_self m ), addN_cast ];
+        have h1 : b m'.bit0 = b m0.succ := congr_arg b hm'
+        simp only [b] at h1
+        rw [hm0, b0_succ (b_add_self m), addN_cast] at h1
+        exact h1
       linarith;
     nlinarith [ Nat.pow_le_pow_right two_pos ( show k + 1 ≥ 1 by linarith ), Nat.pow_le_pow_right two_pos ( show k ≥ 0 by linarith ) ]⟩
   generalize_proofs at *;
