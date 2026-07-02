@@ -988,21 +988,9 @@ Left counter increment sweep, base case `n = 0` (Coq `L_inc`, `N0` case).
 -/
 lemma L_inc_zero (r : ListBlank (Symbol 1)) :
     headL 2 (L 0) r -[M]->* headR 1 (L' .one) r := by
-  constructor;
-  convert step_left_edge gC0d _ using 1;
-  constructor;
-  convert step_left_edge gD0d _ using 1;
-  constructor;
-  convert step_left_edge gE0d _ using 1;
-  constructor;
-  convert step_right_mk' gA0 _ _ using 1;
-  constructor;
-  convert step_right_mk' gB1 _ _ using 1;
-  constructor;
-  convert step_right_mk' gB1 _ _ using 1;
-  constructor;
-  convert step_right_mk' gB1 _ _ using 1;
-  constructor
+  rw [show (L 0) = (∅ : ListBlank (Symbol 1)) from rfl, TM.Table.headL_empty]
+  simp only [L', headR]
+  evsteps step_left_edge gC0 r, step_left_edge gD0 _, step_left_edge gE0 _, step_right_mk' gA0 _ _, step_right_mk' gB1 _ _, step_right_mk' gB1 _ _, step_right_mk' gB1 _ _
 
 /-- `headL` over a positive left-counter body `L' k`, in explicit `Tape.mk'` form
 (uses `L'_as_K'`). -/
@@ -1074,7 +1062,7 @@ Iterated increment by `u ≤ b m` (Coq `D_run`).
 lemma D_run {n : Num} {m : PosNum} (u : ℕ) (hu : u ≤ b m) :
     D n m -[M]->* D ((u : Num) + n) (addN u m) := by
   induction' u with u ih generalizing n m;
-  · convert Machine.EvStep.refl;
+  · simpa using Machine.EvStep.refl
   · -- From `hu : u+1 ≤ b m` get `hbm : 0 < b m` by omega.
     have hbm : 0 < b m := by
       linarith;
