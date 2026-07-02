@@ -983,21 +983,6 @@ def D (n : Num) (m : PosNum) : Config 4 1 :=
 def E (n : Num) (a : Symbol 1) (m : PosNum) : Config 4 1 :=
   headL 2 (K n) (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons a (R m)))))
 
-/-- One deterministic machine step in `Tape.mk'` form: tries every transition of
-`M` via the generic single-step lemmas; only the one matching the current state
-and (concrete) head symbol succeeds. -/
-local macro "mstep" : tactic => `(tactic|
-  first
-    | refine Machine.EvStep.step (step_right_mk' gA0 _ _) ?_
-    | refine Machine.EvStep.step (step_left_mk' gA1 _ _) ?_
-    | refine Machine.EvStep.step (step_right_mk' gB0 _ _) ?_
-    | refine Machine.EvStep.step (step_right_mk' gB1 _ _) ?_
-    | refine Machine.EvStep.step (step_left_mk' gC0 _ _) ?_
-    | refine Machine.EvStep.step (step_left_mk' gC1 _ _) ?_
-    | refine Machine.EvStep.step (step_left_mk' gD0 _ _) ?_
-    | refine Machine.EvStep.step (step_right_mk' gE1 _ _) ?_
-    | refine Machine.EvStep.step (step_left_mk' gE0 _ _) ?_)
-
 /-
 Left counter increment sweep, base case `n = 0` (Coq `L_inc`, `N0` case).
 -/
@@ -1073,13 +1058,12 @@ lemma R_inc_has0 {n : PosNum} (h : Has0 n) (l : ListBlank (Symbol 1)) :
       rw [headL_cons]
       evsteps step_left_mk' gA1 _ _, step_left_head gC1 _ _
 
-set_option maxHeartbeats 4000000 in
 /-- One counter increment (Coq `D_inc`). -/
 lemma D_inc {n : Num} {m : PosNum} (h : Has0 m) :
     D n m -[M]->* D (Num.succ n) m.succ := by
   unfold D
   refine (L_inc n _).trans ?_
-  iterate 18 mstep
+  evchain step_right_mk' gB1 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _
   refine (R_inc_has0 h _).trans ?_
   rw [headL_cons]
   evsteps step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_left_head gA1 _ _
@@ -1121,19 +1105,17 @@ lemma R_inc_all1 {n : PosNum} (h : All1 n) (l : ListBlank (Symbol 1)) :
       rw [headL_cons]
       evsteps step_left_mk' gC1 _ _, step_left_head gA1 _ _
 
-set_option maxHeartbeats 4000000 in
 /-- Start of the reset cycle (Coq `start_reset`). -/
 lemma start_reset (n : Num) {m : PosNum} (h : All1 m) :
     D n m -[M]->* E (Num.succ n) 1 m.succ := by
   unfold D
   refine (L_inc n _).trans ?_
   rw [L_as_K]
-  iterate 18 mstep
+  evchain step_right_mk' gB1 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _
   refine (R_inc_all1 h _).trans ?_
   rw [headL_cons]
   evsteps step_left_mk' gC1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_left_head gA1 _ _
 
-set_option maxHeartbeats 4000000 in
 /-- `start_reset` as a strict-progress step (Coq `start_reset'`). -/
 lemma start_reset' (n : Num) {m : PosNum} (h : All1 m) :
     D n m -[M]->+ E (Num.succ n) 1 m.succ := by
@@ -1141,7 +1123,7 @@ lemma start_reset' (n : Num) {m : PosNum} (h : All1 m) :
   refine Trans.trans (L_inc n _) (?_ : _ -[M]->+ _)
   rw [L_as_K]
   refine Trans.trans (Machine.Progress.single (step_right_mk' gB1 _ _)) (?_ : _ -[M]->* _)
-  iterate 17 mstep
+  evchain step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _
   refine (R_inc_all1 h _).trans ?_
   rw [headL_cons]
   evsteps step_left_mk' gC1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_left_head gA1 _ _
@@ -1153,13 +1135,12 @@ lemma eat_LI (l : side) (t : PosNum) :
   rw [headL_cons]
   evsteps step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_left_mk' gE0 _ _, step_left_head gA1 _ _
 
-set_option maxHeartbeats 4000000 in
 /-- Coq `eat_KI`. -/
 lemma eat_KI {t : PosNum} (h : Has0 t) (l : side) :
     headL 2 (ListBlank.cons 𝟘 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 l)))) (R t)
       -[M]->* headL 2 l (R t.succ.bit0.bit0) := by
   rw [headL_cons]
-  iterate 13 mstep
+  evchain step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _
   refine (R_inc_has0 h _).trans ?_
   rw [headL_cons]
   evsteps step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_left_head gA1 _ _
@@ -1181,7 +1162,6 @@ lemma Lk_inc {k : ℕ} {n n' : Bin k} (hn : Succ n n') (l : side) (r : side) :
       evsteps step_right_mk' gB1 _ _, step_right_mk' gB1 _ _, step_right_mk' gB1 _ _, step_right_mk' gB1 _ _
 
 open Deciders.Skelet.FixedBin in
-set_option maxHeartbeats 8000000 in
 /-- Coq `LaR_inc`. -/
 lemma LaR_inc {k : ℕ} (a : Symbol 1) {np ns : Bin k} (hn : Succ np ns) {m : PosNum} (hm : Has0 m)
     (l : side) :
@@ -1192,13 +1172,13 @@ lemma LaR_inc {k : ℕ} (a : Symbol 1) {np ns : Bin k} (hn : Succ np ns) {m : Po
   match a with
   | 0 =>
       refine (Lk_inc hn l _).trans ?_
-      iterate 18 mstep
+      evchain step_right_mk' gB1 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _
       refine (R_inc_has0 hm _).trans ?_
       rw [headL_cons]
       evsteps step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_left_head gA1 _ _
   | 1 =>
       refine (Lk_inc hn l _).trans ?_
-      iterate 8 mstep
+      evchain step_right_mk' gB1 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _
       refine (R_inc_has0 hm _).trans ?_
       rw [headL_cons]
       evsteps step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC1 _ _, step_right_mk' gA0 _ _, step_right_mk' gB0 _ _, step_left_mk' gC0 _ _, step_left_mk' gD0 _ _, step_right_mk' gE1 _ _, step_left_mk' gA1 _ _, step_left_mk' gC1 _ _, step_left_head gA1 _ _
