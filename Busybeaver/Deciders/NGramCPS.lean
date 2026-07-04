@@ -19,11 +19,9 @@ private theorem nGramCPSHistoryClosed_nonHalting
   unfold NGramCPS.Generic.runHistory at hSearch
   split at hSearch
   · simp at hSearch
-  · rename_i hcond
-    have hnl : cfg.left ≠ 0 := by intro h; simp [h] at hcond
-    have hnr : cfg.right ≠ 0 := by intro h; simp [h] at hcond
-    exact NGramCPS.Generic.nonHalting_of_closedResult NGramCPS.Generic.πfst
-      (NGramCPS.Generic.historyTransition_simulates cfg.history M) hnl hnr hSearch
+  · exact NGramCPS.Generic.nonHalting_of_closedResult NGramCPS.Generic.πfst
+      (NGramCPS.Generic.historyTransition_simulates cfg.history M)
+      (by simp_all) (by simp_all) hSearch
 
 def nGramCPSHistoryDecider (cfg : NGramCPSHistoryConfig) (M : Machine l s) : HaltM M Unit :=
   if cfg.left = 0 || cfg.right = 0 then
@@ -41,11 +39,9 @@ private theorem nGramCPSLRUClosed_nonHalting
   unfold NGramCPS.Generic.runLRU at hSearch
   split at hSearch
   · simp at hSearch
-  · rename_i hcond
-    have hnl : cfg.left ≠ 0 := by intro h; simp [h] at hcond
-    have hnr : cfg.right ≠ 0 := by intro h; simp [h] at hcond
-    exact NGramCPS.Generic.nonHalting_of_closedResult NGramCPS.Generic.πfst
-      (NGramCPS.Generic.lruTransition_simulates M) hnl hnr hSearch
+  · exact NGramCPS.Generic.nonHalting_of_closedResult NGramCPS.Generic.πfst
+      (NGramCPS.Generic.lruTransition_simulates M)
+      (by simp_all) (by simp_all) hSearch
 
 def nGramCPSLRUDecider (cfg : NGramCPSLRUConfig) (M : Machine l s) : HaltM M Unit :=
   if cfg.left = 0 || cfg.right = 0 then
