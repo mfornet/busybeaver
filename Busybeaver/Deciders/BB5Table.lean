@@ -2701,14 +2701,12 @@ lemma writeNonzeroFirst_swap_equiv {M : Machine l s} {d : Turing.Dir} {tgt : Lab
       refine' ( Machine.equi_halts.trans _ _ );
       exact ⟨ M, ⟨ tgt, default ⟩ ⟩;
       · -- Since the first move of M writes a blank and moves, landing in `⟨tgt, default⟩`, the single step from `init` to `⟨tgt, default⟩` is valid.
-        have h_single_step : (init -[M]-> ⟨tgt, default⟩) := by
-          convert Machine.step.some' h _ _ using 1;
-          · rfl;
-          · exact Eq.symm (write_default_move_default d);
+        have h_single_step : (init -[M]-> ⟨tgt, default⟩) :=
+          Machine.step.some' h rfl (write_default_move_default d).symm
         exact Machine.equi_halts.mono ( Machine.Multistep.single h_single_step );
-      · rw [ init ];
-        convert Machine.perm.equiv;
-        unfold Machine.swap; aesop;
+      · have hpe := Machine.perm.equiv (M := M) (q := default) (q' := tgt) (C := tgt) (T := default)
+        simp only [Machine.swap.right] at hpe
+        exact hpe
 
 /-
 `writeNonzeroFirst` preserves halting from `init`.
@@ -2719,12 +2717,10 @@ lemma writeNonzeroFirst_equiv (T : ℕ) (M : Machine l s) :
       · exact Machine.equi_halts.refl;
       · cases h : M.get 0 0 <;> simp +decide;
         · exact Machine.equi_halts.refl;
-        · split_ifs;
-          · have h_swap : (M, init) =H (M.perm 0 ‹_›, init) := by
-              convert writeNonzeroFirst_swap_equiv _;
-              exact ‹Turing.Dir›;
-              aesop;
-            exact h_swap.trans ( ih _ );
+        · split_ifs with hcond
+          · obtain ⟨hsym, -⟩ := hcond
+            rw [hsym] at h
+            exact (writeNonzeroFirst_swap_equiv h).trans (ih _)
           · exact Machine.equi_halts.refl
 
 /-
@@ -2740,12 +2736,13 @@ lemma tnfRelabel_equiv (T : ℕ) (M : Machine l s) (cur : Label l) (C : Config l
         · convert ih M _ _ using 1;
         · unfold stSuc at *;
           split_ifs at * <;> simp_all +decide [ Fin.ext_iff ];
-          · convert Machine.equi_halts.trans ( Machine.perm.nz_equi _ _ ) ( ih _ _ _ ) using 1;
-            · exact ne_of_gt ( Nat.succ_pos _ );
-            · exact ne_of_gt ( lt_of_le_of_lt ( Nat.zero_le _ ) ‹_› );
+          · convert Machine.equi_halts.trans ( Machine.perm.nz_equi _ _ ) ( ih _ _ _ ) using 1 <;>
+            first
+              | rfl
+              | exact ne_of_gt ( Nat.succ_pos _ )
+              | exact ne_of_gt ( lt_of_le_of_lt ( Nat.zero_le _ ) ‹_› )
           · grind;
         · exact ih _ _ _
-
 /-
 `revNF` preserves halting from `init` (identity or a tape reversal).
 -/
@@ -2754,7 +2751,7 @@ lemma revNF_equiv (M : Machine l s) :
       unfold revNF; cases h : M.get default default <;> simp_all +decide ;
       · exact Machine.equi_halts.refl;
       · cases ‹Turing.Dir› <;> simp +decide [ * ];
-        · convert Machine.symm.equiv;
+        · exact Machine.symm.equiv
         · rfl
 
 /-- `toNF` preserves halting from `init`. -/
