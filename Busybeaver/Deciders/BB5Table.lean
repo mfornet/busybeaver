@@ -6,15 +6,10 @@ import Busybeaver.Deciders.FAR
 import Busybeaver.Deciders.Loop1
 import Busybeaver.Deciders.NGramCPS
 import Busybeaver.Deciders.RepWL
-import Busybeaver.Deciders.Sweep
 import Busybeaver.Deciders.WFAR
 import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Symmetry
 import Busybeaver.TM.Table.Parse
-import Busybeaver.TM.Table.ClosedSet
-import Std.Data.HashMap
-import Busybeaver.Deciders.Skelet.FixedBin
-import Busybeaver.Deciders.Skelet.ShiftOverflow
 import Busybeaver.Deciders.Skelet.ShiftOverflowBins
 import Busybeaver.Deciders.Skelet.TapeCalc
 
@@ -904,6 +899,29 @@ theorem nonHalting : ¬ M.halts init := by
       exact ⟨⟨D 0 a' m', m', a', hinv', rfl⟩, hstep⟩
     · obtain ⟨m', hstep, hinv'⟩ := D0_next 11
       exact ⟨⟨D 0 1 m', m', 1, hinv', rfl⟩, enters.trans hstep.to_evstep⟩
+  exact cs.nonHalting
+
+/-- Skelet #26 does not halt when started in state `E` on the blank tape.
+
+This is used to close Skelet #15 (`sporadicMachine7`): mirroring Skelet #15 and
+relabelling its states yields exactly Skelet #26, but with the start state mapped
+to `E`.  From `⟨4, default⟩` the machine reaches the counter configuration
+`D 0 0 1` in 21 concrete steps (Coq `execute`), entering the closed counter
+family, so it never halts. -/
+lemma enters_E : (⟨(4 : Label 4), default⟩ : Config 4 1) -[M]->* D 0 0 1 := by
+  refine stepN_evstep 21 ?_
+  native_decide
+
+theorem nonHalting_E : ¬ M.halts (⟨(4 : Label 4), default⟩ : Config 4 1) := by
+  have cs : ClosedSet M
+      (fun C => ∃ (m : PosNum) (a : Symbol 1), reset_invariant m ∧ C = D 0 a m)
+      (⟨(4 : Label 4), default⟩ : Config 4 1) := by
+    refine ⟨?_, ?_⟩
+    · rintro ⟨C, m, a, hinv, rfl⟩
+      obtain ⟨m', a', hstep, hinv'⟩ := D_next m a hinv
+      exact ⟨⟨D 0 a' m', m', a', hinv', rfl⟩, hstep⟩
+    · obtain ⟨m', hstep, hinv'⟩ := D0_next 1
+      exact ⟨⟨D 0 1 m', m', 1, hinv', rfl⟩, enters_E.trans hstep.to_evstep⟩
   exact cs.nonHalting
 
 end Deciders.Skelet.Skelet26
@@ -2010,8 +2028,53 @@ end SM6
 theorem sporadicMachine6_nonHalting : ¬ sporadicMachine6.halts init := SM6.nonHalting
 
 def sporadicMachine7 : Machine 4 1 := mach["1RB---_1RC1LB_1LD1RE_1LB0LD_1RA0RC"]
+/-!
+### Non-halting proof for `sporadicMachine7` (Skelet #15)
+
+`1RB---_1RC1LB_1LD1RE_1LB0LD_1RA0RC` is Skelet #15, which the Coq proof
+(`BusyCoq/Skelet15.v`) closes by observing that it is Skelet #26 "with a different
+initial state": mirroring the machine (`Machine.symm`, Coq `flip`) and relabelling
+its states by the 5-cycle `A↦E, B↦C, C↦A, D↦B, E↦D` turns it into Skelet #26
+(`sporadicMachine9`).  A relabelling is a composition of state swaps
+(`Machine.perm`), each of which is halting-equivalent (`Machine.perm.equiv`), and
+mirroring is halting-equivalent on the blank tape (`Machine.symm.equiv`).  The
+composition maps the start state `A` to `E`, so the blank-tape run of Skelet #15
+is halting-equivalent to Skelet #26 started in state `E`, which does not halt by
+`Deciders.Skelet.Skelet26.nonHalting_E`. -/
 theorem sporadicMachine7_nonHalting : ¬ sporadicMachine7.halts init := by
-  sorry
+  have e0 : (sporadicMachine7, (⟨(0 : Label 4), default⟩ : Config 4 1)) =H
+            (sporadicMachine7.symm, (⟨(0 : Label 4), default⟩ : Config 4 1)) :=
+    Machine.symm.equiv
+  have e1 : (sporadicMachine7.symm, (⟨(0 : Label 4), default⟩ : Config 4 1)) =H
+            (sporadicMachine7.symm.perm 1 2,
+              (⟨Machine.swap (1 : Label 4) 2 0, default⟩ : Config 4 1)) :=
+    Machine.perm.equiv
+  have e2 : (sporadicMachine7.symm.perm 1 2,
+              (⟨Machine.swap (1 : Label 4) 2 0, default⟩ : Config 4 1)) =H
+            ((sporadicMachine7.symm.perm 1 2).perm 3 1,
+              (⟨Machine.swap (3 : Label 4) 1 (Machine.swap 1 2 0), default⟩ : Config 4 1)) :=
+    Machine.perm.equiv
+  have e3 : ((sporadicMachine7.symm.perm 1 2).perm 3 1,
+              (⟨Machine.swap (3 : Label 4) 1 (Machine.swap 1 2 0), default⟩ : Config 4 1)) =H
+            (((sporadicMachine7.symm.perm 1 2).perm 3 1).perm 4 3,
+              (⟨Machine.swap (4 : Label 4) 3 (Machine.swap 3 1 (Machine.swap 1 2 0)), default⟩
+                : Config 4 1)) :=
+    Machine.perm.equiv
+  have e4 : (((sporadicMachine7.symm.perm 1 2).perm 3 1).perm 4 3,
+              (⟨Machine.swap (4 : Label 4) 3 (Machine.swap 3 1 (Machine.swap 1 2 0)), default⟩
+                : Config 4 1)) =H
+            ((((sporadicMachine7.symm.perm 1 2).perm 3 1).perm 4 3).perm 0 4,
+              (⟨Machine.swap (0 : Label 4) 4 (Machine.swap 4 3 (Machine.swap 3 1 (Machine.swap 1 2 0))),
+                  default⟩ : Config 4 1)) :=
+    Machine.perm.equiv
+  have hfin : ((((sporadicMachine7.symm).perm 1 2).perm 3 1).perm 4 3).perm 0 4
+      = Deciders.Skelet.Skelet26.M := by native_decide
+  have hstate : Machine.swap (0 : Label 4) 4 (Machine.swap 4 3 (Machine.swap 3 1 (Machine.swap 1 2 0)))
+      = (4 : Label 4) := by decide
+  have E := ((((e0.trans e1).trans e2).trans e3).trans e4)
+  rw [hfin, hstate] at E
+  intro hhalt
+  exact Deciders.Skelet.Skelet26.nonHalting_E (E.mp hhalt)
 
 def sporadicMachine8 : Machine 4 1 := mach["1RB---_0LC1RE_0LD1LC_1RA1LB_0RB0RA"]
 theorem sporadicMachine8_nonHalting : ¬ sporadicMachine8.halts init := by
