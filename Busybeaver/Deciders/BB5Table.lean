@@ -2663,10 +2663,109 @@ reverse-if-left.  `TM_simplify` is the identity here and is omitted. -/
 def toNF (M : Machine l s) : Machine l s :=
   revNF (tnfRelabel 110 (writeNonzeroFirst 100 M) default init)
 
-/-- `toNF` preserves non-halting.  TODO: discharge from `Machine.perm.nz_equi`,
-`Machine.symm.equiv`, and the triviality of a blank-writing first step. -/
+/-- Consing the blank symbol onto the blank tape yields the blank tape. -/
+lemma ListBlank_cons_default {Γ : Type} [Inhabited Γ] :
+    Turing.ListBlank.cons (default : Γ) default = default := by
+  have hnth : ∀ (i : ℕ), (default : Turing.ListBlank Γ).nth i = default := by
+    intro i
+    induction i with
+    | zero => rfl
+    | succ n ih => rw [Turing.ListBlank.nth_succ]; exact ih
+  apply Turing.ListBlank.ext
+  intro i
+  cases i with
+  | zero => rfl
+  | succ n => rw [Turing.ListBlank.nth_succ, Turing.ListBlank.tail_cons, hnth, hnth]
+
+/-- Writing the blank symbol on the blank tape and moving keeps the blank tape. -/
+lemma write_default_move_default {Γ : Type} [Inhabited Γ] (d : Turing.Dir) :
+    ((default : Turing.Tape Γ).write default).move d = default := by
+  have hl : (default : Turing.Tape Γ).left = default := rfl
+  have hr : (default : Turing.Tape Γ).right = default := rfl
+  have hh : (default : Turing.ListBlank Γ).head = default := rfl
+  have ht : (default : Turing.ListBlank Γ).tail = default := rfl
+  cases d <;>
+    simp only [Turing.Tape.write, Turing.Tape.move, hl, hr, hh, ht, ListBlank_cons_default] <;>
+    rfl
+
+/-
+Swapping the start state with the target of a *blank-writing* first move
+preserves halting from `init`.  This is the "triviality of a blank-writing first
+step": from `init` the machine takes one step that writes a blank and moves,
+landing in `⟨tgt, default⟩` (the tape is still blank), which is exactly the
+`perm`-image of `init`.
+-/
+lemma writeNonzeroFirst_swap_equiv {M : Machine l s} {d : Turing.Dir} {tgt : Label l}
+    (h : M.get default default = .next default d tgt) :
+    ((M, init) : Machine l s × Config l s) =H (M.perm default tgt, init) := by
+      refine' ( Machine.equi_halts.trans _ _ );
+      exact ⟨ M, ⟨ tgt, default ⟩ ⟩;
+      · -- Since the first move of M writes a blank and moves, landing in `⟨tgt, default⟩`, the single step from `init` to `⟨tgt, default⟩` is valid.
+        have h_single_step : (init -[M]-> ⟨tgt, default⟩) :=
+          Machine.step.some' h rfl (write_default_move_default d).symm
+        exact Machine.equi_halts.mono ( Machine.Multistep.single h_single_step );
+      · have hpe := Machine.perm.equiv (M := M) (q := default) (q' := tgt) (C := tgt) (T := default)
+        simp only [Machine.swap.right] at hpe
+        exact hpe
+
+/-
+`writeNonzeroFirst` preserves halting from `init`.
+-/
+lemma writeNonzeroFirst_equiv (T : ℕ) (M : Machine l s) :
+    ((M, init) : Machine l s × Config l s) =H (writeNonzeroFirst T M, init) := by
+      induction' T with T ih generalizing M <;> simp +decide [ writeNonzeroFirst ];
+      · exact Machine.equi_halts.refl;
+      · cases h : M.get 0 0 <;> simp +decide;
+        · exact Machine.equi_halts.refl;
+        · split_ifs with hcond
+          · obtain ⟨hsym, -⟩ := hcond
+            rw [hsym] at h
+            exact (writeNonzeroFirst_swap_equiv h).trans (ih _)
+          · exact Machine.equi_halts.refl
+
+/-
+`tnfRelabel` preserves halting from `init` (each renaming step is a state
+swap of two non-start states, hence an `nz_equi`).
+-/
+lemma tnfRelabel_equiv (T : ℕ) (M : Machine l s) (cur : Label l) (C : Config l s) :
+    ((M, init) : Machine l s × Config l s) =H (tnfRelabel T M cur C, init) := by
+      induction' T with T ih generalizing M cur C <;> simp_all +decide [ tnfRelabel ];
+      · exact Machine.equi_halts.refl;
+      · cases h : M.step C <;> simp_all +decide [ Machine.equi_halts.refl ];
+        split_ifs;
+        · convert ih M _ _ using 1;
+        · unfold stSuc at *;
+          split_ifs at * <;> simp_all +decide [ Fin.ext_iff ];
+          · convert Machine.equi_halts.trans ( Machine.perm.nz_equi _ _ ) ( ih _ _ _ ) using 1 <;>
+            first
+              | rfl
+              | exact ne_of_gt ( Nat.succ_pos _ )
+              | exact ne_of_gt ( lt_of_le_of_lt ( Nat.zero_le _ ) ‹_› )
+          · grind;
+        · exact ih _ _ _
+/-
+`revNF` preserves halting from `init` (identity or a tape reversal).
+-/
+lemma revNF_equiv (M : Machine l s) :
+    ((M, init) : Machine l s × Config l s) =H (revNF M, init) := by
+      unfold revNF; cases h : M.get default default <;> simp_all +decide ;
+      · exact Machine.equi_halts.refl;
+      · cases ‹Turing.Dir› <;> simp +decide [ * ];
+        · exact Machine.symm.equiv
+        · rfl
+
+/-- `toNF` preserves halting from `init`. -/
+lemma toNF_equiv (M : Machine l s) :
+    ((M, init) : Machine l s × Config l s) =H (toNF M, init) := by
+  unfold toNF
+  refine Machine.equi_halts.trans (writeNonzeroFirst_equiv 100 M) ?_
+  refine Machine.equi_halts.trans
+    (tnfRelabel_equiv 110 (writeNonzeroFirst 100 M) default init) ?_
+  exact revNF_equiv _
+
+/-- `toNF` preserves non-halting. -/
 theorem toNF_nonHalting {M : Machine l s} (h : ¬ (toNF M).halts init) : ¬ M.halts init :=
-  sorry
+  fun hc => h ((toNF_equiv M).mp hc)
 
 /-- Normal-form table decider: canonicalise with `toNF`, look the result up in the
 table, and transfer a non-halting verdict back to the original machine.  Mirrors
