@@ -11,7 +11,7 @@ structure ClosedSet (m : M) (base: Config M → Prop) (I: Config M) where
 
 namespace ClosedSet
 
-def offset {m : M} {p : Config M → Prop} {I N : Config M}
+theorem offset {m : M} {p : Config M → Prop} {I N : Config M}
     (closed : ClosedSet m p I) (hN : p N) : ClosedSet m p N :=
   ⟨closed.closed, ⟨⟨N, hN⟩, .refl⟩⟩
 

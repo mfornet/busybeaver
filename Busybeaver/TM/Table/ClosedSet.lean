@@ -20,7 +20,7 @@ structure ClosedSet (M: TM.Table.Machine L S) (base: TM.Table.Config L S → Pro
 
 namespace ClosedSet
 
-def offset (closed: ClosedSet M p I) (hN: p N): ClosedSet M p N :=
+theorem offset (closed: ClosedSet M p I) (hN: p N): ClosedSet M p N :=
 by use closed.closed, ⟨N, hN⟩, .refl
 
 lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {

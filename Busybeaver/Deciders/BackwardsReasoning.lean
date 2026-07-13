@@ -203,15 +203,15 @@ def Multiset.all (S: Multiset α): (α → Bool) → Bool :=
   })
 
 @[simp]
-def Multiset.all.empty: Multiset.all 0 f = true :=
+theorem Multiset.all.empty: Multiset.all 0 f = true :=
   by rfl
 
 @[simp]
-def Multiset.all.cons {S: Multiset α}: Multiset.all (a ::ₘ S) f = true ↔ f a && Multiset.all S f :=
+theorem Multiset.all.cons {S: Multiset α}: Multiset.all (a ::ₘ S) f = true ↔ f a && Multiset.all S f :=
   Quotient.inductionOn S <| fun _ ↦ by rfl
 
 @[simp]
-def Multiset.all.true {S: Multiset α}: Multiset.all S f = true ↔ ∀ a ∈ S, f a = true :=
+theorem Multiset.all.true {S: Multiset α}: Multiset.all S f = true ↔ ∀ a ∈ S, f a = true :=
   Quotient.inductionOn S <| fun _ ↦ by simp [Multiset.all]
 
 def Finset.all (S: Finset α): (α → Bool) → Bool := Multiset.all S.val

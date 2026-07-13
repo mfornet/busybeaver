@@ -126,7 +126,7 @@ by induction n generalizing A with
   }
 }
 
-def trans (hA: A -[M]{n}-> B) (hB: B -[M]{n'}-> C): A -[M]{n + n'}-> C := by induction hA with
+theorem trans (hA: A -[M]{n}-> B) (hB: B -[M]{n'}-> C): A -[M]{n + n'}-> C := by induction hA with
 | refl => {
   simp
   exact hB
@@ -140,7 +140,7 @@ def trans (hA: A -[M]{n}-> B) (hB: B -[M]{n'}-> C): A -[M]{n + n'}-> C := by ind
   exact IH hB
 }
 
-def deterministic (hB: A -[M]{n}-> B) (hC: A -[M]{n}-> C): B = C := by {
+theorem deterministic (hB: A -[M]{n}-> B) (hC: A -[M]{n}-> C): B = C := by {
   induction hB generalizing C with
   | refl => {
     cases hC

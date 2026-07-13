@@ -103,7 +103,7 @@ instance BBResult.join.associative: Std.Associative (BBResult.join (l:=l) (s:=s)
 ⟨fun A B C => by simp only [BBResult.join, BBResult.mk.injEq]; exact ⟨Nat.max_assoc _ _ _, add_assoc _ _ _⟩⟩
 
 @[simp]
-def BBResult.join.fold_max [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
+theorem BBResult.join.fold_max [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
   (Finset.fold BBResult.join B f S).val = Finset.fold Max.max B.val (λ a ↦ f a |>.val) S :=
 by induction S using Finset.induction with
 | empty => simp_all
@@ -116,7 +116,7 @@ instance Multiset.add.commutative {α}: Std.Commutative (λ (A B: Multiset α) �
 ⟨add_comm⟩
 
 @[simp]
-def BBResult.join.fold_join [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
+theorem BBResult.join.fold_join [DecidableEq α] {f: α → BBResult l s} {S: Finset α}:
   (Finset.fold BBResult.join B f S).undec = B.undec + ∑ a ∈ S, (f a).undec
     /- Finset.fold (hc:=Multiset.add.commutative) B.undec (λ a ↦ f a |>.undec) S -/
   :=
@@ -126,7 +126,7 @@ by induction S using Finset.induction with
   simp only [Finset.fold_insert hA, join, Finset.sum_insert hA, IH]; exact add_left_comm _ _ _
 
 @[simp]
-def Multiset.mem_sum [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
+theorem Multiset.mem_sum [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
   e ∈ ∑ a ∈ S, f a
   ↔ ∃ R ∈ S.image f, e ∈ R
   :=
@@ -135,12 +135,12 @@ by induction S using Finset.induction with
 | @insert a S' hA IH => simp
 
 @[simp]
-def Multiset.add_empty [DecidableEq α] {A B: Multiset α}: A + B = 0 ↔ A = 0 ∧ B = 0 :=
+theorem Multiset.add_empty [DecidableEq α] {A B: Multiset α}: A + B = 0 ↔ A = 0 ∧ B = 0 :=
 by rw [← Multiset.card_eq_zero, ← Multiset.card_eq_zero, ← Multiset.card_eq_zero,
        Multiset.card_add, Nat.add_eq_zero_iff]
 
 @[simp]
-def Multiset.sum_empty_iff_all_empty [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
+theorem Multiset.sum_empty_iff_all_empty [DecidableEq α] [DecidableEq β] {f: α → Multiset β} {S: Finset α}:
   ∑ a ∈ S, f a = 0 ↔ ∀ a ∈ S, f a = 0 :=
 by induction S using Finset.induction with
 | empty => simp

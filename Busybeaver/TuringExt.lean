@@ -141,7 +141,7 @@ lemma take.length {Lb: Turing.ListBlank Γ}: (Lb.take n).length = n :=
   by induction n generalizing Lb <;> simp_all
 
 @[simp]
-def take_nth {Lb: Turing.ListBlank Γ} {n i: ℕ} (h: i < n): (Lb.take n)[i]'(by simp [h]) = Lb.nth i :=
+theorem take_nth {Lb: Turing.ListBlank Γ} {n i: ℕ} (h: i < n): (Lb.take n)[i]'(by simp [h]) = Lb.nth i :=
 by induction i generalizing n Lb with
 | zero => cases n with | zero => omega | succ n => simp
 | succ i IH => cases n with | zero => omega | succ n => simpa using IH (Nat.lt_of_succ_lt_succ h)
