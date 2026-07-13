@@ -25,11 +25,15 @@ def MatchesPartial (n : ℕ) (pc : PartialConfig l s) (C : Config l s) : Prop :=
   pc.left = leftWindowAt n 0 C ∧
   pc.right = rightWindowAt n 0 C
 
+-- Only offsets `≥ 1` are tracked in the `n`-gram set: the head-adjacent offset-0
+-- window is carried by the matching `PartialConfig` (`MatchesPartial`) instead, and
+-- recording it in the set would over-approximate the reconstruction pool (this is
+-- Coq's `xset_matches … n > 1` invariant; see `expandRight`/`expandLeft`).
 def AllLeftWindowsIn (n : ℕ) (ngrams : Array (NGram s)) (C : Config l s) : Prop :=
-  ∀ k, leftWindowAt n k C ∈ ngrams
+  ∀ k, leftWindowAt n (k + 1) C ∈ ngrams
 
 def AllRightWindowsIn (n : ℕ) (ngrams : Array (NGram s)) (C : Config l s) : Prop :=
-  ∀ k, rightWindowAt n k C ∈ ngrams
+  ∀ k, rightWindowAt n (k + 1) C ∈ ngrams
 
 def Base (n : ℕ) (finalState : SearchState l s) (C : Config l s) : Prop :=
   (∃ pc, pc ∈ finalState.partialConfigs ∧ MatchesPartial n pc C) ∧

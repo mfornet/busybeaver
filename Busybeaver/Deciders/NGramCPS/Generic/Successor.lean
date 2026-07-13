@@ -59,7 +59,7 @@ lemma rightStep_has_matching_partialConfig {nl nr : ℕ} {finalState : SearchSta
       NGramCPS.mem_matchingLastSymbols_of_mem
         (pref := pc.right.drop 1) (ngrams := finalState.rightNGrams)
         (ngram := rightWindowAt (nr' + 1) 1 A) (fallback := default)
-        (hmem := hright 1) hprefix
+        (hmem := hright 0) hprefix
     simpa [farSym, hdrop, rightWindowAt, Turing.ListBlank.take.length] using hmem
   have hpc'Succ : pc' ∈ expansion.successors := by
     rw [hexp, expandRight]
@@ -112,16 +112,15 @@ lemma allLeftWindowsIn_of_rightStep {nl nr : ℕ} {finalState : SearchState l α
     simpa [stepPartialConfig, hstmt'] using hstep.symm
   obtain ⟨nl', rfl⟩ := Nat.exists_eq_succ_of_ne_zero hnl
   intro k
+  rw [leftWindowAt_moveRight_succ (nl' + 1) k A writeSym nextState]
   cases k with
   | zero =>
-      rw [leftWindowAt_moveRight_zero_succ nl' A writeSym nextState]
-      have hmem : NGramCPS.shiftInNear writeSym pc.left ∈ finalState.leftNGrams := by
+      have hmem : pc.left ∈ finalState.leftNGrams := by
         apply hleftExp
         rw [hexp]
         simp [expandRight]
       simpa [MatchesPartial_left hmatch] using hmem
   | succ k =>
-      rw [leftWindowAt_moveRight_succ (nl' + 1) k A writeSym nextState]
       exact hleft k
 
 omit [DecidableEq α] in
@@ -133,7 +132,7 @@ lemma allRightWindowsIn_of_rightStep {nr : ℕ} {finalState : SearchState l α}
     AllRightWindowsIn nr finalState.rightNGrams
       { state := nextState, tape := (A.tape.write writeSym).move .right } := by
   intro k
-  rw [rightWindowAt_moveRight nr k A writeSym nextState]
+  rw [rightWindowAt_moveRight nr (k + 1) A writeSym nextState]
   exact hright (k + 1)
 
 /-- For a left move, the concrete successor has a stored matching `PartialConfig`. -/
@@ -180,7 +179,7 @@ lemma leftStep_has_matching_partialConfig {nl nr : ℕ} {finalState : SearchStat
       NGramCPS.mem_matchingLastSymbols_of_mem
         (pref := pc.left.drop 1) (ngrams := finalState.leftNGrams)
         (ngram := leftWindowAt (nl' + 1) 1 A) (fallback := default)
-        (hmem := hleft 1) hprefix
+        (hmem := hleft 0) hprefix
     simpa [farSym, hdrop, leftWindowAt, Turing.ListBlank.take.length] using hmem
   have hpc'Succ : pc' ∈ expansion.successors := by
     rw [hexp, expandLeft]
@@ -220,7 +219,7 @@ lemma allLeftWindowsIn_of_leftStep {nl : ℕ} {finalState : SearchState l α}
     AllLeftWindowsIn nl finalState.leftNGrams
       { state := nextState, tape := (A.tape.write writeSym).move .left } := by
   intro k
-  rw [leftWindowAt_moveLeft nl k A writeSym nextState]
+  rw [leftWindowAt_moveLeft nl (k + 1) A writeSym nextState]
   exact hleft (k + 1)
 
 /-- For a left move, all right windows of the successor remain in the final right set. -/
@@ -245,16 +244,15 @@ lemma allRightWindowsIn_of_leftStep {nl nr : ℕ} {finalState : SearchState l α
     simpa [stepPartialConfig, hstmt'] using hstep.symm
   obtain ⟨nr', rfl⟩ := Nat.exists_eq_succ_of_ne_zero hnr
   intro k
+  rw [rightWindowAt_moveLeft_succ (nr' + 1) k A writeSym nextState]
   cases k with
   | zero =>
-      rw [rightWindowAt_moveLeft_zero_succ nr' A writeSym nextState]
-      have hmem : NGramCPS.shiftInNear writeSym pc.right ∈ finalState.rightNGrams := by
+      have hmem : pc.right ∈ finalState.rightNGrams := by
         apply hrightExp
         rw [hexp]
         simp [expandLeft]
       simpa [MatchesPartial_right hmatch] using hmem
   | succ k =>
-      rw [rightWindowAt_moveLeft_succ (nr' + 1) k A writeSym nextState]
       exact hright k
 
 end NGramCPS.Generic

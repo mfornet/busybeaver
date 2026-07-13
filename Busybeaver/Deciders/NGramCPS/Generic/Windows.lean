@@ -46,11 +46,14 @@ def MatchesPartial (nl nr : ℕ) (pc : PartialConfig l α) (C : GConfig l α) : 
   pc.left = leftWindowAt nl 0 C ∧
   pc.right = rightWindowAt nr 0 C
 
+-- Only offsets `≥ 1` are tracked in the `n`-gram set; the head-adjacent offset-0
+-- window is carried by the matching `PartialConfig` (`MatchesPartial`).  This mirrors
+-- Coq's `xset_matches … n > 1` invariant (see `expandRight`/`expandLeft`).
 def AllLeftWindowsIn (n : ℕ) (ngrams : Array (Array α)) (C : GConfig l α) : Prop :=
-  ∀ k, leftWindowAt n k C ∈ ngrams
+  ∀ k, leftWindowAt n (k + 1) C ∈ ngrams
 
 def AllRightWindowsIn (n : ℕ) (ngrams : Array (Array α)) (C : GConfig l α) : Prop :=
-  ∀ k, rightWindowAt n k C ∈ ngrams
+  ∀ k, rightWindowAt n (k + 1) C ∈ ngrams
 
 /-- The closure predicate certified by a successful generic search. -/
 def Base (nl nr : ℕ) (finalState : SearchState l α) (C : GConfig l α) : Prop :=
