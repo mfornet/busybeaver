@@ -2153,8 +2153,24 @@ lemma reset_arith {q r k p : ℕ} (hrlt : r < 2 ^ q) (h2n : 2 * (2 ^ k + 2 ^ (k 
         ∧ 2 * p ≤ r' ∧ r' < 2 ^ q' := by
   refine' ⟨ q + 2 * k + 2, _, _, _, _ ⟩;
   exact 2 ^ ( 2 * k ) * ( 4 * r - 8 * 2 ^ k + 11 ) - 2;
-  · zify [ pow_succ' ] at * ; ring_nf at *;
-    grind;
+  · have hc : (1:ℕ) ≤ 2 ^ k := Nat.one_le_two_pow
+    have hr2c : 2 * 2 ^ k ≤ r := by
+      have : 2 * 2 ^ k ≤ 2 * (2 ^ k + 2 ^ (k + 1) * p) := by
+        nlinarith [Nat.zero_le (2 ^ (k + 1) * p)]
+      omega
+    have hpowq : 2 ^ (q + 2 * k + 2) = 4 * (2 ^ (2 * k) * 2 ^ q) := by
+      rw [pow_add, pow_add]; ring
+    set a := 2 ^ (2 * k) with ha
+    set b := 2 ^ q with hb
+    have ha1 : 1 ≤ a := Nat.one_le_two_pow
+    set s := 4 * r - 8 * 2 ^ k + 11 with hs
+    have key : 4 * (3 * b + r - 2 * (2 ^ k - 1)) + 3 = 12 * b + s := by rw [hs]; omega
+    have hexp : a * (12 * b + s) = 12 * (a * b) + a * s := by ring
+    have hY : 2 ≤ a * s := by
+      have hs11 : 11 ≤ s := by omega
+      nlinarith
+    rw [hpowq, key, hexp]
+    omega
   · refine' le_tsub_of_add_le_left _;
     ring_nf at *;
     nlinarith [ pow_pos ( by decide : 0 < 2 ) k, pow_pos ( by decide : 0 < 2 ) ( k * 2 ), Nat.sub_add_cancel ( show 2 ^ k * 8 ≤ r * 4 from by nlinarith [ pow_pos ( by decide : 0 < 2 ) k ] ) ];
@@ -2314,7 +2330,7 @@ lemma E_next (m : PosNum) (h : leads (b m)) :
     apply PosNum.to_nat_inj.mp; simp [hbm2, addN_cast, hbm]; ring;
   have hall : All1 (addN (b m.bit1) m.bit1) := by
     exact b0_all1 ( b_add_self _ );
-  have := start_reset ( b m.bit1 : Num ) hall; simp_all +decide [ Trans.trans ] ;
+  have := start_reset ( b m.bit1 : Num ) hall; simp_all +decide ;
   exact ⟨ m', by exact Trans.trans ( E_start m ) ( hDf.trans this ) |> fun h => Trans.trans h ( step_reset_odd _ _ ) |> fun h => Trans.trans h hfin, hleads' ⟩
 
 /-- `n`-fold application of the machine step (computable). -/
