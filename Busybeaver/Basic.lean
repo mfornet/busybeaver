@@ -52,7 +52,7 @@ structure StepResult (Cfg : Type _) where
 
 end TM
 
-universe u v w
+universe u v
 
 namespace TM
 
@@ -62,7 +62,7 @@ class Model (Machine : Type u) where
   /-- Type of control states of the machine. -/
   State : Type v
   /-- Type of tape symbols of the machine. -/
-  Symbol : Type w
+  Symbol : Type v
   /-- Decidable equality on states, used throughout executable and proof code. -/
   instDecEqState : DecidableEq State
   /-- Decidable equality on symbols, used throughout executable and proof code. -/
