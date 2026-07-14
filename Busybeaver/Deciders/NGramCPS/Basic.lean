@@ -135,7 +135,10 @@ def expandRight (rightNGrams : Array (NGram s)) (cfg : PartialConfig l s) (write
         right := appendFar rightPrefix sym
       }
   {
-    leftNGrams := #[newLeft]
+    -- Record the OLD left window `cfg.left` (Coq `xset_ins ls l0`), not the shifted
+    -- `newLeft`.  Recording the head-adjacent post-write window over-approximates
+    -- the reconstruction pool and makes the abstraction strictly coarser.
+    leftNGrams := #[cfg.left]
     rightNGrams := #[]
     successors
   }
@@ -156,7 +159,8 @@ def expandLeft (leftNGrams : Array (NGram s)) (cfg : PartialConfig l s) (writeSy
       }
   {
     leftNGrams := #[]
-    rightNGrams := #[newRight]
+    -- Record the OLD right window `cfg.right` (Coq `xset_ins rs r0`), not `newRight`.
+    rightNGrams := #[cfg.right]
     successors
   }
 
@@ -311,7 +315,8 @@ def expandRight [Inhabited α] [DecidableEq α] (rightNGrams : Array (Array α))
         right := NGramCPS.appendFar rightPrefix sym
       }
   {
-    leftNGrams := #[newLeft]
+    -- Record the OLD left window `cfg.left` (Coq `xset_ins ls l0`), not `newLeft`.
+    leftNGrams := #[cfg.left]
     rightNGrams := #[]
     successors
   }
@@ -331,7 +336,8 @@ def expandLeft [Inhabited α] [DecidableEq α] (leftNGrams : Array (Array α))
       }
   {
     leftNGrams := #[]
-    rightNGrams := #[newRight]
+    -- Record the OLD right window `cfg.right` (Coq `xset_ins rs r0`), not `newRight`.
+    rightNGrams := #[cfg.right]
     successors
   }
 
