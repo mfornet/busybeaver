@@ -818,4 +818,269 @@ lemma Sk_to_E'' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
     rw [hb] at hAdd0
     omega
 
+/-- Coq `ai_out_of_bound_0`. -/
+lemma ai_out_of_bound {i : ℕ} {s : S17} (h : toL s ≤ i) : ai i s = 0 := by
+  obtain ⟨x, xs⟩ := s
+  rw [toL_def] at h
+  simp only [ai]
+  exact List.getD_eq_default _ _ (by omega)
+
+/-- Coq `ZIHIO`: the overflow chain that grows the counter to `2k+3` digits. -/
+inductive ZIHIO (k : ℕ) : S17 → S17 → Prop
+  | intro (n1 n2 : ℕ) (s1 s2 s3 s4 s5 s6 : S17)
+      (Z12 : Zero s1 s2) (I23 : Increments n1 s2 s3) (H34 : Halve s3 s4)
+      (I45 : Increments (n2 + 1) s4 s5) (O56 : Overflow s5 s6)
+      (hwf6 : WF1 s6) (hs6 : toS s6 = false) (hn6 : toN s6 = 0)
+      (hl6 : toL s6 = k * 2 + 3) (ha60 : s6.1 = 1)
+      (ha61 : ai 0 s6 = 2 ^ (k * 2 + 2) - 4)
+      (ha6 : ∀ i, 2 ≤ i → i ≤ k * 2 + 2 →
+        ai' i s6 = 2 ^ (k * 2 + 3 - i) - i % 2 * 2)
+      (ha6last : ai' (k * 2 + 3) s6 = 0) :
+      ZIHIO k s1 s6
+
+set_option maxHeartbeats 1000000 in
+/-- Coq `E''_Overflow`: from the `Sk_to_E''` profile the overflow chain fires. -/
+lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
+    (Heb : ∃ s0, EmbankedBatch 1 s0 s1 1 (2 ^ (k * 2) * 2 - 1))
+    (hl1' : toL s1 = k * 2 + 1)
+    (ha10 : ai' 0 s1 = 2 ^ (k * 2) * 2 - 3)
+    (ha11 : ai' 1 s1 = 2 ^ (k * 2) * 3)
+    (ha1 : ∀ i, 2 ≤ i → i ≤ k * 2 →
+      ai' i s1 = 2 ^ (k * 2 + 1 - i) * 3 - (1 - i % 2) * 2)
+    (ha1' : ai' (k * 2 + 1) s1 = 2) :
+    ∃ s6, ZIHIO k s1 s6 := by
+  have hp4 := pow22k_lower_bound hk
+  have hpw1 : (2:ℕ) ^ (k * 2) * 2 = 2 ^ (k * 2 + 1) := by rw [pow_succ]
+  have hpw2 : (2:ℕ) ^ (k * 2 + 1) * 2 = 2 ^ (k * 2 + 2) := (pow_succ 2 (k * 2 + 1)).symm
+  have hpw3 : (2:ℕ) ^ (k * 2 + 2) * 2 = 2 ^ (k * 2 + 3) := (pow_succ 2 (k * 2 + 2)).symm
+  obtain ⟨s0, Heb⟩ := Heb
+  obtain ⟨hwf1, hs1, hn1, hl1, ha10_odd⟩ := embanked_batch_postcond Heb
+  simp only [ai'] at ha10 ha11 ha1'
+  -- Zero
+  obtain ⟨s2, Z12, hwf2⟩ := Zero_precond hwf1 hs1 hn1
+  have hs2 := Zero_sgn Z12
+  have hn2 := Zero_n Z12
+  have hl2 := Zero_len Z12
+  have ha20 := Zero_a0 Z12
+  have ha21 := Zero_a1 Z12 hl1
+  have ha2 := Zero_a Z12
+  rw [hl1'] at hn2 hl2 ha2
+  rw [hpw1] at ha10
+  have hn2' : toN s2 = 2 ^ (k * 2 + 1) - 1 := hn2
+  have hn2_odd : Odd (toN s2) := by
+    rw [hn2']
+    refine ⟨2 ^ (k * 2) - 1, ?_⟩
+    have h2 : (2:ℕ) ^ (k * 2 + 1) = 2 ^ (k * 2) + 2 ^ (k * 2) := two_pow_succ' _
+    omega
+  have hpk1 : 0 < 2 ^ (k * 2 + 1) := Nat.two_pow_pos _
+  have hpk2 : 0 < 2 ^ (k * 2 + 2) := Nat.two_pow_pos _
+  have hpks : (2:ℕ) ^ (k * 2 + 1) = 2 ^ (k * 2) + 2 ^ (k * 2) := two_pow_succ' _
+  have hpks2 : (2:ℕ) ^ (k * 2 + 2) = 2 ^ (k * 2 + 1) + 2 ^ (k * 2 + 1) :=
+    two_pow_succ' _
+  -- Increments (dec) by fst s2
+  obtain ⟨s3, I23, hwf3⟩ := Increments_dec_precond2 s2.1 hwf2 hs2
+    (by omega) (le_refl _)
+  have hs3 := Increments_sgn I23
+  have hn3 := Increments_n I23
+  have hl3 := Increments_len I23
+  have ha30 := Increments_a0 I23
+  have ha3 := Increments_a I23
+  rw [hs2] at hn3 ha30 ha3
+  simp only [Bool.false_eq_true, if_false] at hn3 ha30 ha3
+  have ha30_0 : s3.1 = 0 := by omega
+  have hn3' : toN s3 = 3 := by omega
+  -- Halve
+  obtain ⟨s4, H34, hwf4⟩ := Halve_precond2 hwf3 ha30_0 (by omega)
+  have hs4 := Halve_sgn H34
+  have hn4 := Halve_n H34
+  have hl4 := Halve_len H34
+  have ha40 := Halve_a0 H34
+  have ha4 := Halve_a H34
+  have hs3' : toS s3 = false := by rw [← hs3]; exact hs2
+  have hs4' : toS s4 = true := by rw [← hs4, hs3']; rfl
+  have hn4' : toN s4 = 1 := by omega
+  have hl4' : toL s4 = k * 2 + 2 := by omega
+  -- ai 0 s3
+  have hdpA0 : divpow2r (2 ^ (k * 2 + 1) - 1) 0 = 2 ^ (k * 2) := by
+    have := divpow2r_pow2sub1 0 (k * 2 + 1) (by omega)
+    simpa using this
+  have hdp30 : divpow2r 3 0 = 2 := by rw [divpow2r_zero]
+  have ha31 := ha3 0
+  rw [hn2', hn3', hdpA0, hdp30, ← ha21, ha11] at ha31
+  have ha31' : ai 0 s3 = 2 ^ (k * 2 + 2) - 2 := by omega
+  -- Increments (inc) by 2^(k*2+2) - 2
+  obtain ⟨s5, I45, hwf5⟩ := Increments_inc_precond2 (2 ^ (k * 2 + 2) - 2)
+    hwf4 hs4'
+    (by rw [hl4', hn4', show k * 2 + 2 - 2 = k * 2 by omega]; omega)
+    (by rw [hl4', hn4']; omega)
+    (by omega)
+  have hs5 := Increments_sgn I45
+  have hn5 := Increments_n I45
+  have hl5 := Increments_len I45
+  have ha50 := Increments_a0 I45
+  have ha5 := Increments_a I45
+  rw [hs4'] at hn5 ha50 ha5
+  simp only [if_true] at hn5 ha50 ha5
+  have ha50' : s5.1 = 1 := by omega
+  have hn5' : toN s5 = 2 ^ (k * 2 + 2) - 1 := by omega
+  have hl5' : toL s5 = k * 2 + 2 := by omega
+  have hs5' : toS s5 = true := by rw [← hs5]; exact hs4'
+  -- Overflow
+  obtain ⟨s6, O56, hwf6⟩ := Overflow_precond hwf5 hs5'
+    (by rw [hl5']; exact hn5') ha50'
+  have hs6 := Overflow_sgn O56
+  have hn6 := Overflow_n O56
+  have hl6 := Overflow_len O56
+  have ha60 := Overflow_a0 O56
+  have ha6 := Overflow_a O56
+  have ha60' : s6.1 = 1 := by omega
+  have hl6' : toL s6 = k * 2 + 3 := by omega
+  rw [hl5'] at ha6
+  simp only [show k * 2 + 2 - 1 = k * 2 + 1 by omega] at ha6
+  -- divpow2r evaluation kit
+  have hdpB : ∀ j, j + 1 ≤ k * 2 + 2 →
+      divpow2r (2 ^ (k * 2 + 2) - 1) j = 2 ^ (k * 2 + 2 - (j + 1)) :=
+    fun j hj => divpow2r_pow2sub1 j (k * 2 + 2) hj
+  have hdpA : ∀ j, j + 1 ≤ k * 2 + 1 →
+      divpow2r (2 ^ (k * 2 + 1) - 1) j = 2 ^ (k * 2 + 1 - (j + 1)) :=
+    fun j hj => divpow2r_pow2sub1 j (k * 2 + 1) hj
+  have hdpAs : ∀ j, k * 2 + 1 ≤ j → divpow2r (2 ^ (k * 2 + 1) - 1) j = 0 :=
+    fun j hj => divpow2r_pow2sub1_small hj
+  have hdp1 : ∀ j, 1 ≤ j → divpow2r 1 j = 0 := by
+    intro j hj
+    apply divpow2r_small
+    have : (2:ℕ) ^ 1 ≤ 2 ^ j := Nat.pow_le_pow_right (by omega) hj
+    omega
+  have hdp3 : ∀ j, 2 ≤ j → divpow2r 3 j = 0 := by
+    intro j hj
+    apply divpow2r_small
+    have : (2:ℕ) ^ 2 ≤ 2 ^ j := Nat.pow_le_pow_right (by omega) hj
+    omega
+  have hdp31 : divpow2r 3 1 = 1 := by
+    unfold divpow2r
+    norm_num
+  have hdp10 : divpow2r 1 0 = 1 := by rw [divpow2r_zero]
+  -- `ai 0 s6 = 2^(k*2+2) - 4`
+  have ha61' : ai 0 s6 = 2 ^ (k * 2 + 2) - 4 := by
+    have h6 := ha6 0
+    rw [if_neg (by omega)] at h6
+    have h5 := ha5 0
+    rw [hn4', hn5', hdp10, hdpB 0 (by omega)] at h5
+    have h4 : ai 0 s4 = ai 1 s3 := ha4 0
+    have h3 := ha3 1
+    rw [hn2', hn3', hdpA 1 (by omega), hdp31] at h3
+    have h2 := ha2 1
+    rw [if_neg (by omega)] at h2
+    have h1 := ha1 2 (by omega) (by omega)
+    simp only [ai'] at h1
+    rw [show k * 2 + 1 - 2 = k * 2 - 1 by omega] at h1
+    have hpkm : (2:ℕ) ^ (k * 2) = 2 ^ (k * 2 - 1) + 2 ^ (k * 2 - 1) := by
+      conv_lhs => rw [show k * 2 = (k * 2 - 1) + 1 by omega]
+      exact two_pow_succ' _
+    have he1 : k * 2 + 1 - (1 + 1) = k * 2 - 1 := by omega
+    have he2 : k * 2 + 2 - (0 + 1) = k * 2 + 1 := by omega
+    rw [he1] at h3
+    rw [he2] at h5
+    have := Nat.two_pow_pos (k * 2 - 1)
+    omega
+  -- top digit vanishes
+  have ha6last' : ai' (k * 2 + 3) s6 = 0 := by
+    simp only [ai']
+    have h6 := ha6 (k * 2 + 2)
+    rw [if_neg (by omega)] at h6
+    have h5 := ha5 (k * 2 + 2)
+    rw [hn4', hn5', hdp1 _ (by omega),
+      divpow2r_pow2sub1_small (by omega : k * 2 + 2 ≤ k * 2 + 2)] at h5
+    have h4 := ha4 (k * 2 + 2)
+    have h3 := ha3 (k * 2 + 3)
+    rw [hn2', hn3', hdpAs _ (by omega), hdp3 _ (by omega)] at h3
+    have h2 := ha2 (k * 2 + 3)
+    rw [if_neg (by omega)] at h2
+    have h1o : ai (k * 2 + 3) s1 = 0 := ai_out_of_bound (by omega)
+    have h1o2 : ai (k * 2 + 2 + 1) s3 = ai (k * 2 + 3) s3 := by
+      rw [show k * 2 + 2 + 1 = k * 2 + 3 by omega]
+    omega
+  -- interior digits
+  have ha6i : ∀ i, 2 ≤ i → i ≤ k * 2 + 2 →
+      ai' i s6 = 2 ^ (k * 2 + 3 - i) - i % 2 * 2 := by
+    intro t h2t htk
+    obtain ⟨u, rfl⟩ : ∃ u, t = u + 1 := ⟨t - 1, by omega⟩
+    simp only [ai']
+    have h6 := ha6 u
+    have h5 := ha5 u
+    rw [hn4', hn5', hdp1 _ (by omega), hdpB u (by omega)] at h5
+    have h4 := ha4 u
+    have h3 := ha3 (u + 1)
+    rw [hn2', hn3', hdp3 _ (by omega)] at h3
+    have h2 := ha2 (u + 1)
+    rcases (by omega : u + 2 ≤ k * 2 ∨ u = k * 2 - 1 ∨ u = k * 2 ∨ u = k * 2 + 1)
+      with hcase | hcase | hcase | hcase
+    · -- interior
+      rw [hdpA (u + 1) (by omega)] at h3
+      rw [if_neg (by omega)] at h2
+      rw [if_neg (by omega)] at h6
+      have h1 := ha1 (u + 2) (by omega) (by omega)
+      simp only [ai'] at h1
+      have hE1 : k * 2 + 1 - (u + 1 + 1) = k * 2 - 1 - u := by omega
+      have hE2 : k * 2 + 2 - (u + 1) = k * 2 + 1 - u := by omega
+      have hE3 : k * 2 + 1 - (u + 2) = k * 2 - 1 - u := by omega
+      have hE4 : k * 2 + 3 - (u + 1) = k * 2 + 2 - u := by omega
+      rw [hE1] at h3
+      rw [hE2] at h5
+      rw [hE3] at h1
+      rw [hE4]
+      have hq1 : (2:ℕ) ^ (k * 2 - u) = 2 ^ (k * 2 - 1 - u) + 2 ^ (k * 2 - 1 - u) := by
+        conv_lhs => rw [show k * 2 - u = (k * 2 - 1 - u) + 1 by omega]
+        exact two_pow_succ' _
+      have hq2 : (2:ℕ) ^ (k * 2 + 1 - u) = 2 ^ (k * 2 - u) + 2 ^ (k * 2 - u) := by
+        conv_lhs => rw [show k * 2 + 1 - u = (k * 2 - u) + 1 by omega]
+        exact two_pow_succ' _
+      have hq3 : (2:ℕ) ^ (k * 2 + 2 - u)
+          = 2 ^ (k * 2 + 1 - u) + 2 ^ (k * 2 + 1 - u) := by
+        conv_lhs => rw [show k * 2 + 2 - u = (k * 2 + 1 - u) + 1 by omega]
+        exact two_pow_succ' _
+      have := Nat.two_pow_pos (k * 2 - 1 - u)
+      omega
+    · -- u = k*2 - 1
+      subst hcase
+      rw [hdpA (k * 2 - 1 + 1) (by omega)] at h3
+      rw [if_pos (by omega : k * 2 - 1 + 1 = k * 2 + 1 - 1)] at h2
+      rw [if_neg (by omega)] at h6
+      rw [show k * 2 + 1 - (k * 2 - 1 + 1 + 1) = 0 by omega, pow_zero] at h3
+      rw [show k * 2 - 1 + 1 = k * 2 by omega] at h2 h3 h4
+      rw [show k * 2 + 2 - (k * 2 - 1 + 1) = 2 by omega,
+        show (2:ℕ) ^ 2 = 4 by norm_num] at h5
+      rw [show k * 2 + 3 - (k * 2 - 1 + 1) = 3 by omega,
+        show (2:ℕ) ^ 3 = 8 by norm_num]
+      have hu2 : (k * 2 - 1 + 1) % 2 = 0 := by omega
+      rw [hu2]
+      omega
+    · -- u = k*2
+      subst hcase
+      rw [hdpAs (k * 2 + 1) (by omega)] at h3
+      rw [if_neg (by omega)] at h2
+      rw [if_neg (by omega)] at h6
+      have h1o : ai (k * 2 + 1) s1 = 0 := ai_out_of_bound (by omega)
+      rw [show k * 2 + 2 - (k * 2 + 1) = 1 by omega, pow_one] at h5
+      rw [show k * 2 + 3 - (k * 2 + 1) = 2 by omega,
+        show (2:ℕ) ^ 2 = 4 by norm_num]
+      have hu2 : (k * 2 + 1) % 2 = 1 := by omega
+      rw [hu2]
+      omega
+    · -- u = k*2 + 1
+      subst hcase
+      rw [hdpAs (k * 2 + 2) (by omega)] at h3
+      rw [if_neg (by omega)] at h2
+      rw [if_pos (by omega)] at h6
+      have h1o : ai (k * 2 + 1 + 1) s1 = 0 := ai_out_of_bound (by omega)
+      rw [show k * 2 + 2 - (k * 2 + 1 + 1) = 0 by omega, pow_zero] at h5
+      rw [show k * 2 + 3 - (k * 2 + 1 + 1) = 1 by omega, pow_one]
+      have hu2 : (k * 2 + 1 + 1) % 2 = 0 := by omega
+      rw [hu2]
+      omega
+  -- package
+  rw [show 2 ^ (k * 2 + 2) - 2 = (2 ^ (k * 2 + 2) - 3) + 1 by omega] at I45
+  exact ⟨s6, ZIHIO.intro s2.1 (2 ^ (k * 2 + 2) - 3) s1 s2 s3 s4 s5 s6
+    Z12 I23 H34 I45 O56 hwf6 hs6 hn6 hl6' ha60' ha61' ha6i ha6last'⟩
+
 end Deciders.Skelet.Skelet17
