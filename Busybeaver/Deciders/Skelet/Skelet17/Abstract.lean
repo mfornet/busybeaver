@@ -2258,4 +2258,232 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
               rw [if_neg (by omega : ¬(j + 3 : ℕ) = i0 + 1 + 1)] at hadj
               omega
 
+/-! ## Level 5: `embanked_batch` (Coq lines 3666–4025) -/
+
+/-- Coq `Add2s`: cumulative effect of a batch — indices of matching parity up
+to `i0` are each bumped by two. -/
+inductive Add2s : ℕ → S17 → S17 → Prop
+  | intro (i0 : ℕ) (s1 s2 : S17)
+      (h : ∀ i, ai' i s1 + (if i ≤ i0 ∧ i % 2 = i0 % 2 then 2 else 0) = ai' i s2) :
+      Add2s i0 s1 s2
+
+lemma add2s_inv {i0 : ℕ} {s1 s2 : S17} (h : Add2s i0 s1 s2) :
+    ∀ i, ai' i s1 + (if i ≤ i0 ∧ i % 2 = i0 % 2 then 2 else 0) = ai' i s2 := by
+  cases h with | intro h => exact h
+
+lemma add2_inv {i0 : ℕ} {s1 s2 : S17} (h : Add2 i0 s1 s2) :
+    ∀ i, ai' i s1 + (if i = i0 then 2 else 0) = ai' i s2 := by
+  cases h with | intro h => exact h
+
+/-- Coq `Add2s_O`. -/
+lemma Add2s_O {s1 s2 : S17} (h : Add2 0 s1 s2) : Add2s 0 s1 s2 := by
+  refine Add2s.intro _ _ _ fun i => ?_
+  have h1 := add2_inv h i
+  split_ifs at h1 ⊢ <;> omega
+
+/-- Coq `Add2s_SO`. -/
+lemma Add2s_SO {s1 s2 : S17} (h : Add2 1 s1 s2) : Add2s 1 s1 s2 := by
+  refine Add2s.intro _ _ _ fun i => ?_
+  have h1 := add2_inv h i
+  split_ifs at h1 ⊢ <;> omega
+
+/-- Coq `Add2s_SS`. -/
+lemma Add2s_SS {i : ℕ} {s1 s2 s3 : S17} (h : Add2 (i + 2) s1 s2)
+    (h0 : Add2s i s2 s3) : Add2s (i + 2) s1 s3 := by
+  refine Add2s.intro _ _ _ fun k => ?_
+  have h1 := add2_inv h k
+  have h2 := add2s_inv h0 k
+  split_ifs at h1 h2 ⊢ <;> omega
+
+/-- Coq `embanked_batch`: a run of `embanked` steps whose `Add2` indices
+descend by two to `0` or `1`. -/
+inductive EmbankedBatch : ℕ → S17 → S17 → ℕ → ℕ → Prop
+  | zero {e ne : S17} {s_1 h_1 s_2 h_2 : ℕ}
+      (He : Embanked e ne s_1 h_1 s_2 h_2) (Ha : Add2 0 e ne) :
+      EmbankedBatch 0 e ne h_1 h_2
+  | one {e ne : S17} {s_1 h_1 s_2 h_2 : ℕ}
+      (He : Embanked e ne s_1 h_1 s_2 h_2) (Ha : Add2 1 e ne) :
+      EmbankedBatch 1 e ne h_1 h_2
+  | ss {i : ℕ} {e ne n'e : S17} {s_1 h_1 s_2 h_2 : ℕ}
+      (He : Embanked e ne s_1 h_1 s_2 h_2) (Ha : Add2 (i + 2) e ne)
+      (Heb : EmbankedBatch i ne n'e h_1 h_2) :
+      EmbankedBatch (i + 2) e n'e h_1 h_2
+
+/-- Coq `embanked_Add2SS_embanked`: an `Add2 (i+2)`-marked embanked step spawns
+an identical-countered embanked step marked `Add2 i`. -/
+lemma embanked_Add2SS_embanked {i : ℕ} {e ne : S17} {s_1' h_1' s_2' h_2' : ℕ}
+    (He : Embanked e ne s_1' h_1' s_2' h_2') (Ha : Add2 (i + 2) e ne) :
+    ∃ nne, Embanked ne nne s_1' h_1' s_2' h_2' ∧ Add2 i ne nne := by
+  have Hkeep := He
+  obtain ⟨n1, e, s6, ne, s8, s_1', h_1', s_2', h_2', hwemb, I67, Z78, hge, a70,
+    a7, hwf7, hs7s, hs7n, hleq⟩ := He
+  obtain ⟨m1, m2, e, e2, e3, e4, e5, s6, Z12, I23, H34, I45, H56, hwf1, hs1s,
+    hs1n, hs1l, hs1a0_odd, hs1a0_lt, hs1a1_lt, hwf6, hs6s, hs6l, n34, n56, n3e,
+    n4e, n5e, n6e, a60, a6⟩ := hwemb
+  have h0 := add2_inv Ha 0
+  have h1 := add2_inv Ha 1
+  simp only [ai'] at h0 h1
+  rw [if_neg (by omega : ¬(0:ℕ) = i + 2)] at h0
+  rw [if_neg (by omega : ¬(1:ℕ) = i + 2)] at h1
+  rw [hleq] at hs1l hs1a0_lt hs1a1_lt
+  obtain ⟨ne0, t1, t2, t3, t4, Hwe⟩ := weakly_embanked_precond hwf7 hs7s hs7n
+    hs1l (dec_to_0_a0_odd hs7s hs7n) (by omega) (by omega)
+  have Hsh := emb_wemb_s_h Hkeep Hwe Ha
+  simp only [Prod.mk.injEq] at Hsh
+  obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh
+  obtain ⟨nne, He', Ha'⟩ := emb_wemb_Add2_emb Hkeep Hwe Ha
+  rw [← Q1, ← Q2, ← Q3, ← Q4] at He'
+  exact ⟨nne, He', Ha'⟩
+
+/-- Coq `embanked__embanked_batch`. -/
+lemma embanked_embanked_batch : ∀ {i : ℕ} {e ne : S17} {s_1' h_1' s_2' h_2' : ℕ},
+    Embanked e ne s_1' h_1' s_2' h_2' → Add2 i e ne →
+    ∃ n'e, EmbankedBatch i e n'e h_1' h_2' := by
+  intro i
+  induction i using Nat.strong_induction_on with
+  | _ i ih =>
+    intro e ne s_1' h_1' s_2' h_2' He Ha
+    match i with
+    | 0 => exact ⟨ne, EmbankedBatch.zero He Ha⟩
+    | 1 => exact ⟨ne, EmbankedBatch.one He Ha⟩
+    | (j + 2) =>
+        obtain ⟨nne, He', Ha'⟩ := embanked_Add2SS_embanked He Ha
+        obtain ⟨n'e, Heb⟩ := ih j (by omega) He' Ha'
+        exact ⟨n'e, EmbankedBatch.ss He Ha Heb⟩
+
+/-- Coq `embanked_batch_last`: the tail of a batch is a batch at `i % 2`. -/
+lemma embanked_batch_last {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (h : EmbankedBatch i e ne h_1 h_2) :
+    ∃ e', EmbankedBatch (i % 2) e' ne h_1 h_2 := by
+  induction h with
+  | zero He Ha => exact ⟨_, EmbankedBatch.zero He Ha⟩
+  | one He Ha => exact ⟨_, EmbankedBatch.one He Ha⟩
+  | @ss j _ _ _ _ _ _ _ He Ha Heb ih =>
+      obtain ⟨e', Heb'⟩ := ih
+      exact ⟨e', by rwa [show (j + 2) % 2 = j % 2 by omega]⟩
+
+/-- Coq `embanked_batch_Add2s`. -/
+lemma embanked_batch_Add2s {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (h : EmbankedBatch i e ne h_1 h_2) : Add2s i e ne := by
+  induction h with
+  | zero He Ha => exact Add2s_O Ha
+  | one He Ha => exact Add2s_SO Ha
+  | ss He Ha Heb ih => exact Add2s_SS Ha ih
+
+/-- Coq `embanked_batch_precond_01` + `embanked_batch_precond` fused. -/
+lemma embanked_batch_precond {i : ℕ} {e ne ne' : S17} {h_1 h_2 s_1' h_1' s_2' h_2' : ℕ}
+    (Heb : EmbankedBatch i e ne h_1 h_2)
+    (Hwe : WeaklyEmbanked ne ne' s_1' h_1' s_2' h_2') :
+    ∃ n'ne, EmbankedBatch
+      (match i % 2 with
+        | 0 => ctzS (h_1 - 1)
+        | _ => ctzS h_2 + 1) ne n'ne h_1' h_2' := by
+  obtain ⟨e', Heb'⟩ := embanked_batch_last Heb
+  rcases him : i % 2 with _ | m
+  · rw [him] at Heb'
+    cases Heb' with
+    | zero He Ha =>
+        obtain ⟨nne, He', Ha'⟩ := emb_wemb_Add2_emb He Hwe Ha
+        exact embanked_embanked_batch He' Ha'
+  · have hm : i % 2 = 1 := by omega
+    rw [hm] at Heb'
+    cases Heb' with
+    | one He Ha =>
+        obtain ⟨nne, He', Ha'⟩ := emb_wemb_Add2_emb He Hwe Ha
+        exact embanked_embanked_batch He' Ha'
+
+/-- Coq `embanked_batch_postcond`. -/
+lemma embanked_batch_postcond {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (h : EmbankedBatch i e ne h_1 h_2) :
+    WF1 ne ∧ toS ne = false ∧ toN ne = 0 ∧ 3 ≤ toL ne ∧ Odd ne.1 := by
+  induction h with
+  | zero He Ha =>
+      obtain ⟨n1, e, s6, ne, s8, s_1', h_1', s_2', h_2', hwemb, I67, Z78, hge,
+        a70, a7, hwf7, hs7s, hs7n, hleq⟩ := He
+      refine ⟨hwf7, hs7s, hs7n, ?_, dec_to_0_a0_odd hs7s hs7n⟩
+      obtain ⟨m1, m2, _, e2, e3, e4, e5, _, _, _, _, _, _, _, _, _, hs1l,
+        _, _, _, _, _, _, _, _, _, _, _, _, _, _⟩ := hwemb
+      omega
+  | one He Ha =>
+      obtain ⟨n1, e, s6, ne, s8, s_1', h_1', s_2', h_2', hwemb, I67, Z78, hge,
+        a70, a7, hwf7, hs7s, hs7n, hleq⟩ := He
+      refine ⟨hwf7, hs7s, hs7n, ?_, dec_to_0_a0_odd hs7s hs7n⟩
+      obtain ⟨m1, m2, _, e2, e3, e4, e5, _, _, _, _, _, _, _, _, _, hs1l,
+        _, _, _, _, _, _, _, _, _, _, _, _, _, _⟩ := hwemb
+      omega
+  | ss He Ha Heb ih => exact ih
+
+/-- Coq `embanked_batch__wemb`. -/
+lemma embanked_batch_wemb {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (Heb : EmbankedBatch i e ne h_1 h_2)
+    (Ha0 : ai' 0 ne < 2 ^ toL ne - 1)
+    (Ha1 : ai' 1 ne < 2 ^ (toL ne - 1) * 3) :
+    ∃ ne0 s_1' h_1' s_2' h_2', WeaklyEmbanked ne ne0 s_1' h_1' s_2' h_2' := by
+  obtain ⟨hwf, hs, hn, hl, hodd⟩ := embanked_batch_postcond Heb
+  simp only [ai'] at Ha0 Ha1
+  exact weakly_embanked_precond hwf hs hn hl hodd Ha0 (by omega)
+
+/-- Coq `embanked_batch_len`. -/
+lemma embanked_batch_len {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (h : EmbankedBatch i e ne h_1 h_2) : toL e = toL ne := by
+  induction h with
+  | zero He Ha =>
+      obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hleq⟩ := He
+      exact hleq
+  | one He Ha =>
+      obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hleq⟩ := He
+      exact hleq
+  | ss He Ha Heb ih =>
+      obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hleq⟩ := He
+      rw [hleq]
+      exact ih
+
+/-- Coq `embanked_batch_a0_a1`. -/
+lemma embanked_batch_a0_a1 {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (h : EmbankedBatch i e ne h_1 h_2) :
+    ai' 0 ne = ai' 0 e + (1 - i % 2) * 2 ∧ ai' 1 ne = ai' 1 e + (i % 2) * 2 := by
+  have Ha := embanked_batch_Add2s h
+  have h0 := add2s_inv Ha 0
+  have h1 := add2s_inv Ha 1
+  split_ifs at h0 h1 <;> omega
+
+/-- Coq `embanked_batch_precond'`: a batch with room to spare spawns the next
+batch, with the `(h₁, h₂)` bookkeeping resolved by parity. -/
+lemma embanked_batch_precond' {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
+    (Heb : EmbankedBatch i e ne h_1 h_2)
+    (Ha0 : ai' 0 ne < 2 ^ toL ne - 1)
+    (Ha1 : ai' 1 ne < 2 ^ (toL ne - 1) * 3) :
+    ∃ n'ne, match i % 2 with
+      | 0 => EmbankedBatch (ctzS (h_1 - 1)) ne n'ne (h_1 - 1) h_2
+      | _ => EmbankedBatch (ctzS h_2 + 1) ne n'ne h_1 (h_2 + 1) := by
+  obtain ⟨ne0, s_1', h_1', s_2', h_2', Hwe⟩ := embanked_batch_wemb Heb Ha0 Ha1
+  obtain ⟨e', Heb'⟩ := embanked_batch_last Heb
+  have hpre := embanked_batch_precond Heb Hwe
+  rcases him : i % 2 with _ | m
+  · rw [him] at Heb' hpre
+    cases Heb' with
+    | zero He Ha =>
+        have Hsh := emb_wemb_s_h He Hwe Ha
+        simp only [Prod.mk.injEq] at Hsh
+        obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh
+        obtain ⟨n'ne, hb⟩ := hpre
+        refine ⟨n'ne, ?_⟩
+        have hb' : EmbankedBatch (ctzS (h_1 - 1)) ne n'ne h_1' h_2' := hb
+        show EmbankedBatch (ctzS (h_1 - 1)) ne n'ne (h_1 - 1) h_2
+        rw [show h_1' = h_1 - 1 by omega, show h_2' = h_2 by omega] at hb'
+        exact hb'
+  · have hm : i % 2 = 1 := by omega
+    rw [hm] at Heb' hpre
+    cases Heb' with
+    | one He Ha =>
+        have Hsh := emb_wemb_s_h He Hwe Ha
+        simp only [Prod.mk.injEq] at Hsh
+        obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh
+        obtain ⟨n'ne, hb⟩ := hpre
+        refine ⟨n'ne, ?_⟩
+        have hb' : EmbankedBatch (ctzS h_2 + 1) ne n'ne h_1' h_2' := hb
+        show EmbankedBatch (ctzS h_2 + 1) ne n'ne h_1 (h_2 + 1)
+        rw [show h_1' = h_1 by omega, show h_2' = h_2 + 1 by omega] at hb'
+        exact hb'
+
 end Deciders.Skelet.Skelet17
