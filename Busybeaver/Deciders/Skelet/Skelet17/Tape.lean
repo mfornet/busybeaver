@@ -230,4 +230,92 @@ lemma goleft_odd10 {n : ℕ} (hn : Even n) (l r : ListBlank (Symbol 1)) :
   evsteps step_left_mk' gC0 _ _, step_left_mk' gD1 _ _, step_right_mk' gB1 _ _,
     step_right_mk' gE1 _ _, step_right_mk' gA0 _ _
 
+/-! ## Level-0 connectives -/
+
+/-- Passing a `1` separator leftwards in state `C` (level-0 "go left (pass 1)"). -/
+lemma pass_sep (x r : ListBlank (Symbol 1)) :
+    atC (ListBlank.cons 𝟙 x) r -[M]-> atC x (ListBlank.cons 𝟙 r) := by
+  rw [atC, headL_cons]
+  exact step_left_head gC1 x r
+
+/-- Turning around at the blank right edge (level-0 "go right (turn back)"):
+`l |> 0∞ → l <| 0∞`. -/
+lemma turn_blank (l : ListBlank (Symbol 1)) :
+    atB l ∅ -[M]-> atC l ∅ := by
+  have h := step_left_head (M := M) gB0d l (∅ : ListBlank (Symbol 1))
+  rw [cons_zero_empty] at h
+  exact h
+
+/-! ## Level 2: rewriting `lower` lists -/
+
+/-- Coq `goright_nonzero_step`:
+`lowerL (y :: ys) |> lowerR' ((x+1) :: xs) -->* lowerL (x :: (y+1) :: ys) |> lowerR' xs`
+(cross the separator and one `10`, converting them into `1 0 1` on the left,
+then sweep the remaining `(10)^x`). -/
+lemma goright_nonzero_step (x y : ℕ) (ys xs : List ℕ) :
+    atB (lowerL (y :: ys)) (lowerR' ((x + 1) :: xs)) -[M]->*
+      atB (lowerL (x :: (y + 1) :: ys)) (lowerR' xs) := by
+  show atB (lowerL (y :: ys))
+      (ListBlank.cons 𝟙 (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (pow10R x (lowerR' xs)))))
+    -[M]->* _
+  rw [atB]
+  evchain step_right_mk' gB1 _ _, step_right_mk' gE1 _ _, step_right_mk' gA0 _ _
+  have h := goright_10 x
+    (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (lowerL (y :: ys))))) (lowerR' xs)
+  have hL : pow10L x (ListBlank.cons 𝟙 (ListBlank.cons 𝟘 (ListBlank.cons 𝟙 (lowerL (y :: ys)))))
+      = lowerL (x :: (y + 1) :: ys) := by
+    simp only [lowerL, lowerL', pow10L]
+  rw [hL] at h
+  exact h
+
+/-- Coq `goright_nonzero_steps`: cross a whole run of nonzero exponents. -/
+lemma goright_nonzero_steps : ∀ (xs : List ℕ), (∀ a ∈ xs, a ≠ 0) →
+    ∀ (x y : ℕ) (ys zs : List ℕ),
+    atB (lowerL (y :: ys)) (lowerR' (xs ++ (x + 1) :: zs)) -[M]->*
+      atB (lowerL (x :: xs.reverse ++ (y + 1) :: ys)) (lowerR' zs)
+  | [], _, x, y, ys, zs => by
+      simpa using goright_nonzero_step x y ys zs
+  | a :: xs, hnz, x, y, ys, zs => by
+      obtain ⟨a', rfl⟩ : ∃ a', a = a' + 1 := by
+        have := hnz a (by simp)
+        exact ⟨a - 1, by omega⟩
+      have h1 := goright_nonzero_step a' y ys (xs ++ (x + 1) :: zs)
+      refine (by simpa using h1 :
+        atB (lowerL (y :: ys)) (lowerR' ((a' + 1) :: xs ++ (x + 1) :: zs)) -[M]->* _).trans ?_
+      have h2 := goright_nonzero_steps xs (fun b hb => hnz b (by simp [hb])) x a'
+        ((y + 1) :: ys) zs
+      refine h2.trans ?_
+      have : x :: xs.reverse ++ (a' + 1) :: (y + 1) :: ys
+          = x :: ((a' + 1) :: xs).reverse ++ (y + 1) :: ys := by
+        simp
+      rw [this]
+      exact Machine.EvStep.refl
+
+/-- Coq `goright_nonzero'`: ending at the blank right edge. -/
+lemma goright_nonzero' {xs : List ℕ} (hxs : ∀ a ∈ xs, a ≠ 0) (x y : ℕ) (ys : List ℕ) :
+    atB (lowerL (y :: ys)) (lowerR' (xs ++ [x + 1])) -[M]->*
+      atB (lowerL (x :: xs.reverse ++ (y + 1) :: ys)) ∅ := by
+  simpa [lowerR'] using goright_nonzero_steps xs hxs x y ys []
+
+/-- Coq `goleft_even`: the head crosses a run of even exponents leftwards,
+transferring them (reversed) onto the right side. -/
+lemma goleft_even : ∀ (xs : List ℕ), (∀ a ∈ xs, Even a) →
+    ∀ (l : List ℕ), l ≠ [] → ∀ (r : List ℕ),
+    atC (lowerL (xs ++ l)) (lowerR' r) -[M]->*
+      atC (lowerL l) (lowerR' (xs.reverse ++ r))
+  | [], _, l, _, r => by simpa using Machine.EvStep.refl
+  | x :: xs, hev, l, hl, r => by
+      have hx : Even x := hev x (by simp)
+      show atC (pow10L x (lowerL' (xs ++ l))) (lowerR' r) -[M]->* _
+      refine (goleft_even10 hx _ _).trans ?_
+      rw [lowerL_nonempty (by simp [hl] : xs ++ l ≠ [])]
+      refine Machine.EvStep.step (pass_sep _ _) ?_
+      have h2 := goleft_even xs (fun b hb => hev b (by simp [hb])) l hl (x :: r)
+      have hR : ListBlank.cons 𝟙 (pow10R x (lowerR' r)) = lowerR' (x :: r) := rfl
+      rw [hR]
+      refine h2.trans ?_
+      have : xs.reverse ++ x :: r = (x :: xs).reverse ++ r := by simp
+      rw [this]
+      exact Machine.EvStep.refl
+
 end Deciders.Skelet.Skelet17
