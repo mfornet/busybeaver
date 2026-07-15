@@ -715,4 +715,107 @@ lemma Sk_to_E' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
     show 2 ^ (k * 2) + (2 ^ (k * 2) - 2) = 2 ^ (k * 2) * 2 - 2 by omega] at HN Heb'
   exact ⟨e, ne, HN, Heb0, Hadd2s0, ⟨e', i', Heb', Hi'⟩, hl, by omega, by omega, Ha⟩
 
+/-- Coq `pow2sub_div_pow2`. -/
+lemma pow2sub_div_pow2 {i j c : ℕ} (hj : j ≤ i) (hc1 : 0 < c) (hc2 : c ≤ 2 ^ j) :
+    (2 ^ i - c) / 2 ^ j = 2 ^ (i - j) - 1 := by
+  have hpj : 0 < 2 ^ j := Nat.two_pow_pos j
+  have hpij : 0 < 2 ^ (i - j) := Nat.two_pow_pos _
+  have hsplit : (2:ℕ) ^ i = 2 ^ j * 2 ^ (i - j) := by
+    rw [← pow_add]
+    congr 1
+    omega
+  have hmulsub : (2:ℕ) ^ j * (2 ^ (i - j) - 1) = 2 ^ j * 2 ^ (i - j) - 2 ^ j := by
+    rw [Nat.mul_sub, Nat.mul_one]
+  have hAK : (2:ℕ) ^ j ≤ 2 ^ j * 2 ^ (i - j) := Nat.le_mul_of_pos_right _ hpij
+  rw [show (2:ℕ) ^ i - c = 2 ^ j * (2 ^ (i - j) - 1) + (2 ^ j - c) by omega,
+    Nat.mul_add_div hpj, Nat.div_eq_of_lt (by omega)]
+  omega
+
+/-- Coq `pow2sub2_div_pow2`. -/
+lemma pow2sub2_div_pow2 {i j : ℕ} (hj : j ≤ i) (h1 : 1 ≤ j) :
+    (2 ^ i - 2) / 2 ^ j = 2 ^ (i - j) - 1 := by
+  apply pow2sub_div_pow2 hj (by omega)
+  have : (2:ℕ) ^ 1 ≤ 2 ^ j := Nat.pow_le_pow_right (by omega) h1
+  simpa using this
+
+/-- Coq `Sk_to_E''`: one more batch reaches `(1, 2^(2k+1) - 1)` with fully
+computed digit profile. -/
+lemma Sk_to_E'' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
+    ∃ e ne,
+      NSteps e (2 ^ (k * 2) - 1) (2 ^ (k * 2)) ne 1 (2 ^ (k * 2) * 2 - 2) ∧
+      EmbankedBatch (k * 2 + 1) Sk e (2 ^ (k * 2) - 1) (2 ^ (k * 2)) ∧
+      Add2s (k * 2 + 1) Sk e ∧
+      (∀ i, ai i ne = ai i e + 2 * ((2 ^ (k * 2) - 2) / 2 ^ i)) ∧
+      ∃ n'ne,
+        EmbankedBatch 1 ne n'ne 1 (2 ^ (k * 2) * 2 - 1) ∧
+        toL n'ne = k * 2 + 1 ∧
+        ai' 0 n'ne = 2 ^ (k * 2) * 2 - 3 ∧
+        ai' 1 n'ne = 2 ^ (k * 2) * 3 ∧
+        (∀ i, 2 ≤ i → i ≤ k * 2 →
+          ai' i n'ne = 2 ^ (k * 2 + 1 - i) * 3 - (1 - i % 2) * 2) ∧
+        ai' (k * 2 + 1) n'ne = 2 := by
+  have hp4 := pow22k_lower_bound hk
+  obtain ⟨e, ne, HN, Heb0, Hadd2s0, ⟨e', i', Heb', Hi'⟩, hl, ha0, ha1, Ha⟩ :=
+    Sk_to_E' HBase hk
+  obtain ⟨n'ne, Heb⟩ := embanked_batch_precond'' (k := k) Heb' hl
+    (by omega) (by omega)
+  rw [Hi'] at Heb
+  have hctz : ctzS (2 ^ (k * 2) * 2 - 2) = 0 := by
+    have he : (2:ℕ) ^ (k * 2) * 2 = 2 ^ (k * 2 + 1) := by
+      rw [pow_succ]
+    rw [show 2 ^ (k * 2) * 2 - 2 = 2 ^ (k * 2 + 1) - 0 - 2 by omega]
+    rw [ctzS_sub (by omega) (by
+      have : (4:ℕ) ≤ 2 ^ (k * 2 + 1) := by
+        have := Nat.pow_le_pow_right (by omega : 1 ≤ 2)
+          (by omega : k * 2 ≤ k * 2 + 1)
+        omega
+      omega)]
+    exact ctzS_even_0 (by omega)
+  have HebF : EmbankedBatch 1 ne n'ne 1 (2 ^ (k * 2) * 2 - 1) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) * 2 - 2) + 1) ne n'ne 1
+        (2 ^ (k * 2) * 2 - 2 + 1) := Heb
+    rw [hctz] at h
+    rwa [show 2 ^ (k * 2) * 2 - 2 + 1 = 2 ^ (k * 2) * 2 - 1 by omega] at h
+  obtain ⟨Ha0', Ha1'⟩ := embanked_batch_a0_a1 HebF
+  simp only [show (1:ℕ) % 2 = 1 by omega] at Ha0' Ha1'
+  have hbase := baseS_inv HBase
+  obtain ⟨hb0, hba, hbl⟩ := hbase
+  refine ⟨e, ne, HN, Heb0, Hadd2s0, Ha, n'ne, HebF, ?_, by omega, by omega,
+    ?_, ?_⟩
+  · rw [← embanked_batch_len HebF, hl]
+  · -- interior digits
+    intro i h2i hik
+    obtain ⟨j, rfl⟩ : ∃ j, i = j + 2 := ⟨i - 2, by omega⟩
+    have hAdd1 := add2s_inv (embanked_batch_Add2s HebF) (j + 2)
+    rw [if_neg (by omega)] at hAdd1
+    have hAdd0 := add2s_inv Hadd2s0 (j + 2)
+    have hai := Ha (j + 1)
+    have hdiv : (2 ^ (k * 2) - 2) / 2 ^ (j + 1) = 2 ^ (k * 2 - (j + 1)) - 1 :=
+      pow2sub2_div_pow2 (by omega) (by omega)
+    have hb := hba (j + 1)
+    rw [if_pos (by omega)] at hb
+    simp only [ai'] at hAdd1 hAdd0 ⊢
+    rw [hdiv] at hai
+    rw [hb] at hAdd0
+    have hpow : 0 < 2 ^ (k * 2 - (j + 1)) := Nat.two_pow_pos _
+    have hexp : k * 2 + 1 - (j + 2) = k * 2 - (j + 1) := by omega
+    rw [hexp]
+    split_ifs at hAdd0 with hc <;> omega
+  · -- the top digit
+    have hAdd1 := add2s_inv (embanked_batch_Add2s HebF) (k * 2 + 1)
+    rw [if_neg (by omega)] at hAdd1
+    have hAdd0 := add2s_inv Hadd2s0 (k * 2 + 1)
+    rw [if_pos (by omega)] at hAdd0
+    have hai := Ha (k * 2)
+    have hdiv : (2 ^ (k * 2) - 2) / 2 ^ (k * 2) = 0 := by
+      apply Nat.div_eq_of_lt
+      omega
+    have hb := hba (k * 2)
+    rw [if_neg (by omega)] at hb
+    obtain ⟨j, hj⟩ : ∃ j, k * 2 + 1 = j + 1 := ⟨k * 2, rfl⟩
+    simp only [ai'] at hAdd1 hAdd0 ⊢
+    rw [hdiv] at hai
+    rw [hb] at hAdd0
+    omega
+
 end Deciders.Skelet.Skelet17
