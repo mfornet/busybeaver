@@ -129,8 +129,7 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
   have e31 : divpow2r (2 ^ (k * 2 + 1) - 1) 1 = 2 ^ (k * 2 - 1) := by
     have := divpow2r_pow2sub1 1 (k * 2 + 1) (by omega)
     simpa [show k * 2 + 1 - (1 + 1) = k * 2 - 1 by omega] using this
-  rw [hs_1, hh_1, hs_2] at a60
-  rw [e50, e40, e31] at a60
+  rw [hs_1, hh_1, hs_2, e50, e40, e31] at a60
   have ha60 : s6.1 = 2 ^ (k * 2) + 1 := by omega
   -- promote to embanked
   obtain ⟨s7, Hemb⟩ := embanked_precond Hwemb (by omega)
@@ -150,8 +149,7 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
     | (j + 1) =>
         simp only [ai']
         have haj := a7 j
-        rw [hs_1, hh_1, hs_2, hh_2] at haj
-        rw [ha (j + 2)] at haj
+        rw [hs_1, hh_1, hs_2, hh_2, ha (j + 2)] at haj
         rw [ha j]
         simp only [show k * 2 + 1 - 1 = k * 2 by omega] at haj
         rcases Nat.lt_trichotomy (j + 1) (k * 2) with hr | hr | hr
@@ -266,6 +264,12 @@ lemma embanked_batch_precond'' {k : ℕ} {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
     simp only [show k * 2 + 1 - 1 = k * 2 by omega]
     omega
 
+private lemma paired_add2_indicator (i c : ℕ) :
+    (if i + 1 ≤ c + 1 ∧ (i + 1) % 2 = (c + 1) % 2 then 2 else 0)
+      + (if i + 1 ≤ c ∧ (i + 1) % 2 = c % 2 then 2 else 0)
+      = if i ≤ c then 2 else 0 := by
+  split_ifs <;> omega
+
 /-- Proposition 4.1, 2-step case (Coq `embanked_4batch`): when
 `ctzS m, ctzS (m+1)` have parities `0, 1`, four batches advance
 `(h₁, h₂) = (2^2k-1-m, 2^2k+m)` to `m+2` with predictable `ai` deltas. -/
@@ -336,7 +340,7 @@ lemma embanked_4batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - m - 1)) e3 e4
         (2 ^ (k * 2) - 1 - m - 1) (2 ^ (k * 2) + (m + 2)) := hb4
     rw [hc2a] at h
-    rwa [show 2 ^ (k * 2) - 1 - m - 1 = 2 ^ (k * 2) - 1 - (m + 1) by omega] at h
+    simpa [Nat.sub_sub, Nat.add_assoc] using h
   have hl4 : toL e4 = k * 2 + 1 := by rw [← embanked_batch_len Hb4, hl3]
   obtain ⟨Ha40, Ha41⟩ := embanked_batch_a0_a1 Hb4
   rw [hc0, Ha30] at Ha40
@@ -350,7 +354,7 @@ lemma embanked_4batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 1) - 1)) e4 e5
         (2 ^ (k * 2) - 1 - (m + 1) - 1) (2 ^ (k * 2) + (m + 2)) := hb5
     rw [hc3a] at h
-    rwa [show 2 ^ (k * 2) - 1 - (m + 1) - 1 = 2 ^ (k * 2) - 1 - (m + 2) by omega] at h
+    simpa [Nat.sub_sub, Nat.add_assoc] using h
   have hl5 : toL e5 = k * 2 + 1 := by rw [← embanked_batch_len Hb5, hl4]
   obtain ⟨Ha50, Ha51⟩ := embanked_batch_a0_a1 Hb5
   rw [hc1, Ha40] at Ha50
@@ -366,7 +370,9 @@ lemma embanked_4batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have hs1 := le_ctzS_sum i m
     have hs2 := le_ctzS_sum i (m + 1)
     rw [show m + 1 + 1 = m + 2 by omega] at hs2
-    split_ifs at h2 h3 h4 h5 hs1 hs2 <;> omega
+    have q0 := paired_add2_indicator i (ctzS m)
+    have q1 := paired_add2_indicator i (ctzS (m + 1))
+    omega
   exact ⟨e2, _, e3, _, e4, _, e5, _, Hb2, Hb3, Hb4, Hb5, by omega, hl5,
     by omega, by omega, Ha⟩
 
@@ -473,7 +479,7 @@ lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - m - 1)) e5 e6
         (2 ^ (k * 2) - 1 - m - 1) (2 ^ (k * 2) + (m + 4)) := hb6
     rw [hS0] at h
-    rwa [show 2 ^ (k * 2) - 1 - m - 1 = 2 ^ (k * 2) - 1 - (m + 1) by omega] at h
+    simpa [Nat.sub_sub, Nat.add_assoc] using h
   have hl6 : toL e6 = k * 2 + 1 := by rw [← embanked_batch_len Hb6, hl5]
   obtain ⟨Ha60, Ha61⟩ := embanked_batch_a0_a1 Hb6
   rw [hc0, Ha50] at Ha60
@@ -485,7 +491,7 @@ lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 1) - 1)) e6 e7
         (2 ^ (k * 2) - 1 - (m + 1) - 1) (2 ^ (k * 2) + (m + 4)) := hb7
     rw [hS1] at h
-    rwa [show 2 ^ (k * 2) - 1 - (m + 1) - 1 = 2 ^ (k * 2) - 1 - (m + 2) by omega] at h
+    simpa [Nat.sub_sub, Nat.add_assoc] using h
   have hl7 : toL e7 = k * 2 + 1 := by rw [← embanked_batch_len Hb7, hl6]
   obtain ⟨Ha70, Ha71⟩ := embanked_batch_a0_a1 Hb7
   rw [hc1, Ha60] at Ha70
@@ -497,7 +503,7 @@ lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 2) - 1)) e7 e8
         (2 ^ (k * 2) - 1 - (m + 2) - 1) (2 ^ (k * 2) + (m + 4)) := hb8
     rw [hS2] at h
-    rwa [show 2 ^ (k * 2) - 1 - (m + 2) - 1 = 2 ^ (k * 2) - 1 - (m + 3) by omega] at h
+    simpa [Nat.sub_sub, Nat.add_assoc] using h
   have hl8 : toL e8 = k * 2 + 1 := by rw [← embanked_batch_len Hb8, hl7]
   obtain ⟨Ha80, Ha81⟩ := embanked_batch_a0_a1 Hb8
   rw [hc2, Ha70] at Ha80
@@ -509,7 +515,7 @@ lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 3) - 1)) e8 e9
         (2 ^ (k * 2) - 1 - (m + 3) - 1) (2 ^ (k * 2) + (m + 4)) := hb9
     rw [hS3] at h
-    rwa [show 2 ^ (k * 2) - 1 - (m + 3) - 1 = 2 ^ (k * 2) - 1 - (m + 4) by omega] at h
+    simpa [Nat.sub_sub, Nat.add_assoc] using h
   have hl9 : toL e9 = k * 2 + 1 := by rw [← embanked_batch_len Hb9, hl8]
   obtain ⟨Ha90, Ha91⟩ := embanked_batch_a0_a1 Hb9
   rw [hc3, Ha80] at Ha90
@@ -534,22 +540,10 @@ lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     rw [show m + 2 + 1 = m + 3 by omega] at hs3
     rw [show m + 3 + 1 = m + 4 by omega] at hs4
     -- pair the batches: (b2,b6) → ctzS m; (b3,b7) → ctzS (m+1); etc.
-    have q0 : (if i + 1 ≤ ctzS m + 1 ∧ (i + 1) % 2 = (ctzS m + 1) % 2 then 2 else 0)
-        + (if i + 1 ≤ ctzS m ∧ (i + 1) % 2 = ctzS m % 2 then 2 else 0)
-        = if i ≤ ctzS m then 2 else 0 := by
-      split_ifs <;> omega
-    have q1 : (if i + 1 ≤ ctzS (m + 1) + 1 ∧ (i + 1) % 2 = (ctzS (m + 1) + 1) % 2 then 2 else 0)
-        + (if i + 1 ≤ ctzS (m + 1) ∧ (i + 1) % 2 = ctzS (m + 1) % 2 then 2 else 0)
-        = if i ≤ ctzS (m + 1) then 2 else 0 := by
-      split_ifs <;> omega
-    have q2 : (if i + 1 ≤ ctzS (m + 2) + 1 ∧ (i + 1) % 2 = (ctzS (m + 2) + 1) % 2 then 2 else 0)
-        + (if i + 1 ≤ ctzS (m + 2) ∧ (i + 1) % 2 = ctzS (m + 2) % 2 then 2 else 0)
-        = if i ≤ ctzS (m + 2) then 2 else 0 := by
-      split_ifs <;> omega
-    have q3 : (if i + 1 ≤ ctzS (m + 3) + 1 ∧ (i + 1) % 2 = (ctzS (m + 3) + 1) % 2 then 2 else 0)
-        + (if i + 1 ≤ ctzS (m + 3) ∧ (i + 1) % 2 = ctzS (m + 3) % 2 then 2 else 0)
-        = if i ≤ ctzS (m + 3) then 2 else 0 := by
-      split_ifs <;> omega
+    have q0 := paired_add2_indicator i (ctzS m)
+    have q1 := paired_add2_indicator i (ctzS (m + 1))
+    have q2 := paired_add2_indicator i (ctzS (m + 2))
+    have q3 := paired_add2_indicator i (ctzS (m + 3))
     omega
   exact ⟨e2, _, e3, _, e4, _, e5, _, e6, _, e7, _, e8, _, e9, _,
     Hb2, Hb3, Hb4, Hb5, Hb6, Hb7, Hb8, Hb9, by omega, hl9,
@@ -565,19 +559,15 @@ inductive CtzSChain : ℕ → Prop
   | s4 {n : ℕ} : CtzSChain n → ctzS n % 2 = 0 → ctzS (n + 1) % 2 = 0 →
       ctzS (n + 2) % 2 = 0 → ctzS (n + 3) % 2 = 1 → CtzSChain (n + 4)
 
-lemma ctzS_even_0 {n : ℕ} (h : n % 2 = 0) : ctzS n = 0 := by
-  apply (ctzS_spec n 0).2
-  simpa using h
+lemma ctzS_even_0 {n : ℕ} (h : n % 2 = 0) : ctzS n = 0 :=
+  (ctzS_spec n 0).2 (by simpa using h)
 
-lemma ctzS_mod4eq1 {n : ℕ} (h : n % 4 = 1) : ctzS n = 1 := by
-  apply (ctzS_spec n 1).2
-  norm_num
-  omega
+lemma ctzS_mod4eq1 {n : ℕ} (h : n % 4 = 1) : ctzS n = 1 :=
+  (ctzS_spec n 1).2 (by omega)
 
 lemma ctzS_odd_odd {n : ℕ} (h : ctzS n % 2 = 1) : n % 2 = 1 := by
   rcases Nat.mod_two_eq_zero_or_one n with h0 | h0
-  · rw [ctzS_even_0 h0] at h
-    omega
+  · simp [ctzS_even_0 h0] at h
   · exact h0
 
 /-- Coq `ctzS_chain_spec` (via mod-4 analysis, simpler than the original). -/
@@ -687,8 +677,7 @@ lemma embanked_batches {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0)
 
 /-- Coq `pow22k_lower_bound`. -/
 lemma pow22k_lower_bound {k : ℕ} (hk : k ≠ 0) : 4 ≤ 2 ^ (k * 2) := by
-  have : (2:ℕ) ^ 2 ≤ 2 ^ (k * 2) := Nat.pow_le_pow_right (by omega) (by omega)
-  omega
+  simpa using Nat.pow_le_pow_right (n := 2) (by omega) (by omega : 2 ≤ k * 2)
 
 /-- Coq `Sk_to_E'` (Corollary 4.2): sweep all the way to `m = 2^2k - 2`. -/
 lemma Sk_to_E' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
@@ -733,10 +722,8 @@ lemma pow2sub_div_pow2 {i j c : ℕ} (hj : j ≤ i) (hc1 : 0 < c) (hc2 : c ≤ 2
 
 /-- Coq `pow2sub2_div_pow2`. -/
 lemma pow2sub2_div_pow2 {i j : ℕ} (hj : j ≤ i) (h1 : 1 ≤ j) :
-    (2 ^ i - 2) / 2 ^ j = 2 ^ (i - j) - 1 := by
-  apply pow2sub_div_pow2 hj (by omega)
-  have : (2:ℕ) ^ 1 ≤ 2 ^ j := Nat.pow_le_pow_right (by omega) h1
-  simpa using this
+    (2 ^ i - 2) / 2 ^ j = 2 ^ (i - j) - 1 :=
+  pow2sub_div_pow2 hj (by omega) (by simpa using Nat.pow_le_pow_right (n := 2) (by omega) h1)
 
 /-- Coq `Sk_to_E''`: one more batch reaches `(1, 2^(2k+1) - 1)` with fully
 computed digit profile. -/
@@ -820,10 +807,8 @@ lemma Sk_to_E'' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
 
 /-- Coq `ai_out_of_bound_0`. -/
 lemma ai_out_of_bound {i : ℕ} {s : S17} (h : toL s ≤ i) : ai i s = 0 := by
-  obtain ⟨x, xs⟩ := s
-  rw [toL_def] at h
-  simp only [ai]
-  exact List.getD_eq_default _ _ (by omega)
+  rcases s with ⟨x, xs⟩
+  exact List.getD_eq_default _ _ (by simpa [toL_def] using h)
 
 /-- Coq `ZIHIO`: the overflow chain that grows the counter to `2k+3` digits. -/
 inductive ZIHIO (k : ℕ) : S17 → S17 → Prop
@@ -1088,10 +1073,8 @@ lemma zihio_inv {k : ℕ} {e ne : S17} (h : ZIHIO k e ne) :
       ai 0 ne = 2 ^ (k * 2 + 2) - 4 ∧
       (∀ i, 2 ≤ i → i ≤ k * 2 + 2 → ai' i ne = 2 ^ (k * 2 + 3 - i) - i % 2 * 2) ∧
       ai' (k * 2 + 3) ne = 0 := by
-  cases h with
-  | intro n1 n2 s1 s2 s3 s4 s5 s6 Z12 I23 H34 I45 O56 hwf6 hs6 hn6 hl6 ha60
-      ha61 ha6 ha6last =>
-    exact ⟨hwf6, hs6, hn6, hl6, ha60, ha61, ha6, ha6last⟩
+  cases h
+  aesop
 
 set_option maxHeartbeats 1000000 in
 /-- Coq `ZIHIO_emb`. -/
@@ -1123,8 +1106,8 @@ lemma ZIHIO_emb {k : ℕ} (hk : k ≠ 0) {e ne : S17} (HZ : ZIHIO k e ne) :
   obtain ⟨-, -, -, -, -, -, -, -, -, -, n34, n56, n3e, n4e, n5e, n6e, a60, a6⟩ :=
     weaklyEmbanked_fields Hwemb
   rw [hl, ha0] at n3e n4e
-  rw [hl] at n5e n6e a60
-  rw [ha1] at n5e n6e
+  rw [hl, ha1] at n5e n6e
+  rw [hl] at a60
   simp only [show (1:ℕ) / 2 = 0 by omega, Nat.add_zero,
     show k * 2 + 3 - 1 = k * 2 + 2 by omega,
     show k * 2 + 3 - 2 = k * 2 + 1 by omega] at n3e n4e n5e n6e a60
@@ -1283,9 +1266,7 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             have e2 : k * 2 + 1 - (u + 1) = 2 := by omega
             have e3 : k * 2 + 2 - (u + 2 + 1) = 1 := by omega
             have e4 : k * 2 + 3 - (u + 2) = 3 := by omega
-            rw [e1] at haj
-            rw [e2] at haj
-            rw [e3] at haj
+            rw [e1, e2, e3] at haj
             rw [e4]
             have hm : (u + 4) % 2 = (u + 2) % 2 := by omega
             rw [hm] at haj
@@ -1309,8 +1290,7 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             have e1 : k * 2 + 1 - (u + 1) = 1 := by omega
             have e2 : k * 2 + 2 - (u + 2 + 1) = 0 := by omega
             have e3 : k * 2 + 3 - (u + 2) = 2 := by omega
-            rw [e1] at haj
-            rw [e2, pow_zero] at haj
+            rw [e1, e2, pow_zero] at haj
             rw [e3]
             have hmb : (u + 2) % 2 = 1 := by omega
             rw [hmb]
