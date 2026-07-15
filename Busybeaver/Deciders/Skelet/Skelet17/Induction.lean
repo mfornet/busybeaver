@@ -555,4 +555,164 @@ lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
     Hb2, Hb3, Hb4, Hb5, Hb6, Hb7, Hb8, Hb9, by omega, hl9,
     by omega, by omega, Ha⟩
 
+/-! ### `ctzS` parity patterns and the chain structure (Coq lines 5097–5255) -/
+
+/-- Coq `ctzS_chain`: the positions reachable by 2- and 4-jumps. -/
+inductive CtzSChain : ℕ → Prop
+  | zero : CtzSChain 0
+  | s2 {n : ℕ} : CtzSChain n → ctzS n % 2 = 0 → ctzS (n + 1) % 2 = 1 →
+      CtzSChain (n + 2)
+  | s4 {n : ℕ} : CtzSChain n → ctzS n % 2 = 0 → ctzS (n + 1) % 2 = 0 →
+      ctzS (n + 2) % 2 = 0 → ctzS (n + 3) % 2 = 1 → CtzSChain (n + 4)
+
+lemma ctzS_even_0 {n : ℕ} (h : n % 2 = 0) : ctzS n = 0 := by
+  apply (ctzS_spec n 0).2
+  simpa using h
+
+lemma ctzS_mod4eq1 {n : ℕ} (h : n % 4 = 1) : ctzS n = 1 := by
+  apply (ctzS_spec n 1).2
+  norm_num
+  omega
+
+lemma ctzS_odd_odd {n : ℕ} (h : ctzS n % 2 = 1) : n % 2 = 1 := by
+  rcases Nat.mod_two_eq_zero_or_one n with h0 | h0
+  · rw [ctzS_even_0 h0] at h
+    omega
+  · exact h0
+
+/-- Coq `ctzS_chain_spec` (via mod-4 analysis, simpler than the original). -/
+lemma ctzS_chain_spec : ∀ {n : ℕ}, ctzS n % 2 = 1 → CtzSChain (n + 1) := by
+  intro n
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    intro h
+    have hodd : n % 2 = 1 := ctzS_odd_odd h
+    match n, h, hodd, ih with
+    | 0, h, hodd, _ => omega
+    | 1, h, hodd, _ =>
+        have h0 : ctzS 0 % 2 = 0 := by rw [ctzS_even_0 (by omega)]
+        exact CtzSChain.s2 CtzSChain.zero h0 h
+    | (m + 2), h, hodd, ih =>
+        have hm_odd : m % 2 = 1 := by omega
+        by_cases hpar : ctzS m % 2 = 1
+        · have hc := ih m (by omega) hpar
+          have h1 : ctzS (m + 1) % 2 = 0 := by rw [ctzS_even_0 (by omega)]
+          have h2 : ctzS (m + 1 + 1) % 2 = 1 := by
+            rw [show m + 1 + 1 = m + 2 by omega]
+            exact h
+          have := CtzSChain.s2 hc h1 h2
+          rwa [show m + 1 + 2 = m + 2 + 1 by omega] at this
+        · have hpar0 : ctzS m % 2 = 0 := by omega
+          have hm4 : m % 4 = 3 := by
+            rcases (by omega : m % 4 = 1 ∨ m % 4 = 3) with h4 | h4
+            · exfalso
+              have := ctzS_mod4eq1 h4
+              omega
+            · exact h4
+          obtain ⟨m', rfl⟩ : ∃ m', m = m' + 3 := ⟨m - 3, by omega⟩
+          have hc' : ctzS (m' + 1) % 2 = 1 := by
+            rw [ctzS_mod4eq1 (by omega)]
+          have hcc := ih (m' + 1) (by omega) hc'
+          have h1 : ctzS (m' + 2) % 2 = 0 := by rw [ctzS_even_0 (by omega)]
+          have h2 : ctzS (m' + 2 + 1) % 2 = 0 := by
+            rw [show m' + 2 + 1 = m' + 3 by omega]
+            exact hpar0
+          have h3 : ctzS (m' + 2 + 2) % 2 = 0 := by
+            rw [ctzS_even_0 (by omega)]
+          have h4 : ctzS (m' + 2 + 3) % 2 = 1 := by
+            rw [show m' + 2 + 3 = m' + 3 + 2 by omega]
+            exact h
+          have := CtzSChain.s4 hcc h1 h2 h3 h4
+          rwa [show m' + 2 + 4 = m' + 3 + 2 + 1 by omega] at this
+
+/-- Coq `N'steps`: a nonempty run of embanked batches with tracked `(h₁, h₂)`. -/
+inductive NSteps : S17 → ℕ → ℕ → S17 → ℕ → ℕ → Prop
+  | refl {i : ℕ} {e ne : S17} {h1 h2 : ℕ} :
+      EmbankedBatch i e ne h1 h2 → NSteps ne h1 h2 ne h1 h2
+  | step {i : ℕ} {e ne nne : S17} {h1 h2 h1a h2a h1b h2b : ℕ} :
+      NSteps e h1 h2 ne h1a h2a → EmbankedBatch i ne nne h1b h2b →
+      NSteps e h1 h2 nne h1b h2b
+
+/-- Coq `embanked_batches` (Propositions 4.2/4.3): sweep `m` along a
+`ctzS`-chain. -/
+lemma embanked_batches {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0)
+    {m : ℕ} (hm : m < 2 ^ (k * 2) - 1) (hcc : CtzSChain m) :
+    ∃ e ne,
+      NSteps e (2 ^ (k * 2) - 1) (2 ^ (k * 2)) ne
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + m) ∧
+      EmbankedBatch (k * 2 + 1) Sk e (2 ^ (k * 2) - 1) (2 ^ (k * 2)) ∧
+      Add2s (k * 2 + 1) Sk e ∧
+      (∃ e' i', EmbankedBatch i' e' ne (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + m) ∧
+        i' % 2 = 1) ∧
+      toL ne = k * 2 + 1 ∧ ai' 0 ne = 1 + m * 2 ∧
+      ai' 1 ne = 2 ^ (k * 2) + 2 + m * 2 ∧
+      (∀ i, ai i ne = ai i e + 2 * (m / 2 ^ i)) := by
+  induction hcc with
+  | zero =>
+      obtain ⟨e, Heb, hl, ha0, ha1, hadd2s⟩ := Base_embanked_batch hk HBase
+      have Heb' : EmbankedBatch (k * 2 + 1) Sk e
+          (2 ^ (k * 2) - 1 - 0) (2 ^ (k * 2) + 0) := by
+        rwa [Nat.sub_zero, Nat.add_zero]
+      refine ⟨e, e, NSteps.refl Heb', Heb, hadd2s,
+        ⟨Sk, k * 2 + 1, Heb', by omega⟩, hl, by simpa using ha0,
+        by simpa using ha1, fun i => by simp⟩
+  | @s2 n hchain hc0 hc1 ih =>
+      obtain ⟨e, ne, HN, Heb0, Hadd2s0, ⟨e', i', Heb', Hi'⟩, hl, ha0, ha1, Ha⟩ :=
+        ih (by omega)
+      obtain ⟨e2, i2, e3, i3, e4, i4, e5, i5, Heb2, Heb3, Heb4, Heb5, Hi5, Hl5,
+        Ha50, Ha51, Ha5⟩ :=
+        embanked_4batch (by omega) hc0 hc1 Heb' Hi' hl ha0 ha1
+      refine ⟨e, e5,
+        (((HN.step Heb2).step Heb3).step Heb4).step Heb5,
+        Heb0, Hadd2s0, ⟨e4, i5, Heb5, Hi5⟩, Hl5, by omega, by omega, ?_⟩
+      intro i
+      have h1 := Ha i
+      have h2 := Ha5 i
+      omega
+  | @s4 n hchain hc0 hc1 hc2 hc3 ih =>
+      obtain ⟨e, ne, HN, Heb0, Hadd2s0, ⟨e', i', Heb', Hi'⟩, hl, ha0, ha1, Ha⟩ :=
+        ih (by omega)
+      obtain ⟨e2, i2, e3, i3, e4, i4, e5, i5, e6, i6, e7, i7, e8, i8, e9, i9,
+        Heb2, Heb3, Heb4, Heb5, Heb6, Heb7, Heb8, Heb9, Hi9, Hl9, Ha90, Ha91,
+        Ha9⟩ :=
+        embanked_8batch (by omega) hc0 hc1 hc2 hc3 Heb' Hi' hl ha0 ha1
+      refine ⟨e, e9,
+        (((((((HN.step Heb2).step Heb3).step Heb4).step Heb5).step
+          Heb6).step Heb7).step Heb8).step Heb9,
+        Heb0, Hadd2s0, ⟨e8, i9, Heb9, Hi9⟩, Hl9, by omega, by omega, ?_⟩
+      intro i
+      have h1 := Ha i
+      have h2 := Ha9 i
+      omega
+
+/-- Coq `pow22k_lower_bound`. -/
+lemma pow22k_lower_bound {k : ℕ} (hk : k ≠ 0) : 4 ≤ 2 ^ (k * 2) := by
+  have : (2:ℕ) ^ 2 ≤ 2 ^ (k * 2) := Nat.pow_le_pow_right (by omega) (by omega)
+  omega
+
+/-- Coq `Sk_to_E'` (Corollary 4.2): sweep all the way to `m = 2^2k - 2`. -/
+lemma Sk_to_E' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
+    ∃ e ne,
+      NSteps e (2 ^ (k * 2) - 1) (2 ^ (k * 2)) ne 1 (2 ^ (k * 2) * 2 - 2) ∧
+      EmbankedBatch (k * 2 + 1) Sk e (2 ^ (k * 2) - 1) (2 ^ (k * 2)) ∧
+      Add2s (k * 2 + 1) Sk e ∧
+      (∃ e' i', EmbankedBatch i' e' ne 1 (2 ^ (k * 2) * 2 - 2) ∧ i' % 2 = 1) ∧
+      toL ne = k * 2 + 1 ∧ ai' 0 ne = 2 ^ (k * 2) * 2 - 3 ∧
+      ai' 1 ne = 2 ^ (k * 2) * 3 - 2 ∧
+      (∀ i, ai i ne = ai i e + 2 * ((2 ^ (k * 2) - 2) / 2 ^ i)) := by
+  have hp4 := pow22k_lower_bound hk
+  have hchain : CtzSChain (2 ^ (k * 2) - 2) := by
+    have he : 2 ^ (k * 2) - 2 = (2 ^ (k * 2) - 3) + 1 := by omega
+    rw [he]
+    apply ctzS_chain_spec
+    have hsub : ctzS (2 ^ (k * 2) - 1 - 2) = ctzS 1 :=
+      ctzS_sub (by omega) (by omega)
+    rw [show 2 ^ (k * 2) - 3 = 2 ^ (k * 2) - 1 - 2 by omega, hsub,
+      ctzS_mod4eq1 (by omega)]
+  obtain ⟨e, ne, HN, Heb0, Hadd2s0, ⟨e', i', Heb', Hi'⟩, hl, ha0, ha1, Ha⟩ :=
+    embanked_batches HBase hk (m := 2 ^ (k * 2) - 2) (by omega) hchain
+  rw [show 2 ^ (k * 2) - 1 - (2 ^ (k * 2) - 2) = 1 by omega,
+    show 2 ^ (k * 2) + (2 ^ (k * 2) - 2) = 2 ^ (k * 2) * 2 - 2 by omega] at HN Heb'
+  exact ⟨e, ne, HN, Heb0, Hadd2s0, ⟨e', i', Heb', Hi'⟩, hl, by omega, by omega, Ha⟩
+
 end Deciders.Skelet.Skelet17
