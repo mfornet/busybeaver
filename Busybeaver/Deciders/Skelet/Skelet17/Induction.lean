@@ -370,4 +370,189 @@ lemma embanked_4batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
   exact ⟨e2, _, e3, _, e4, _, e5, _, Hb2, Hb3, Hb4, Hb5, by omega, hl5,
     by omega, by omega, Ha⟩
 
+set_option maxHeartbeats 1000000 in
+/-- Proposition 4.1, 4-step case (Coq `embanked_8batch`): parities
+`0,0,0,1` for `ctzS m … ctzS (m+3)` give eight batches advancing by `m+4`. -/
+lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
+    (hm : m + 5 < 2 ^ (k * 2))
+    (hc0 : ctzS m % 2 = 0) (hc1 : ctzS (m + 1) % 2 = 0)
+    (hc2 : ctzS (m + 2) % 2 = 0) (hc3 : ctzS (m + 3) % 2 = 1)
+    (Heb1 : EmbankedBatch i0 e0 e1 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + m))
+    (hi0 : i0 % 2 = 1)
+    (hl1 : toL e1 = k * 2 + 1)
+    (ha10 : ai' 0 e1 = 1 + m * 2)
+    (ha11 : ai' 1 e1 = 2 ^ (k * 2) + 2 + m * 2) :
+    ∃ e2 i2 e3 i3 e4 i4 e5 i5 e6 i6 e7 i7 e8 i8 e9 i9,
+      EmbankedBatch i2 e1 e2 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 1)) ∧
+      EmbankedBatch i3 e2 e3 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 2)) ∧
+      EmbankedBatch i4 e3 e4 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 3)) ∧
+      EmbankedBatch i5 e4 e5 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 4)) ∧
+      EmbankedBatch i6 e5 e6 (2 ^ (k * 2) - 1 - (m + 1)) (2 ^ (k * 2) + (m + 4)) ∧
+      EmbankedBatch i7 e6 e7 (2 ^ (k * 2) - 1 - (m + 2)) (2 ^ (k * 2) + (m + 4)) ∧
+      EmbankedBatch i8 e7 e8 (2 ^ (k * 2) - 1 - (m + 3)) (2 ^ (k * 2) + (m + 4)) ∧
+      EmbankedBatch i9 e8 e9 (2 ^ (k * 2) - 1 - (m + 4)) (2 ^ (k * 2) + (m + 4)) ∧
+      i9 % 2 = 1 ∧ toL e9 = k * 2 + 1 ∧
+      ai' 0 e9 = 1 + (m + 4) * 2 ∧ ai' 1 e9 = 2 ^ (k * 2) + 2 + (m + 4) * 2 ∧
+      (∀ i, ai i e9 + 2 * (m / 2 ^ i) = ai i e1 + 2 * ((m + 4) / 2 ^ i)) := by
+  have hpk : 0 < 2 ^ (k * 2) := Nat.two_pow_pos _
+  have hk0 : 0 < k * 2 := by
+    by_contra h
+    have hz : k * 2 = 0 := by omega
+    rw [hz] at hm
+    simp at hm
+  have hA0 : ctzS (2 ^ (k * 2) + m) = ctzS m := ctzS_add (by omega)
+  have hA1 : ctzS (2 ^ (k * 2) + (m + 1)) = ctzS (m + 1) := ctzS_add (by omega)
+  have hA2 : ctzS (2 ^ (k * 2) + (m + 2)) = ctzS (m + 2) := ctzS_add (by omega)
+  have hA3 : ctzS (2 ^ (k * 2) + (m + 3)) = ctzS (m + 3) := ctzS_add (by omega)
+  have hS0 : ctzS (2 ^ (k * 2) - 1 - m - 1) = ctzS m := by
+    rw [show 2 ^ (k * 2) - 1 - m - 1 = 2 ^ (k * 2) - m - 2 by omega]
+    exact ctzS_sub (by omega) (by omega)
+  have hS1 : ctzS (2 ^ (k * 2) - 1 - (m + 1) - 1) = ctzS (m + 1) := by
+    rw [show 2 ^ (k * 2) - 1 - (m + 1) - 1 = 2 ^ (k * 2) - (m + 1) - 2 by omega]
+    exact ctzS_sub (by omega) (by omega)
+  have hS2 : ctzS (2 ^ (k * 2) - 1 - (m + 2) - 1) = ctzS (m + 2) := by
+    rw [show 2 ^ (k * 2) - 1 - (m + 2) - 1 = 2 ^ (k * 2) - (m + 2) - 2 by omega]
+    exact ctzS_sub (by omega) (by omega)
+  have hS3 : ctzS (2 ^ (k * 2) - 1 - (m + 3) - 1) = ctzS (m + 3) := by
+    rw [show 2 ^ (k * 2) - 1 - (m + 3) - 1 = 2 ^ (k * 2) - (m + 3) - 2 by omega]
+    exact ctzS_sub (by omega) (by omega)
+  -- four h₂-increment steps
+  obtain ⟨e2, hb2⟩ := embanked_batch_precond'' (k := k) Heb1 hl1 (by omega) (by omega)
+  rw [hi0] at hb2
+  have Hb2 : EmbankedBatch (ctzS m + 1) e1 e2
+      (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 1)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) + m) + 1) e1 e2
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + m + 1) := hb2
+    rwa [hA0] at h
+  have hi2 : (ctzS m + 1) % 2 = 1 := by omega
+  have hl2 : toL e2 = k * 2 + 1 := by rw [← embanked_batch_len Hb2, hl1]
+  obtain ⟨Ha20, Ha21⟩ := embanked_batch_a0_a1 Hb2
+  rw [hi2, ha10] at Ha20
+  rw [hi2, ha11] at Ha21
+  obtain ⟨e3, hb3⟩ := embanked_batch_precond'' (k := k) Hb2 hl2 (by omega) (by omega)
+  rw [hi2] at hb3
+  have Hb3 : EmbankedBatch (ctzS (m + 1) + 1) e2 e3
+      (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 2)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) + (m + 1)) + 1) e2 e3
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 1) + 1) := hb3
+    rwa [hA1] at h
+  have hi3 : (ctzS (m + 1) + 1) % 2 = 1 := by omega
+  have hl3 : toL e3 = k * 2 + 1 := by rw [← embanked_batch_len Hb3, hl2]
+  obtain ⟨Ha30, Ha31⟩ := embanked_batch_a0_a1 Hb3
+  rw [hi3, Ha20] at Ha30
+  rw [hi3, Ha21] at Ha31
+  obtain ⟨e4, hb4⟩ := embanked_batch_precond'' (k := k) Hb3 hl3 (by omega) (by omega)
+  rw [hi3] at hb4
+  have Hb4 : EmbankedBatch (ctzS (m + 2) + 1) e3 e4
+      (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 3)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) + (m + 2)) + 1) e3 e4
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 2) + 1) := hb4
+    rwa [hA2] at h
+  have hi4 : (ctzS (m + 2) + 1) % 2 = 1 := by omega
+  have hl4 : toL e4 = k * 2 + 1 := by rw [← embanked_batch_len Hb4, hl3]
+  obtain ⟨Ha40, Ha41⟩ := embanked_batch_a0_a1 Hb4
+  rw [hi4, Ha30] at Ha40
+  rw [hi4, Ha31] at Ha41
+  obtain ⟨e5, hb5⟩ := embanked_batch_precond'' (k := k) Hb4 hl4 (by omega) (by omega)
+  rw [hi4] at hb5
+  have Hb5 : EmbankedBatch (ctzS (m + 3) + 1) e4 e5
+      (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 4)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) + (m + 3)) + 1) e4 e5
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 3) + 1) := hb5
+    rwa [hA3] at h
+  have hi5 : (ctzS (m + 3) + 1) % 2 = 0 := by omega
+  have hl5 : toL e5 = k * 2 + 1 := by rw [← embanked_batch_len Hb5, hl4]
+  obtain ⟨Ha50, Ha51⟩ := embanked_batch_a0_a1 Hb5
+  rw [hi5, Ha40] at Ha50
+  rw [hi5, Ha41] at Ha51
+  -- four h₁-decrement steps
+  obtain ⟨e6, hb6⟩ := embanked_batch_precond'' (k := k) Hb5 hl5 (by omega) (by omega)
+  rw [hi5] at hb6
+  have Hb6 : EmbankedBatch (ctzS m) e5 e6
+      (2 ^ (k * 2) - 1 - (m + 1)) (2 ^ (k * 2) + (m + 4)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - m - 1)) e5 e6
+        (2 ^ (k * 2) - 1 - m - 1) (2 ^ (k * 2) + (m + 4)) := hb6
+    rw [hS0] at h
+    rwa [show 2 ^ (k * 2) - 1 - m - 1 = 2 ^ (k * 2) - 1 - (m + 1) by omega] at h
+  have hl6 : toL e6 = k * 2 + 1 := by rw [← embanked_batch_len Hb6, hl5]
+  obtain ⟨Ha60, Ha61⟩ := embanked_batch_a0_a1 Hb6
+  rw [hc0, Ha50] at Ha60
+  rw [hc0, Ha51] at Ha61
+  obtain ⟨e7, hb7⟩ := embanked_batch_precond'' (k := k) Hb6 hl6 (by omega) (by omega)
+  rw [hc0] at hb7
+  have Hb7 : EmbankedBatch (ctzS (m + 1)) e6 e7
+      (2 ^ (k * 2) - 1 - (m + 2)) (2 ^ (k * 2) + (m + 4)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 1) - 1)) e6 e7
+        (2 ^ (k * 2) - 1 - (m + 1) - 1) (2 ^ (k * 2) + (m + 4)) := hb7
+    rw [hS1] at h
+    rwa [show 2 ^ (k * 2) - 1 - (m + 1) - 1 = 2 ^ (k * 2) - 1 - (m + 2) by omega] at h
+  have hl7 : toL e7 = k * 2 + 1 := by rw [← embanked_batch_len Hb7, hl6]
+  obtain ⟨Ha70, Ha71⟩ := embanked_batch_a0_a1 Hb7
+  rw [hc1, Ha60] at Ha70
+  rw [hc1, Ha61] at Ha71
+  obtain ⟨e8, hb8⟩ := embanked_batch_precond'' (k := k) Hb7 hl7 (by omega) (by omega)
+  rw [hc1] at hb8
+  have Hb8 : EmbankedBatch (ctzS (m + 2)) e7 e8
+      (2 ^ (k * 2) - 1 - (m + 3)) (2 ^ (k * 2) + (m + 4)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 2) - 1)) e7 e8
+        (2 ^ (k * 2) - 1 - (m + 2) - 1) (2 ^ (k * 2) + (m + 4)) := hb8
+    rw [hS2] at h
+    rwa [show 2 ^ (k * 2) - 1 - (m + 2) - 1 = 2 ^ (k * 2) - 1 - (m + 3) by omega] at h
+  have hl8 : toL e8 = k * 2 + 1 := by rw [← embanked_batch_len Hb8, hl7]
+  obtain ⟨Ha80, Ha81⟩ := embanked_batch_a0_a1 Hb8
+  rw [hc2, Ha70] at Ha80
+  rw [hc2, Ha71] at Ha81
+  obtain ⟨e9, hb9⟩ := embanked_batch_precond'' (k := k) Hb8 hl8 (by omega) (by omega)
+  rw [hc2] at hb9
+  have Hb9 : EmbankedBatch (ctzS (m + 3)) e8 e9
+      (2 ^ (k * 2) - 1 - (m + 4)) (2 ^ (k * 2) + (m + 4)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 3) - 1)) e8 e9
+        (2 ^ (k * 2) - 1 - (m + 3) - 1) (2 ^ (k * 2) + (m + 4)) := hb9
+    rw [hS3] at h
+    rwa [show 2 ^ (k * 2) - 1 - (m + 3) - 1 = 2 ^ (k * 2) - 1 - (m + 4) by omega] at h
+  have hl9 : toL e9 = k * 2 + 1 := by rw [← embanked_batch_len Hb9, hl8]
+  obtain ⟨Ha90, Ha91⟩ := embanked_batch_a0_a1 Hb9
+  rw [hc3, Ha80] at Ha90
+  rw [hc3, Ha81] at Ha91
+  -- the ai balance, paired batch by batch
+  have Ha : ∀ i, ai i e9 + 2 * (m / 2 ^ i) = ai i e1 + 2 * ((m + 4) / 2 ^ i) := by
+    intro i
+    have h2 := add2s_inv (embanked_batch_Add2s Hb2) (i + 1)
+    have h3 := add2s_inv (embanked_batch_Add2s Hb3) (i + 1)
+    have h4 := add2s_inv (embanked_batch_Add2s Hb4) (i + 1)
+    have h5 := add2s_inv (embanked_batch_Add2s Hb5) (i + 1)
+    have h6 := add2s_inv (embanked_batch_Add2s Hb6) (i + 1)
+    have h7 := add2s_inv (embanked_batch_Add2s Hb7) (i + 1)
+    have h8 := add2s_inv (embanked_batch_Add2s Hb8) (i + 1)
+    have h9 := add2s_inv (embanked_batch_Add2s Hb9) (i + 1)
+    simp only [ai'] at h2 h3 h4 h5 h6 h7 h8 h9
+    have hs1 := le_ctzS_sum i m
+    have hs2 := le_ctzS_sum i (m + 1)
+    have hs3 := le_ctzS_sum i (m + 2)
+    have hs4 := le_ctzS_sum i (m + 3)
+    rw [show m + 1 + 1 = m + 2 by omega] at hs2
+    rw [show m + 2 + 1 = m + 3 by omega] at hs3
+    rw [show m + 3 + 1 = m + 4 by omega] at hs4
+    -- pair the batches: (b2,b6) → ctzS m; (b3,b7) → ctzS (m+1); etc.
+    have q0 : (if i + 1 ≤ ctzS m + 1 ∧ (i + 1) % 2 = (ctzS m + 1) % 2 then 2 else 0)
+        + (if i + 1 ≤ ctzS m ∧ (i + 1) % 2 = ctzS m % 2 then 2 else 0)
+        = if i ≤ ctzS m then 2 else 0 := by
+      split_ifs <;> omega
+    have q1 : (if i + 1 ≤ ctzS (m + 1) + 1 ∧ (i + 1) % 2 = (ctzS (m + 1) + 1) % 2 then 2 else 0)
+        + (if i + 1 ≤ ctzS (m + 1) ∧ (i + 1) % 2 = ctzS (m + 1) % 2 then 2 else 0)
+        = if i ≤ ctzS (m + 1) then 2 else 0 := by
+      split_ifs <;> omega
+    have q2 : (if i + 1 ≤ ctzS (m + 2) + 1 ∧ (i + 1) % 2 = (ctzS (m + 2) + 1) % 2 then 2 else 0)
+        + (if i + 1 ≤ ctzS (m + 2) ∧ (i + 1) % 2 = ctzS (m + 2) % 2 then 2 else 0)
+        = if i ≤ ctzS (m + 2) then 2 else 0 := by
+      split_ifs <;> omega
+    have q3 : (if i + 1 ≤ ctzS (m + 3) + 1 ∧ (i + 1) % 2 = (ctzS (m + 3) + 1) % 2 then 2 else 0)
+        + (if i + 1 ≤ ctzS (m + 3) ∧ (i + 1) % 2 = ctzS (m + 3) % 2 then 2 else 0)
+        = if i ≤ ctzS (m + 3) then 2 else 0 := by
+      split_ifs <;> omega
+    omega
+  exact ⟨e2, _, e3, _, e4, _, e5, _, e6, _, e7, _, e8, _, e9, _,
+    Hb2, Hb3, Hb4, Hb5, Hb6, Hb7, Hb8, Hb9, by omega, hl9,
+    by omega, by omega, Ha⟩
+
 end Deciders.Skelet.Skelet17
