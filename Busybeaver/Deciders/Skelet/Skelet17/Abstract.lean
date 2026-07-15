@@ -2486,4 +2486,116 @@ lemma embanked_batch_precond' {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
         rw [show h_1' = h_1 by omega, show h_2' = h_2 + 1 by omega] at hb'
         exact hb'
 
+/-! ### Power-of-two `divpow2r` values and `ctzS` shifts (Coq lines 4041–4274) -/
+
+lemma divpow2r_pow2 : ∀ (j i : ℕ), j + 1 ≤ i →
+    divpow2r (2 ^ i) j = 2 ^ (i - (j + 1))
+  | 0, i, h => by
+      obtain ⟨i', rfl⟩ : ∃ i', i = i' + 1 := ⟨i - 1, by omega⟩
+      rw [divpow2r_zero, show i' + 1 - (0 + 1) = i' by omega]
+      have := two_pow_succ' i'
+      omega
+  | (j + 1), i, h => by
+      obtain ⟨i', rfl⟩ : ∃ i', i = i' + 1 := ⟨i - 1, by omega⟩
+      have ih := divpow2r_pow2 j i' (by omega)
+      have hd : (2:ℕ) ^ (i' + 1) / 2 = 2 ^ i' := by
+        have := two_pow_succ' i'
+        omega
+      rw [← divpow2r_div2, hd, ih, show i' - (j + 1) = i' + 1 - (j + 1 + 1) by omega]
+
+lemma divpow2r_pow2sub1 : ∀ (j i : ℕ), j + 1 ≤ i →
+    divpow2r (2 ^ i - 1) j = 2 ^ (i - (j + 1))
+  | 0, i, h => by
+      obtain ⟨i', rfl⟩ : ∃ i', i = i' + 1 := ⟨i - 1, by omega⟩
+      rw [divpow2r_zero, show i' + 1 - (0 + 1) = i' by omega]
+      have := two_pow_succ' i'
+      have := Nat.two_pow_pos i'
+      omega
+  | (j + 1), i, h => by
+      obtain ⟨i', rfl⟩ : ∃ i', i = i' + 1 := ⟨i - 1, by omega⟩
+      have ih := divpow2r_pow2sub1 j i' (by omega)
+      have hd : ((2:ℕ) ^ (i' + 1) - 1) / 2 = 2 ^ i' - 1 := by
+        have := two_pow_succ' i'
+        have := Nat.two_pow_pos i'
+        omega
+      rw [← divpow2r_div2, hd, ih, show i' - (j + 1) = i' + 1 - (j + 1 + 1) by omega]
+
+lemma divpow2r_small {n i : ℕ} (h : n < 2 ^ i) : divpow2r n i = 0 := by
+  unfold divpow2r
+  have := two_pow_succ' i
+  rw [Nat.div_eq_of_lt (by omega)]
+
+lemma divpow2r_pow2_small {j i : ℕ} (h : j < i) : divpow2r (2 ^ j) i = 0 :=
+  divpow2r_small (Nat.pow_lt_pow_right (by omega) h)
+
+lemma divpow2r_pow2_1 (i : ℕ) : divpow2r (2 ^ i) i = 1 := by
+  unfold divpow2r
+  rw [pow2_add, Nat.div_self (Nat.two_pow_pos _)]
+
+lemma divpow2r_pow2sub1_small {j i : ℕ} (h : j ≤ i) : divpow2r (2 ^ j - 1) i = 0 := by
+  apply divpow2r_small
+  have := Nat.pow_le_pow_right (by omega : 1 ≤ 2) h
+  have := Nat.two_pow_pos j
+  omega
+
+/-- Coq `ctz_upper_bound`. -/
+lemma ctz_upper_bound {i m : ℕ} (h : m < 2 ^ i - 1) : ctzS m < i := by
+  have hspec := (ctzS_spec m (ctzS m)).1 rfl
+  have hle : m % 2 ^ (ctzS m + 1) ≤ m := Nat.mod_le _ _
+  by_contra hcon
+  have hpow := Nat.pow_le_pow_right (by omega : 1 ≤ 2) (by omega : i ≤ ctzS m)
+  have := Nat.two_pow_pos i
+  omega
+
+/-- Coq `ctzS_add`: adding `2^i` above the active bits preserves `ctzS`. -/
+lemma ctzS_add {i m : ℕ} (h : m < 2 ^ i - 1) : ctzS (2 ^ i + m) = ctzS m := by
+  have hub := ctz_upper_bound h
+  have hspec := (ctzS_spec m (ctzS m)).1 rfl
+  apply (ctzS_spec _ _).2
+  have hsplit : (2:ℕ) ^ i = 2 ^ (ctzS m + 1) * 2 ^ (i - (ctzS m + 1)) := by
+    rw [← pow_add]
+    congr 1
+    omega
+  calc (2 ^ i + m) % 2 ^ (ctzS m + 1)
+      = (2 ^ (ctzS m + 1) * 2 ^ (i - (ctzS m + 1)) + m) % 2 ^ (ctzS m + 1) := by
+        rw [← hsplit]
+    _ = m % 2 ^ (ctzS m + 1) := Nat.mul_add_mod _ _ _
+    _ = 2 ^ (ctzS m) - 1 := hspec
+
+/-- Coq `ctzS_sub`: the mirror position keeps `ctzS`. -/
+lemma ctzS_sub {i m : ℕ} (hi : 0 < i) (h : m < 2 ^ i - 1) :
+    ctzS (2 ^ i - m - 2) = ctzS m := by
+  have hub := ctz_upper_bound h
+  have hspec := (ctzS_spec m (ctzS m)).1 rfl
+  set v1 := ctzS m with hv1
+  set M := (2:ℕ) ^ (v1 + 1) with hM
+  have hMpos : 0 < M := Nat.two_pow_pos _
+  have hMsplit : M = 2 ^ v1 + 2 ^ v1 := two_pow_succ' v1
+  have hv1pos : 0 < 2 ^ v1 := Nat.two_pow_pos v1
+  have hipos : 0 < 2 ^ i := Nat.two_pow_pos i
+  apply (ctzS_spec _ _).2
+  set v2 := (2 ^ i - m - 2) % M with hv2
+  have hv2lt : v2 < M := Nat.mod_lt _ hMpos
+  have hMdvd : M ∣ 2 ^ i := pow_dvd_pow 2 (by omega)
+  have h2i : (2:ℕ) ^ i % M = 0 := by
+    obtain ⟨c, hc⟩ := hMdvd
+    rw [hc, Nat.mul_mod_right]
+  have e0 : 2 ^ i - m - 2 + (m + 2) = 2 ^ i := by omega
+  have hsum : (v2 + (m + 2)) % M = 0 := by
+    rw [hv2, Nat.mod_add_mod, e0, h2i]
+  have hm2 : (m + 2) % M = (2 ^ v1 + 1) % M := by
+    rw [← Nat.mod_add_mod, hspec, show 2 ^ v1 - 1 + 2 = 2 ^ v1 + 1 by omega]
+  have key : (v2 + (2 ^ v1 + 1)) % M = 0 := by
+    rw [Nat.add_mod v2 (2 ^ v1 + 1), ← hm2, ← Nat.add_mod]
+    exact hsum
+  rcases Nat.lt_trichotomy v2 (2 ^ v1 - 1) with hc | hc | hc
+  · exfalso
+    rw [Nat.mod_eq_of_lt (by omega)] at key
+    omega
+  · exact hc
+  · exfalso
+    have e : v2 + (2 ^ v1 + 1) = (v2 - 2 ^ v1 + 1) + M := by omega
+    rw [e, Nat.add_mod_right, Nat.mod_eq_of_lt (by omega)] at key
+    omega
+
 end Deciders.Skelet.Skelet17
