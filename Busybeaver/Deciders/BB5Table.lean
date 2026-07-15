@@ -11,6 +11,7 @@ import Busybeaver.Enumerate.Perm
 import Busybeaver.Enumerate.Symmetry
 import Busybeaver.TM.Table.Parse
 import Busybeaver.Deciders.Skelet.ShiftOverflowBins
+import Busybeaver.Deciders.Skelet.Skelet17
 import Busybeaver.Deciders.Skelet.TapeCalc
 
 /-- `evsteps t₁, …, tₙ` applies `n` consecutive single machine steps via
@@ -3523,8 +3524,10 @@ theorem sporadicMachine7_nonHalting : ¬ sporadicMachine7.halts init := by
   exact Deciders.Skelet.Skelet26.nonHalting_E (E.mp hhalt)
 
 def sporadicMachine8 : Machine 4 1 := mach["1RB---_0LC1RE_0LD1LC_1RA1LB_0RB0RA"]
-theorem sporadicMachine8_nonHalting : ¬ sporadicMachine8.halts init := by
-  sorry
+/-- Skelet #17 does not halt: the Gray-code counter proof, ported from Coq
+`BB5_Skelet17.v` (see `Busybeaver/Deciders/Skelet/Skelet17.lean`). -/
+theorem sporadicMachine8_nonHalting : ¬ sporadicMachine8.halts init :=
+  Deciders.Skelet.Skelet17.nonHalting
 
 def sporadicMachine9 : Machine 4 1 := mach["1RB1LD_1RC0RB_1LA1RC_1LE0LA_1LC---"]
 theorem sporadicMachine9_nonHalting : ¬ sporadicMachine9.halts init :=
