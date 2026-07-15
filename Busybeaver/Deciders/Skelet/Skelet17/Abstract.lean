@@ -2631,4 +2631,71 @@ lemma embanked_fields {s1 s7 : S17} {s_1 h_1 s_2 h_2 : ℕ}
     hwf7, hs7s, hs7n, hleq⟩ := h
   exact ⟨a70, a7, hwf7, hs7s, hs7n, hleq⟩
 
+/-- Coq `le_ctzS_sum`: how one increment moves the scaled quotient. -/
+lemma le_ctzS_sum (i m : ℕ) :
+    2 * (m / 2 ^ i) + (if i ≤ ctzS m then 2 else 0) = 2 * ((m + 1) / 2 ^ i) := by
+  have hspec := (ctzS_spec m (ctzS m)).1 rfl
+  have hpi : 0 < 2 ^ i := Nat.two_pow_pos i
+  by_cases hE : i ≤ ctzS m
+  · rw [if_pos hE]
+    have hdvd : (2:ℕ) ^ i ∣ 2 ^ (ctzS m + 1) := pow_dvd_pow 2 (by omega)
+    have h1 : m % 2 ^ i = (m % 2 ^ (ctzS m + 1)) % 2 ^ i :=
+      (Nat.mod_mod_of_dvd m hdvd).symm
+    rw [hspec] at h1
+    have hsplit : (2:ℕ) ^ ctzS m = 2 ^ i * 2 ^ (ctzS m - i) := by
+      rw [← pow_add]
+      congr 1
+      omega
+    have hpv : 0 < 2 ^ (ctzS m - i) := Nat.two_pow_pos _
+    have hmulsub : (2:ℕ) ^ i * (2 ^ (ctzS m - i) - 1)
+        = 2 ^ i * 2 ^ (ctzS m - i) - 2 ^ i := by
+      rw [Nat.mul_sub, Nat.mul_one]
+    have hAK : (2:ℕ) ^ i ≤ 2 ^ i * 2 ^ (ctzS m - i) :=
+      Nat.le_mul_of_pos_right _ hpv
+    have h2 : ((2:ℕ) ^ ctzS m - 1) % 2 ^ i = 2 ^ i - 1 := by
+      rw [show (2:ℕ) ^ ctzS m - 1 = 2 ^ i * (2 ^ (ctzS m - i) - 1) + (2 ^ i - 1) by
+          omega,
+        Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+    have hmod : m % 2 ^ i = 2 ^ i - 1 := h1.trans h2
+    have hq := Nat.div_add_mod m (2 ^ i)
+    have hT : (2:ℕ) ^ i * (m / 2 ^ i + 1) = 2 ^ i * (m / 2 ^ i) + 2 ^ i := by ring
+    have hstep : (m + 1) / 2 ^ i = m / 2 ^ i + 1 := by
+      rw [show m + 1 = 2 ^ i * (m / 2 ^ i + 1) by omega,
+        Nat.mul_div_cancel_left _ hpi]
+    omega
+  · rw [if_neg hE]
+    have hdvd : (2:ℕ) ^ (ctzS m + 1) ∣ 2 ^ i := pow_dvd_pow 2 (by omega)
+    have hq := Nat.div_add_mod m (2 ^ i)
+    have hrlt : m % 2 ^ i < 2 ^ i := Nat.mod_lt _ hpi
+    have hrm : (m % 2 ^ i) % 2 ^ (ctzS m + 1) = 2 ^ ctzS m - 1 := by
+      rw [Nat.mod_mod_of_dvd m hdvd, hspec]
+    have hMs : (2:ℕ) ^ (ctzS m + 1) = 2 ^ ctzS m + 2 ^ ctzS m := two_pow_succ' _
+    have hvp : 0 < 2 ^ ctzS m := Nat.two_pow_pos _
+    have hrne : m % 2 ^ i ≠ 2 ^ i - 1 := by
+      intro hcon
+      rw [hcon] at hrm
+      have hsplit : (2:ℕ) ^ i = 2 ^ (ctzS m + 1) * 2 ^ (i - (ctzS m + 1)) := by
+        rw [← pow_add]
+        congr 1
+        omega
+      have hkp : 0 < 2 ^ (i - (ctzS m + 1)) := Nat.two_pow_pos _
+      have hmulsub : (2:ℕ) ^ (ctzS m + 1) * (2 ^ (i - (ctzS m + 1)) - 1)
+          = 2 ^ (ctzS m + 1) * 2 ^ (i - (ctzS m + 1)) - 2 ^ (ctzS m + 1) := by
+        rw [Nat.mul_sub, Nat.mul_one]
+      have hAK2 : (2:ℕ) ^ (ctzS m + 1) ≤ 2 ^ (ctzS m + 1) * 2 ^ (i - (ctzS m + 1)) :=
+        Nat.le_mul_of_pos_right _ hkp
+      have hR : ((2:ℕ) ^ i - 1) % 2 ^ (ctzS m + 1) = 2 ^ (ctzS m + 1) - 1 := by
+        rw [show (2:ℕ) ^ i - 1
+            = 2 ^ (ctzS m + 1) * (2 ^ (i - (ctzS m + 1)) - 1) + (2 ^ (ctzS m + 1) - 1) by
+            omega,
+          Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+      rw [hR] at hrm
+      omega
+    have hstep : (m + 1) / 2 ^ i = m / 2 ^ i := by
+      rw [show m + 1 = 2 ^ i * (m / 2 ^ i) + (m % 2 ^ i + 1) by omega,
+        Nat.mul_add_div hpi,
+        Nat.div_eq_of_lt (show m % 2 ^ i + 1 < 2 ^ i by omega)]
+      omega
+    omega
+
 end Deciders.Skelet.Skelet17

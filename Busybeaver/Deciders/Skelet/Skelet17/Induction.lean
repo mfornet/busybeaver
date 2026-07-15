@@ -266,4 +266,108 @@ lemma embanked_batch_precond'' {k : ℕ} {i : ℕ} {e ne : S17} {h_1 h_2 : ℕ}
     simp only [show k * 2 + 1 - 1 = k * 2 by omega]
     omega
 
+/-- Proposition 4.1, 2-step case (Coq `embanked_4batch`): when
+`ctzS m, ctzS (m+1)` have parities `0, 1`, four batches advance
+`(h₁, h₂) = (2^2k-1-m, 2^2k+m)` to `m+2` with predictable `ai` deltas. -/
+lemma embanked_4batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
+    (hm : m + 3 < 2 ^ (k * 2))
+    (hc0 : ctzS m % 2 = 0) (hc1 : ctzS (m + 1) % 2 = 1)
+    (Heb1 : EmbankedBatch i0 e0 e1 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + m))
+    (hi0 : i0 % 2 = 1)
+    (hl1 : toL e1 = k * 2 + 1)
+    (ha10 : ai' 0 e1 = 1 + m * 2)
+    (ha11 : ai' 1 e1 = 2 ^ (k * 2) + 2 + m * 2) :
+    ∃ e2 i2 e3 i3 e4 i4 e5 i5,
+      EmbankedBatch i2 e1 e2 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 1)) ∧
+      EmbankedBatch i3 e2 e3 (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 2)) ∧
+      EmbankedBatch i4 e3 e4 (2 ^ (k * 2) - 1 - (m + 1)) (2 ^ (k * 2) + (m + 2)) ∧
+      EmbankedBatch i5 e4 e5 (2 ^ (k * 2) - 1 - (m + 2)) (2 ^ (k * 2) + (m + 2)) ∧
+      i5 % 2 = 1 ∧ toL e5 = k * 2 + 1 ∧
+      ai' 0 e5 = 1 + (m + 2) * 2 ∧ ai' 1 e5 = 2 ^ (k * 2) + 2 + (m + 2) * 2 ∧
+      (∀ i, ai i e5 + 2 * (m / 2 ^ i) = ai i e1 + 2 * ((m + 2) / 2 ^ i)) := by
+  have hpk : 0 < 2 ^ (k * 2) := Nat.two_pow_pos _
+  have hk0 : 0 < k * 2 := by
+    by_contra h
+    have hz : k * 2 = 0 := by omega
+    rw [hz] at hm
+    simp at hm
+  have hc0a : ctzS (2 ^ (k * 2) + m) = ctzS m := ctzS_add (by omega)
+  have hc1a : ctzS (2 ^ (k * 2) + (m + 1)) = ctzS (m + 1) := ctzS_add (by omega)
+  have hc2a : ctzS (2 ^ (k * 2) - 1 - m - 1) = ctzS m := by
+    rw [show 2 ^ (k * 2) - 1 - m - 1 = 2 ^ (k * 2) - m - 2 by omega]
+    exact ctzS_sub (by omega) (by omega)
+  have hc3a : ctzS (2 ^ (k * 2) - 1 - (m + 1) - 1) = ctzS (m + 1) := by
+    rw [show 2 ^ (k * 2) - 1 - (m + 1) - 1 = 2 ^ (k * 2) - (m + 1) - 2 by omega]
+    exact ctzS_sub (by omega) (by omega)
+  -- step 1
+  obtain ⟨e2, hb2⟩ := embanked_batch_precond'' (k := k) Heb1 hl1
+    (by omega) (by omega)
+  rw [hi0] at hb2
+  have Hb2 : EmbankedBatch (ctzS m + 1) e1 e2
+      (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 1)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) + m) + 1) e1 e2
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + m + 1) := hb2
+    rwa [hc0a] at h
+  have hi2 : (ctzS m + 1) % 2 = 1 := by omega
+  have hl2 : toL e2 = k * 2 + 1 := by rw [← embanked_batch_len Hb2, hl1]
+  obtain ⟨Ha20, Ha21⟩ := embanked_batch_a0_a1 Hb2
+  rw [hi2, ha10] at Ha20
+  rw [hi2, ha11] at Ha21
+  -- step 2
+  obtain ⟨e3, hb3⟩ := embanked_batch_precond'' (k := k) Hb2 hl2
+    (by omega) (by omega)
+  rw [hi2] at hb3
+  have Hb3 : EmbankedBatch (ctzS (m + 1) + 1) e2 e3
+      (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 2)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) + (m + 1)) + 1) e2 e3
+        (2 ^ (k * 2) - 1 - m) (2 ^ (k * 2) + (m + 1) + 1) := hb3
+    rwa [hc1a] at h
+  have hi3 : (ctzS (m + 1) + 1) % 2 = 0 := by omega
+  have hl3 : toL e3 = k * 2 + 1 := by rw [← embanked_batch_len Hb3, hl2]
+  obtain ⟨Ha30, Ha31⟩ := embanked_batch_a0_a1 Hb3
+  rw [hi3, Ha20] at Ha30
+  rw [hi3, Ha21] at Ha31
+  -- step 3
+  obtain ⟨e4, hb4⟩ := embanked_batch_precond'' (k := k) Hb3 hl3
+    (by omega) (by omega)
+  rw [hi3] at hb4
+  have Hb4 : EmbankedBatch (ctzS m) e3 e4
+      (2 ^ (k * 2) - 1 - (m + 1)) (2 ^ (k * 2) + (m + 2)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - m - 1)) e3 e4
+        (2 ^ (k * 2) - 1 - m - 1) (2 ^ (k * 2) + (m + 2)) := hb4
+    rw [hc2a] at h
+    rwa [show 2 ^ (k * 2) - 1 - m - 1 = 2 ^ (k * 2) - 1 - (m + 1) by omega] at h
+  have hl4 : toL e4 = k * 2 + 1 := by rw [← embanked_batch_len Hb4, hl3]
+  obtain ⟨Ha40, Ha41⟩ := embanked_batch_a0_a1 Hb4
+  rw [hc0, Ha30] at Ha40
+  rw [hc0, Ha31] at Ha41
+  -- step 4
+  obtain ⟨e5, hb5⟩ := embanked_batch_precond'' (k := k) Hb4 hl4
+    (by omega) (by omega)
+  rw [hc0] at hb5
+  have Hb5 : EmbankedBatch (ctzS (m + 1)) e4 e5
+      (2 ^ (k * 2) - 1 - (m + 2)) (2 ^ (k * 2) + (m + 2)) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2) - 1 - (m + 1) - 1)) e4 e5
+        (2 ^ (k * 2) - 1 - (m + 1) - 1) (2 ^ (k * 2) + (m + 2)) := hb5
+    rw [hc3a] at h
+    rwa [show 2 ^ (k * 2) - 1 - (m + 1) - 1 = 2 ^ (k * 2) - 1 - (m + 2) by omega] at h
+  have hl5 : toL e5 = k * 2 + 1 := by rw [← embanked_batch_len Hb5, hl4]
+  obtain ⟨Ha50, Ha51⟩ := embanked_batch_a0_a1 Hb5
+  rw [hc1, Ha40] at Ha50
+  rw [hc1, Ha41] at Ha51
+  -- the ai balance
+  have Ha : ∀ i, ai i e5 + 2 * (m / 2 ^ i) = ai i e1 + 2 * ((m + 2) / 2 ^ i) := by
+    intro i
+    have h2 := add2s_inv (embanked_batch_Add2s Hb2) (i + 1)
+    have h3 := add2s_inv (embanked_batch_Add2s Hb3) (i + 1)
+    have h4 := add2s_inv (embanked_batch_Add2s Hb4) (i + 1)
+    have h5 := add2s_inv (embanked_batch_Add2s Hb5) (i + 1)
+    simp only [ai'] at h2 h3 h4 h5
+    have hs1 := le_ctzS_sum i m
+    have hs2 := le_ctzS_sum i (m + 1)
+    rw [show m + 1 + 1 = m + 2 by omega] at hs2
+    split_ifs at h2 h3 h4 h5 hs1 hs2 <;> omega
+  exact ⟨e2, _, e3, _, e4, _, e5, _, Hb2, Hb3, Hb4, Hb5, by omega, hl5,
+    by omega, by omega, Ha⟩
+
 end Deciders.Skelet.Skelet17
