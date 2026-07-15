@@ -1,4 +1,5 @@
 import Mathlib.Data.List.Basic
+import Mathlib.Data.List.GetD
 import Mathlib.Algebra.Order.Group.Nat
 import Mathlib.Algebra.Group.Even
 import Mathlib.Tactic.Ring
@@ -532,5 +533,340 @@ lemma Zero_len {s1 s2 : S17} (h : Zero s1 s2) : toL s2 = toL s1 + 2 := by
 lemma Overflow_len {s1 s2 : S17} (h : Overflow s1 s2) : toL s2 = toL s1 + 1 := by
   obtain ⟨x, xs, y, _, _, _, _, rfl, rfl⟩ := overflow_inv h
   simp [toL_def]
+
+/-! ### `divpow2r` arithmetic (Coq lines 1232–1414) -/
+
+lemma two_pow_succ' (i : ℕ) : 2 ^ (i + 1) = 2 ^ i + 2 ^ i := by
+  rw [pow_succ]; omega
+
+/-- Coq `divpow2r_inc`: at the flip point, `divpow2r` increments. -/
+lemma divpow2r_inc {n i : ℕ} (h : n % 2 ^ (i + 1) = 2 ^ i - 1) :
+    divpow2r n i + 1 = divpow2r (n + 1) i := by
+  have hpi : 0 < 2 ^ i := Nat.two_pow_pos i
+  have h2 : 2 ^ (i + 1) = 2 ^ i + 2 ^ i := two_pow_succ' i
+  have hq := Nat.div_add_mod n (2 ^ (i + 1))
+  rw [h] at hq
+  set q := n / 2 ^ (i + 1) with hqdef
+  have hT : 2 ^ (i + 1) * (q + 1) = 2 ^ (i + 1) * q + 2 ^ (i + 1) := by ring
+  unfold divpow2r
+  have e1 : n + 2 ^ i = 2 ^ (i + 1) * q + (2 ^ (i + 1) - 1) := by omega
+  have e2 : n + 1 + 2 ^ i = 2 ^ (i + 1) * (q + 1) := by omega
+  rw [e1, e2, Nat.mul_div_cancel_left _ (Nat.two_pow_pos _),
+    Nat.mul_add_div (Nat.two_pow_pos _), Nat.div_eq_of_lt (by omega)]
+
+/-- Coq `divpow2r_eq`: away from the flip point, `divpow2r` is unchanged. -/
+lemma divpow2r_eq {n i : ℕ} (h : n % 2 ^ (i + 1) ≠ 2 ^ i - 1) :
+    divpow2r n i = divpow2r (n + 1) i := by
+  have hpi : 0 < 2 ^ i := Nat.two_pow_pos i
+  have h2 : 2 ^ (i + 1) = 2 ^ i + 2 ^ i := two_pow_succ' i
+  have hq := Nat.div_add_mod n (2 ^ (i + 1))
+  have hr : n % 2 ^ (i + 1) < 2 ^ (i + 1) := Nat.mod_lt _ (Nat.two_pow_pos _)
+  set q := n / 2 ^ (i + 1) with hqdef
+  set r := n % 2 ^ (i + 1) with hrdef
+  unfold divpow2r
+  have e1 : n + 2 ^ i = 2 ^ (i + 1) * q + (r + 2 ^ i) := by omega
+  have e2 : n + 1 + 2 ^ i = 2 ^ (i + 1) * q + (r + 1 + 2 ^ i) := by omega
+  rw [e1, e2, Nat.mul_add_div (Nat.two_pow_pos _), Nat.mul_add_div (Nat.two_pow_pos _)]
+  rcases Nat.lt_or_ge r (2 ^ i - 1) with hc | hc
+  · rw [Nat.div_eq_of_lt (by omega), Nat.div_eq_of_lt (by omega)]
+  · have hc2 : 2 ^ i ≤ r := by omega
+    have hd1 : (r + 2 ^ i) / 2 ^ (i + 1) = 1 :=
+      Nat.div_eq_of_lt_le (by omega) (by omega)
+    have hd2 : (r + 1 + 2 ^ i) / 2 ^ (i + 1) = 1 :=
+      Nat.div_eq_of_lt_le (by omega) (by omega)
+    rw [hd1, hd2]
+
+/-- Coq `divpow2r_d_lt`: digits strictly below the flip run are unchanged. -/
+lemma divpow2r_d_lt {i n : ℕ} (h : i < n) (xs : List Bool) :
+    divpow2r (binaryToNat (List.replicate n true ++ false :: xs)) i
+      = divpow2r (binaryToNat (List.replicate n false ++ true :: xs)) i := by
+  rw [← binaryToNat_succ, binaryToNat_replicate_true_append]
+  apply divpow2r_eq
+  set b := binaryToNat (false :: xs) with hbdef
+  have hsplit : (2:ℕ) ^ n = 2 ^ (i + 1) * 2 ^ (n - (i + 1)) := by
+    rw [← pow_add]; congr 1; omega
+  have hK : 0 < 2 ^ (n - (i + 1)) := Nat.two_pow_pos _
+  have hA : 0 < 2 ^ (i + 1) := Nat.two_pow_pos _
+  have hI : 0 < 2 ^ i := Nat.two_pow_pos i
+  have h2 : 2 ^ (i + 1) = 2 ^ i + 2 ^ i := two_pow_succ' i
+  have hle : 2 ^ (i + 1) ≤ 2 ^ n := by
+    rw [hsplit]; exact Nat.le_mul_of_pos_right _ hK
+  have e1 : b * 2 ^ n = b * 2 ^ (n - (i + 1)) * 2 ^ (i + 1) := by
+    rw [hsplit]; ring
+  have e3 : (2 ^ (n - (i + 1)) - 1) * 2 ^ (i + 1) = 2 ^ n - 2 ^ (i + 1) := by
+    rw [Nat.sub_mul, one_mul, mul_comm, ← hsplit]
+  have hadd : 2 ^ (i + 1) * (b * 2 ^ (n - (i + 1)) + (2 ^ (n - (i + 1)) - 1))
+      = b * 2 ^ (n - (i + 1)) * 2 ^ (i + 1) + (2 ^ (n - (i + 1)) - 1) * 2 ^ (i + 1) := by
+    ring
+  have hmod : (b * 2 ^ n + 2 ^ n - 1) % 2 ^ (i + 1) = 2 ^ (i + 1) - 1 := by
+    rw [show b * 2 ^ n + 2 ^ n - 1
+        = 2 ^ (i + 1) * (b * 2 ^ (n - (i + 1)) + (2 ^ (n - (i + 1)) - 1))
+          + (2 ^ (i + 1) - 1) by rw [hadd]; omega,
+      Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+  rw [hmod]
+  omega
+
+/-- Coq `divpow2r_d_eq`: the digit at the top of the flip run increments. -/
+lemma divpow2r_d_eq (n : ℕ) (xs : List Bool) :
+    divpow2r (binaryToNat (List.replicate n true ++ false :: xs)) n + 1
+      = divpow2r (binaryToNat (List.replicate n false ++ true :: xs)) n := by
+  rw [← binaryToNat_succ, binaryToNat_replicate_true_append]
+  apply divpow2r_inc
+  have hI : 0 < 2 ^ n := Nat.two_pow_pos n
+  have h2 : 2 ^ (n + 1) = 2 ^ n + 2 ^ n := two_pow_succ' n
+  have e1 : binaryToNat (false :: xs) * 2 ^ n = 2 ^ (n + 1) * binaryToNat xs := by
+    rw [binaryToNat_cons_false, pow_succ]; ring
+  rw [show binaryToNat (false :: xs) * 2 ^ n + 2 ^ n - 1
+      = 2 ^ (n + 1) * binaryToNat xs + (2 ^ n - 1) by rw [← e1]; omega,
+    Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+
+/-- Coq `divpow2r_d_gt`: digits strictly above the flip run are unchanged. -/
+lemma divpow2r_d_gt {i n : ℕ} (h : n < i) (xs : List Bool) :
+    divpow2r (binaryToNat (List.replicate n true ++ false :: xs)) i
+      = divpow2r (binaryToNat (List.replicate n false ++ true :: xs)) i := by
+  rw [← binaryToNat_succ, binaryToNat_replicate_true_append]
+  apply divpow2r_eq
+  intro hcontra
+  have hdvd : (2:ℕ) ^ (n + 1) ∣ 2 ^ (i + 1) := pow_dvd_pow 2 (by omega)
+  have hIn : 0 < 2 ^ n := Nat.two_pow_pos n
+  have h2n : 2 ^ (n + 1) = 2 ^ n + 2 ^ n := two_pow_succ' n
+  have e1 : binaryToNat (false :: xs) * 2 ^ n = 2 ^ (n + 1) * binaryToNat xs := by
+    rw [binaryToNat_cons_false, pow_succ]; ring
+  have hVmod : (binaryToNat (false :: xs) * 2 ^ n + 2 ^ n - 1) % 2 ^ (n + 1)
+      = 2 ^ n - 1 := by
+    rw [show binaryToNat (false :: xs) * 2 ^ n + 2 ^ n - 1
+        = 2 ^ (n + 1) * binaryToNat xs + (2 ^ n - 1) by rw [← e1]; omega,
+      Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+  have hL := congrArg (· % 2 ^ (n + 1)) hcontra
+  simp only [Nat.mod_mod_of_dvd _ hdvd] at hL
+  rw [hVmod] at hL
+  -- `(2^i - 1) % 2^(n+1) = 2^(n+1) - 1`, contradiction with `hL`.
+  have hsplit : (2:ℕ) ^ i = 2 ^ (n + 1) * 2 ^ (i - (n + 1)) := by
+    rw [← pow_add]; congr 1; omega
+  have hK : 0 < 2 ^ (i - (n + 1)) := Nat.two_pow_pos _
+  have hA : 0 < 2 ^ (n + 1) := Nat.two_pow_pos _
+  have e3 : (2 ^ (i - (n + 1)) - 1) * 2 ^ (n + 1) = 2 ^ i - 2 ^ (n + 1) := by
+    rw [Nat.sub_mul, one_mul, mul_comm, ← hsplit]
+  have hle : 2 ^ (n + 1) ≤ 2 ^ i := by
+    rw [hsplit]; exact Nat.le_mul_of_pos_right _ hK
+  have e4 : 2 ^ (n + 1) * (2 ^ (i - (n + 1)) - 1)
+      = (2 ^ (i - (n + 1)) - 1) * 2 ^ (n + 1) := by ring
+  have hR : (2 ^ i - 1) % 2 ^ (n + 1) = 2 ^ (n + 1) - 1 := by
+    rw [show 2 ^ i - 1 = 2 ^ (n + 1) * (2 ^ (i - (n + 1)) - 1) + (2 ^ (n + 1) - 1) by
+        rw [e4]; omega,
+      Nat.mul_add_mod, Nat.mod_eq_of_lt (by omega)]
+  rw [hR] at hL
+  omega
+
+/-! ### Per-digit flip counting (Coq `Increment_a`, Proposition 2.2 step) -/
+
+/-- The two digit shapes around an `Increment.even` step, parametrized by the
+head digit `c` of the tail. -/
+lemma increment_even_shapes {xs : List ℕ} (hev : AllEven xs) {y : ℕ} (hy : Odd y)
+    (z : ℕ) (zs : List ℕ) :
+    listToBinary (xs ++ y :: z :: zs)
+        = List.replicate (xs.length + 1)
+            (!xor (oddb z) ((listToBinary zs).headD false))
+          ++ xor (oddb z) ((listToBinary zs).headD false) :: listToBinary zs ∧
+      listToBinary (xs ++ y :: (z + 1) :: zs)
+        = List.replicate (xs.length + 1)
+            (xor (oddb z) ((listToBinary zs).headD false))
+          ++ (!xor (oddb z) ((listToBinary zs).headD false)) :: listToBinary zs := by
+  have hc : (listToBinary (z :: zs)).headD false
+      = xor (oddb z) ((listToBinary zs).headD false) := by
+    rw [listToBinary_cons, List.headD_cons]
+  constructor
+  · have h1 := listToBinary_incr_split hev hy z zs
+    rw [hc] at h1
+    rw [h1, listToBinary_cons]
+  · have h2 := listToBinary_incr_split hev hy (z + 1) zs
+    rw [listToBinary_head_succ, hc, Bool.not_not] at h2
+    rw [h2, listToBinary_cons, oddb_succ, xor_not_left]
+
+/-- `toS` of the pre-state in the even case. -/
+lemma increment_even_toS {x : ℕ} (hx : Even x) {xs : List ℕ} (hev : AllEven xs)
+    {y : ℕ} (hy : Odd y) (z : ℕ) (zs : List ℕ) :
+    toS (x + 1, xs ++ y :: z :: zs)
+      = !xor (oddb z) ((listToBinary zs).headD false) := by
+  rw [toS_def, (increment_even_shapes hev hy z zs).1]
+  have hde : decide (Even (x + 1)) = false := by
+    simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+  rw [hde]
+  simp [List.replicate_succ]
+
+/-- The per-digit balance across one carry ripple: entry `z` becomes `z+1`
+while the counter moves from `1^p 0 w` to `0^p 1 w`; every position balances.
+Both branches of `Increment_a` are instances of this. -/
+lemma digit_balance {p : ℕ} (front : List ℕ) (hlen : front.length = p)
+    (z : ℕ) (zs : List ℕ) (w : List Bool) (i : ℕ) :
+    (front ++ (z + 1) :: zs).getD i 0
+        + divpow2r (binaryToNat (List.replicate p true ++ false :: w)) i
+      = (front ++ z :: zs).getD i 0
+        + divpow2r (binaryToNat (List.replicate p false ++ true :: w)) i := by
+  rcases Nat.lt_trichotomy i p with hip | hip | hip
+  · rw [List.getD_append _ _ _ _ (by omega), List.getD_append _ _ _ _ (by omega),
+      divpow2r_d_lt (h := hip)]
+  · subst hip
+    rw [List.getD_append_right _ _ _ _ (by omega),
+      List.getD_append_right _ _ _ _ (by omega), hlen, Nat.sub_self,
+      List.getD_cons_zero, List.getD_cons_zero, ← divpow2r_d_eq]
+    omega
+  · obtain ⟨j, hj⟩ : ∃ j, i - p = j + 1 := ⟨i - p - 1, by omega⟩
+    rw [List.getD_append_right _ _ _ _ (by omega),
+      List.getD_append_right _ _ _ _ (by omega), hlen, hj, List.getD_cons_succ,
+      List.getD_cons_succ, divpow2r_d_gt (h := hip)]
+
+/-- Coq `Increment_a` (one induction step of Proposition 2.2). -/
+lemma Increment_a {s1 s2 : S17} (h : Increment s1 s2) :
+    if toS s1 then
+      ∀ i, ai i s2 + divpow2r (toN s1) i = ai i s1 + divpow2r (toN s2) i
+    else
+      ∀ i, ai i s1 + divpow2r (toN s1) i = ai i s2 + divpow2r (toN s2) i := by
+  rcases increment_inv h with
+    ⟨x, xs, y, z, zs, hx, hnz, hev, hy, rfl, rfl⟩ | ⟨x, y, xs, hx, rfl, rfl⟩
+  · -- even case
+    obtain ⟨hsh1, hsh2⟩ := increment_even_shapes hev hy z zs
+    have hS := increment_even_toS hx hev hy z zs
+    have hlist1 : xs ++ y :: z :: zs = (xs ++ [y]) ++ z :: zs := by simp
+    have hlist2 : xs ++ y :: (z + 1) :: zs = (xs ++ [y]) ++ (z + 1) :: zs := by simp
+    have hlen : (xs ++ [y]).length = xs.length + 1 := by simp
+    cases hcv : xor (oddb z) ((listToBinary zs).headD false) with
+    | false =>
+        rw [hcv] at hsh1 hsh2 hS
+        simp only [Bool.not_false] at hsh1 hsh2 hS
+        rw [hS, if_pos rfl]
+        intro i
+        show ai i (x, xs ++ y :: (z + 1) :: zs)
+            + divpow2r (toN (x + 1, xs ++ y :: z :: zs)) i
+          = ai i (x + 1, xs ++ y :: z :: zs)
+            + divpow2r (toN (x, xs ++ y :: (z + 1) :: zs)) i
+        rw [show toN (x + 1, xs ++ y :: z :: zs)
+            = binaryToNat (List.replicate (xs.length + 1) true ++ false :: listToBinary zs)
+            from by rw [toN_def, hsh1],
+          show toN (x, xs ++ y :: (z + 1) :: zs)
+            = binaryToNat (List.replicate (xs.length + 1) false ++ true :: listToBinary zs)
+            from by rw [toN_def, hsh2]]
+        simp only [ai, hlist1, hlist2]
+        exact digit_balance (xs ++ [y]) hlen z zs (listToBinary zs) i
+    | true =>
+        rw [hcv] at hsh1 hsh2 hS
+        simp only [Bool.not_true] at hsh1 hsh2 hS
+        rw [hS, if_neg (by simp)]
+        intro i
+        show ai i (x + 1, xs ++ y :: z :: zs)
+            + divpow2r (toN (x + 1, xs ++ y :: z :: zs)) i
+          = ai i (x, xs ++ y :: (z + 1) :: zs)
+            + divpow2r (toN (x, xs ++ y :: (z + 1) :: zs)) i
+        rw [show toN (x + 1, xs ++ y :: z :: zs)
+            = binaryToNat (List.replicate (xs.length + 1) false ++ true :: listToBinary zs)
+            from by rw [toN_def, hsh1],
+          show toN (x, xs ++ y :: (z + 1) :: zs)
+            = binaryToNat (List.replicate (xs.length + 1) true ++ false :: listToBinary zs)
+            from by rw [toN_def, hsh2]]
+        simp only [ai, hlist1, hlist2]
+        exact (digit_balance (xs ++ [y]) hlen z zs (listToBinary zs) i).symm
+  · -- odd case: an instance of `digit_balance` with an empty front
+    have hcons1 : listToBinary (y :: xs)
+        = xor (oddb y) ((listToBinary xs).headD false) :: listToBinary xs := by
+      rw [listToBinary_cons]
+    have hcons2 : listToBinary ((y + 1) :: xs)
+        = (!xor (oddb y) ((listToBinary xs).headD false)) :: listToBinary xs := by
+      rw [listToBinary_cons, oddb_succ, xor_not_left]
+    have hS : toS (x + 1, y :: xs) = !xor (oddb y) ((listToBinary xs).headD false) := by
+      rw [toS_def, hcons1]
+      have hde : decide (Even (x + 1)) = true := by
+        simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+      rw [hde, List.headD_cons]
+      cases xor (oddb y) ((listToBinary xs).headD false) <;> rfl
+    cases hcv : xor (oddb y) ((listToBinary xs).headD false) with
+    | false =>
+        rw [hcv] at hcons1 hcons2 hS
+        simp only [Bool.not_false] at hcons2 hS
+        rw [hS, if_pos rfl]
+        intro i
+        show ai i (x, (y + 1) :: xs) + divpow2r (toN (x + 1, y :: xs)) i
+          = ai i (x + 1, y :: xs) + divpow2r (toN (x, (y + 1) :: xs)) i
+        rw [show toN (x + 1, y :: xs)
+            = binaryToNat (List.replicate 0 true ++ false :: listToBinary xs)
+            from by rw [toN_def, hcons1]; rfl,
+          show toN (x, (y + 1) :: xs)
+            = binaryToNat (List.replicate 0 false ++ true :: listToBinary xs)
+            from by rw [toN_def, hcons2]; rfl]
+        simpa only [ai, List.nil_append] using
+          digit_balance (p := 0) ([] : List ℕ) rfl y xs (listToBinary xs) i
+    | true =>
+        rw [hcv] at hcons1 hcons2 hS
+        simp only [Bool.not_true] at hcons2 hS
+        rw [hS, if_neg (by simp)]
+        intro i
+        show ai i (x + 1, y :: xs) + divpow2r (toN (x + 1, y :: xs)) i
+          = ai i (x, (y + 1) :: xs) + divpow2r (toN (x, (y + 1) :: xs)) i
+        rw [show toN (x + 1, y :: xs)
+            = binaryToNat (List.replicate 0 false ++ true :: listToBinary xs)
+            from by rw [toN_def, hcons1]; rfl,
+          show toN (x, (y + 1) :: xs)
+            = binaryToNat (List.replicate 0 true ++ false :: listToBinary xs)
+            from by rw [toN_def, hcons2]; rfl]
+        simpa only [ai, List.nil_append] using
+          (digit_balance (p := 0) ([] : List ℕ) rfl y xs (listToBinary xs) i).symm
+
+/-! ### `Increments` closure (Proposition 2.2) -/
+
+lemma Increment_fst {s1 s2 : S17} (h : Increment s1 s2) : s1.1 = s2.1 + 1 := by
+  rcases increment_inv h with
+    ⟨x, xs, y, z, zs, _, _, _, _, rfl, rfl⟩ | ⟨x, y, xs, _, rfl, rfl⟩ <;> rfl
+
+lemma Increments_sgn {n : ℕ} {s1 s2 : S17} (h : Increments n s1 s2) :
+    toS s1 = toS s2 := by
+  induction h with
+  | zero s => rfl
+  | succ h1 _ ih => rw [Increment_sgn h1, ih]
+
+lemma Increments_len {n : ℕ} {s1 s2 : S17} (h : Increments n s1 s2) :
+    toL s1 = toL s2 := by
+  induction h with
+  | zero s => rfl
+  | succ h1 _ ih => rw [Increment_len h1, ih]
+
+lemma Increments_n {n : ℕ} {s1 s2 : S17} (h : Increments n s1 s2) :
+    if toS s1 then toN s1 + n = toN s2 else toN s1 = toN s2 + n := by
+  induction h with
+  | zero s => cases hs : toS s <;> simp
+  | @succ n s1 s2 s3 h1 h2 ih =>
+      have hsgn := Increment_sgn h1
+      have hn := Increment_n h1
+      rw [← hsgn] at ih
+      cases hs : toS s1 <;> rw [hs] at ih hn <;> simp at ih hn ⊢ <;> omega
+
+lemma Increments_a {n : ℕ} {s1 s2 : S17} (h : Increments n s1 s2) :
+    if toS s1 then
+      ∀ i, ai i s2 + divpow2r (toN s1) i = ai i s1 + divpow2r (toN s2) i
+    else
+      ∀ i, ai i s1 + divpow2r (toN s1) i = ai i s2 + divpow2r (toN s2) i := by
+  induction h with
+  | zero s => cases hs : toS s <;> simp
+  | @succ n s1 s2 s3 h1 h2 ih =>
+      have hsgn := Increment_sgn h1
+      have hd := Increment_a h1
+      rw [← hsgn] at ih
+      cases hs : toS s1 <;> rw [hs] at ih hd <;> simp at ih hd ⊢ <;> intro i <;>
+        have h1i := ih i <;> have h2i := hd i <;> omega
+
+lemma Increments_a0 {n : ℕ} {s1 s2 : S17} (h : Increments n s1 s2) :
+    if toS s1 then s1.1 + toN s1 = s2.1 + toN s2
+    else s2.1 + toN s1 = s1.1 + toN s2 := by
+  induction h with
+  | zero s => cases hs : toS s <;> simp
+  | @succ n s1 s2 s3 h1 h2 ih =>
+      have hsgn := Increment_sgn h1
+      have hn := Increment_n h1
+      have hfst := Increment_fst h1
+      rw [← hsgn] at ih
+      cases hs : toS s1 <;> rw [hs] at ih hn <;> simp at ih hn ⊢ <;> omega
+
+lemma Increment_a0 {s1 s2 : S17} (h : Increment s1 s2) :
+    if toS s1 then s1.1 + toN s1 = s2.1 + toN s2
+    else s2.1 + toN s1 = s1.1 + toN s2 :=
+  Increments_a0 (Increments.succ h (Increments.zero s2))
 
 end Deciders.Skelet.Skelet17
