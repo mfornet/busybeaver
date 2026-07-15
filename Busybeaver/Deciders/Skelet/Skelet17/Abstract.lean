@@ -390,7 +390,7 @@ lemma Increment_sgn {s1 s2 : S17} (h : Increment s1 s2) : toS s1 = toS s2 := by
       simpa using this
     rw [hhd, xor_not_left, xor_not_right]
 
-lemma Halve_sgn {s1 s2 : S17} (h : Halve s1 s2) : !toS s1 = toS s2 := by
+lemma Halve_sgn {s1 s2 : S17} (h : Halve s1 s2) : (!toS s1) = toS s2 := by
   obtain ⟨x, xs, rfl, rfl⟩ := halve_inv h
   rw [toS_def, toS_def, listToBinary_cons]
   simp only [List.headD_cons, decide_even_succ_eq_oddb]
@@ -1765,5 +1765,174 @@ lemma pow2_add (i : ℕ) : 2 ^ i + 2 ^ i = 2 ^ (i + 1) := (two_pow_succ' i).symm
 lemma pow2_even {i : ℕ} (h : i ≠ 0) : Even (2 ^ i) := ⟨2 ^ (i - 1), pow2_split h⟩
 
 lemma div2_add2 (a : ℕ) : (a + 2) / 2 = a / 2 + 1 := by omega
+
+/-! ### Proposition 3.4: `weakly_embanked_precond` (Coq lines 2945–3168) -/
+
+lemma weakly_embanked_precond {s1 : S17} (hwf1 : WF1 s1) (hs1s : toS s1 = false)
+    (hs1n : toN s1 = 0) (hs1l : 3 ≤ toL s1) (hs1a0_odd : Odd s1.1)
+    (hs1a0_lt : s1.1 < 2 ^ toL s1 - 1) (hs1a1_lt : ai 0 s1 < 3 * 2 ^ (toL s1 - 1)) :
+    ∃ s6 s_1 h_1 s_2 h_2, WeaklyEmbanked s1 s6 s_1 h_1 s_2 h_2 := by
+  have hpow1 : 0 < 2 ^ toL s1 := Nat.two_pow_pos _
+  have hpowl1 : 0 < 2 ^ (toL s1 - 1) := Nat.two_pow_pos _
+  have hpowl2 : 0 < 2 ^ (toL s1 - 2) := Nat.two_pow_pos _
+  have hsplit1 : 2 ^ toL s1 = 2 ^ (toL s1 - 1) + 2 ^ (toL s1 - 1) := by
+    conv_lhs => rw [show toL s1 = (toL s1 - 1) + 1 by omega]
+    exact two_pow_succ' _
+  have hsplit2 : 2 ^ (toL s1 - 1) = 2 ^ (toL s1 - 2) + 2 ^ (toL s1 - 2) := by
+    conv_lhs => rw [show toL s1 - 1 = (toL s1 - 2) + 1 by omega]
+    exact two_pow_succ' _
+  -- Zero step
+  obtain ⟨s2, Z12, hwf2⟩ := Zero_precond hwf1 hs1s hs1n
+  have hs2s := Zero_sgn Z12
+  have hs2n := Zero_n Z12
+  have hs2l := Zero_len Z12
+  have hs2a0 := Zero_a0 Z12
+  have hs2a1 := Zero_a1 Z12 hs1l
+  have hs2a := Zero_a Z12
+  have hs2a0_even : Even s2.1 := by
+    rcases hs1a0_odd with ⟨k, hk⟩
+    exact ⟨k, by omega⟩
+  have hs2n_odd : Odd (toN s2) := ⟨2 ^ (toL s1 - 1) - 1, by omega⟩
+  -- Increments (decrement) by `s2.1`
+  obtain ⟨s3, I23, hwf3⟩ := Increments_dec_precond2 s2.1 hwf2 hs2s
+    (by omega) (le_refl _)
+  have hs3s := Increments_sgn I23
+  have hs3n := Increments_n I23
+  have hs3l := Increments_len I23
+  have hs3a0 := Increments_a0 I23
+  have hs3a := Increments_a I23
+  rw [hs2s] at hs3n hs3a0 hs3a
+  simp only [Bool.false_eq_true, if_false] at hs3n hs3a0 hs3a
+  have hs3a0_0 : s3.1 = 0 := by omega
+  have hs3n_odd : Odd (toN s3) := by
+    rcases hs2n_odd with ⟨k, hk⟩
+    rcases hs2a0_even with ⟨j, hj⟩
+    exact ⟨k - j, by omega⟩
+  have hs3n_gt1 : 1 < toN s3 := by omega
+  -- Halve
+  obtain ⟨s4, H34, hwf4⟩ := Halve_precond2 hwf3 hs3a0_0 (by omega)
+  have hs4s := Halve_sgn H34
+  have hs4n := Halve_n H34
+  have hs4l := Halve_len H34
+  have hs4a0 := Halve_a0 H34
+  have hs4a := Halve_a H34
+  have hs3s' : toS s3 = false := by rw [← hs3s]; exact hs2s
+  have hs4s' : toS s4 = true := by rw [← hs4s, hs3s']; rfl
+  -- counter waypoints after the first halve
+  have hd2 : divpow2r (toN s2) 0 = 2 ^ (toL s1 - 1) := by
+    rw [divpow2r_zero, hs2n]
+    omega
+  have hd3 : divpow2r (toN s3) 0 = toN s3 / 2 + 1 := by
+    rw [divpow2r_zero]
+    exact div2ceil_div2floor_odd hs3n_odd
+  have hs3a1 := hs3a 0
+  rw [hd2, hd3] at hs3a1
+  have h_a11_a40 : ai 0 s1 + 2 ^ (toL s1 - 1) = s4.1 + toN s3 / 2 := by omega
+  have hn3_expr : toN s3 + s1.1 = 2 ^ toL s1 := by omega
+  have ha10_odd2 : s1.1 % 2 = 1 := Nat.odd_iff.1 hs1a0_odd
+  have hn3_odd2 : toN s3 % 2 = 1 := Nat.odd_iff.1 hs3n_odd
+  have hn4_expr : toN s4 + s1.1 / 2 + 1 = 2 ^ (toL s1 - 1) := by omega
+  have hl4 : toL s4 = toL s1 + 1 := by omega
+  -- Increments (increment) by `s4.1`
+  obtain ⟨s5, I45, hwf5⟩ := Increments_inc_precond2 s4.1 hwf4 hs4s'
+    (by rw [hl4, show toL s1 + 1 - 2 = toL s1 - 1 by omega]; omega)
+    (by rw [hl4, show (2:ℕ) ^ (toL s1 + 1) = 2 ^ toL s1 + 2 ^ toL s1 from
+        two_pow_succ' _]; omega)
+    (le_refl _)
+  have hs5s := Increments_sgn I45
+  have hs5n := Increments_n I45
+  have hs5l := Increments_len I45
+  have hs5a0 := Increments_a0 I45
+  have hs5a := Increments_a I45
+  rw [hs4s'] at hs5n hs5a0 hs5a
+  simp only [if_true] at hs5n hs5a0 hs5a
+  have hs5a0_0 : s5.1 = 0 := by omega
+  have hn5_expr : toN s5 = ai 0 s1 + 2 ^ (toL s1 - 1) := by omega
+  -- final Halve
+  obtain ⟨s6, H56, hwf6⟩ := Halve_precond1 hwf5 hs5a0_0 (by omega)
+  have hs6s := Halve_sgn H56
+  have hs6n := Halve_n H56
+  have hs6l := Halve_len H56
+  have hs6a0 := Halve_a0 H56
+  have hs6a := Halve_a H56
+  have hs5s' : toS s5 = true := by rw [← hs5s]; exact hs4s'
+  have hs6s' : toS s6 = false := by rw [← hs6s, hs5s']; rfl
+  have hn6_expr : toN s6 = ai 0 s1 / 2 + 2 ^ (toL s1 - 2) := by omega
+  -- the `a₆⁰` balance
+  have hd21 : divpow2r (toN s2) 1 = 2 ^ (toL s1 - 2) := by
+    unfold divpow2r
+    rw [hs2n]
+    norm_num
+    omega
+  have ha60_expr : ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r (toN s5) 0 + 1
+      = s6.1 + divpow2r (toN s4) 0 + divpow2r (toN s3) 1 := by
+    have h1 := hs2a 1
+    rw [if_neg (by omega : (1:ℕ) ≠ toL s1 - 1)] at h1
+    have h2 := hs3a 1
+    rw [hd21] at h2
+    have h3 : ai 0 s4 = ai 1 s3 := hs4a 0
+    have h4 := hs5a 0
+    have h5 := hs6a0
+    omega
+  -- the `a₆` balance
+  have ha6_expr : ∀ i, ai (i + 2) s1 + (if i + 2 = toL s1 - 1 then 1 else 0)
+      + divpow2r (2 ^ toL s1 - 1) (i + 2) + divpow2r (toN s5) (i + 1)
+      = ai i s6 + divpow2r (toN s4) (i + 1) + divpow2r (toN s3) (i + 2) := by
+    intro i
+    have h1 := hs2a (i + 2)
+    have h2 := hs3a (i + 2)
+    rw [hs2n] at h2
+    have h3 : ai (i + 1) s4 = ai (i + 2) s3 := hs4a (i + 1)
+    have h4 := hs5a (i + 1)
+    have h5 := hs6a i
+    omega
+  -- assemble
+  rw [hs4a0] at I45
+  exact ⟨s6, toN s3, toN s4, toN s5, toN s6,
+    WeaklyEmbanked.intro s2.1 (ai 0 s3) s1 s2 s3 s4 s5 s6 Z12 I23 H34 I45 H56
+      hwf1 hs1s hs1n hs1l hs1a0_odd hs1a0_lt hs1a1_lt hwf6 hs6s' (by omega)
+      hs4n.symm hs6n.symm hn3_expr hn4_expr hn5_expr hn6_expr ha60_expr ha6_expr⟩
+
+/-- Coq `embanked_precond`. -/
+lemma embanked_precond {s1 s6 : S17} {s_1 h_1 s_2 h_2 : ℕ}
+    (hweb : WeaklyEmbanked s1 s6 s_1 h_1 s_2 h_2) (hle : h_2 ≤ s6.1) :
+    ∃ s7, Embanked s1 s7 s_1 h_1 s_2 h_2 := by
+  obtain ⟨n1, n2, s1, s2, s3, s4, s5, s6, Z12, I23, H34, I45, H56, hwf1, hs1s,
+    hs1n, hs1l, hs1a0_odd, hs1a0_lt, hs1a1_lt, hwf6, hs6s, hs6l, n34, n56, n3e,
+    n4e, n5e, n6e, a60, a6⟩ := hweb
+  obtain ⟨s7, I67, hwf7⟩ := Increments_dec_precond1 (toN s6) hwf6 hs6s
+    (le_refl _) hle
+  have hs7s := Increments_sgn I67
+  have hs7n := Increments_n I67
+  have hs7l := Increments_len I67
+  have hs7a0 := Increments_a0 I67
+  have hs7a := Increments_a I67
+  rw [hs6s] at hs7n hs7a0 hs7a
+  simp only [Bool.false_eq_true, if_false] at hs7n hs7a0 hs7a
+  have hn7_0 : toN s7 = 0 := by omega
+  have ha70 : ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r (toN s5) 0 - toN s7 + 1
+      = s7.1 + toN s6 + divpow2r (toN s4) 0 + divpow2r (toN s3) 1 := by omega
+  have ha7 : ∀ i, ai (i + 2) s1 + (if i + 2 = toL s1 - 1 then 1 else 0)
+      + divpow2r (2 ^ toL s1 - 1) (i + 2) + divpow2r (toN s5) (i + 1)
+      + divpow2r (toN s6) i
+      = ai i s7 + divpow2r (toN s4) (i + 1) + divpow2r (toN s3) (i + 2) := by
+    intro i
+    have hd7 : divpow2r (toN s7) i = 0 := by
+      rw [hn7_0]
+      unfold divpow2r
+      rw [Nat.zero_add, Nat.div_eq_of_lt]
+      have := Nat.two_pow_pos i
+      rw [two_pow_succ' i]
+      omega
+    have h1 := a6 i
+    have h2 := hs7a i
+    omega
+  obtain ⟨s8, Z78, _⟩ := Zero_precond hwf7 (by rw [← hs7s]; exact hs6s) hn7_0
+  refine ⟨s7, Embanked.intro (toN s6) s1 s6 s7 s8 (toN s3) (toN s4) (toN s5)
+    (toN s6) ?_ I67 Z78 hle ha70 ha7 hwf7 (by rw [← hs7s]; exact hs6s) hn7_0
+    (by omega)⟩
+  exact WeaklyEmbanked.intro n1 n2 s1 s2 s3 s4 s5 s6 Z12 I23 H34 I45 H56
+    hwf1 hs1s hs1n hs1l hs1a0_odd hs1a0_lt hs1a1_lt hwf6 hs6s hs6l n34 n56
+    n3e n4e n5e n6e a60 a6
 
 end Deciders.Skelet.Skelet17
