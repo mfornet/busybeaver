@@ -1026,4 +1026,275 @@ lemma WF2_n_lt {s1 : S17} (h : WF2 s1) : toN s1 < 2 ^ (toL s1 - 2) := by
   rw [hlen]
   exact hb
 
+/-! ### Nonzero/AllEven bookkeeping -/
+
+lemma odd_ne_zero {y : ℕ} (h : Odd y) : y ≠ 0 := by
+  rcases h with ⟨k, rfl⟩; omega
+
+lemma nonzero_nil : Nonzero [] := fun a ha => absurd ha (by simp)
+
+lemma nonzero_cons {a : ℕ} {xs : List ℕ} (ha : a ≠ 0) (h : Nonzero xs) :
+    Nonzero (a :: xs) := by
+  intro b hb; rcases List.mem_cons.1 hb with rfl | hb; exacts [ha, h b hb]
+
+lemma nonzero_append {xs ys : List ℕ} (h1 : Nonzero xs) (h2 : Nonzero ys) :
+    Nonzero (xs ++ ys) := by
+  intro a ha; rcases List.mem_append.1 ha with h | h; exacts [h1 a h, h2 a h]
+
+lemma nonzero_singleton {a : ℕ} (ha : a ≠ 0) : Nonzero [a] :=
+  nonzero_cons ha nonzero_nil
+
+/-! ### Closed forms over an all-even prefix -/
+
+/-- With `Even x₁` and an all-even prefix, the direction bit is `oddb y`. -/
+lemma toS_allEven_prefix {x1 : ℕ} (hx : Even x1) {xs : List ℕ} (hev : AllEven xs)
+    (y : ℕ) : toS (x1 + 1, xs ++ [y]) = oddb y := by
+  rw [toS_def, listToBinary_allEven_prefix hev, headD_replicate_append_self]
+  have hde : decide (Even (x1 + 1)) = false := by
+    simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+  rw [hde]
+  simp [listToBinary_cons, listToBinary_nil]
+
+/-- All-even prefix and odd last entry: the counter is full. -/
+lemma toN_allEven_prefix_odd {x : ℕ} {xs : List ℕ} (hev : AllEven xs) {y : ℕ}
+    (hy : Odd y) : toN (x, xs ++ [y]) = 2 ^ (xs.length + 1) - 1 := by
+  rw [toN_def, listToBinary_allEven_prefix hev]
+  have hLy : listToBinary [y] = [true] := by
+    simp [listToBinary_cons, listToBinary_nil, hy]
+  rw [hLy]
+  have : (List.replicate xs.length (([true] : List Bool).headD false) ++ [true] : List Bool)
+      = List.replicate (xs.length + 1) true ++ [] := by
+    rw [show (([true] : List Bool).headD false) = true from rfl,
+      show ([true] : List Bool) = true :: [] from rfl, replicate_append_succ]
+  rw [this]
+  simp [binaryToNat_replicate_true]
+
+/-! ### Single-step preconditions, WF1 track (Coq lines 1855–2434) -/
+
+/-- The constructive core: an even head counter and a non-all-even list admit an
+`Increment.even` step preserving `WF1`. -/
+lemma increment_even_step {x1 : ℕ} {xs0 : List ℕ} {y0 : ℕ} {zs : List ℕ} {y1 : ℕ}
+    (hx : Even x1) (hnz0 : Nonzero xs0) (hev0 : AllEven xs0) (hy0 : Odd y0)
+    (hnzz : Nonzero zs) :
+    ∃ s2, Increment (x1 + 1, (xs0 ++ y0 :: zs) ++ [y1]) s2 ∧ WF1 s2 := by
+  cases zs with
+  | nil =>
+      refine ⟨(x1, xs0 ++ y0 :: (y1 + 1) :: []), ?_, ?_⟩
+      · have h := Increment.even (x := x1) (xs := xs0) (y := y0) (z := y1) (zs := [])
+          hx hnz0 hev0 hy0
+        have e : (xs0 ++ y0 :: List.nil) ++ [y1] = xs0 ++ y0 :: y1 :: [] := by simp
+        rw [e]
+        exact h
+      · have e : xs0 ++ y0 :: (y1 + 1) :: [] = (xs0 ++ [y0]) ++ [y1 + 1] := by simp
+        rw [e]
+        exact WF1.intro _ _ _ (nonzero_append hnz0 (nonzero_singleton (odd_ne_zero hy0)))
+  | cons z zs' =>
+      refine ⟨(x1, xs0 ++ y0 :: (z + 1) :: (zs' ++ [y1])), ?_, ?_⟩
+      · have h := Increment.even (x := x1) (xs := xs0) (y := y0) (z := z)
+          (zs := zs' ++ [y1]) hx hnz0 hev0 hy0
+        have e : (xs0 ++ y0 :: z :: zs') ++ [y1] = xs0 ++ y0 :: z :: (zs' ++ [y1]) := by
+          simp
+        rw [e]
+        exact h
+      · have e : xs0 ++ y0 :: (z + 1) :: (zs' ++ [y1])
+            = (xs0 ++ y0 :: (z + 1) :: zs') ++ [y1] := by simp
+        rw [e]
+        refine WF1.intro _ _ _ ?_
+        refine nonzero_append hnz0 (nonzero_cons (odd_ne_zero hy0)
+          (nonzero_cons (by omega) fun a ha => hnzz a (by simp [ha])))
+
+/-- The constructive core for an odd head counter. -/
+lemma increment_odd_step {x1 : ℕ} {XS : List ℕ} {y1 : ℕ} (hx : Odd x1)
+    (hnz : Nonzero XS) :
+    ∃ s2, Increment (x1 + 1, XS ++ [y1]) s2 ∧ WF1 s2 := by
+  cases XS with
+  | nil =>
+      exact ⟨(x1, [y1 + 1]), Increment.odd hx,
+        WF1.intro x1 [] (y1 + 1) nonzero_nil⟩
+  | cons x2 XS' =>
+      refine ⟨(x1, (x2 + 1) :: (XS' ++ [y1])), Increment.odd hx, ?_⟩
+      have e : (x2 + 1) :: (XS' ++ [y1]) = ((x2 + 1) :: XS') ++ [y1] := rfl
+      rw [e]
+      exact WF1.intro _ _ _ (nonzero_cons (by omega)
+        fun a ha => hnz a (by simp [ha]))
+
+/-- Coq `Increment_inc_precond1`. -/
+lemma Increment_inc_precond1 {s1 : S17} (h : WF1 s1) (hs : toS s1 = true)
+    (hn : toN s1 < 2 ^ toL s1 - 1) (hf : 0 < s1.1) :
+    ∃ s2, Increment s1 s2 ∧ WF1 s2 := by
+  obtain ⟨x, XS, y1, hnz, rfl⟩ := wf1_inv h
+  obtain ⟨x1, rfl⟩ : ∃ x1, x = x1 + 1 := ⟨x - 1, by
+    have : 0 < x := hf
+    omega⟩
+  rcases Nat.even_or_odd x1 with hx | hx
+  · rcases allEven_dec XS with hev | ⟨xs0, y0, zs, hev0, hy0, rfl⟩
+    · exfalso
+      have hts := toS_allEven_prefix hx hev y1
+      rw [hs] at hts
+      have hy1 : Odd y1 := oddb_eq_true_iff.1 hts.symm
+      have htn := toN_allEven_prefix_odd (x := x1 + 1) hev hy1
+      rw [toL_def, show (XS ++ [y1]).length = XS.length + 1 by simp] at hn
+      omega
+    · exact increment_even_step hx (fun a ha => hnz a (by simp [ha])) hev0 hy0
+        (fun a ha => hnz a (by simp [ha]))
+  · exact increment_odd_step hx hnz
+
+/-- Coq `Increment_dec_precond1`. -/
+lemma Increment_dec_precond1 {s1 : S17} (h : WF1 s1) (hs : toS s1 = false)
+    (hn : 0 < toN s1) (hf : 0 < s1.1) :
+    ∃ s2, Increment s1 s2 ∧ WF1 s2 := by
+  obtain ⟨x, XS, y1, hnz, rfl⟩ := wf1_inv h
+  obtain ⟨x1, rfl⟩ : ∃ x1, x = x1 + 1 := ⟨x - 1, by
+    have : 0 < x := hf
+    omega⟩
+  rcases Nat.even_or_odd x1 with hx | hx
+  · rcases allEven_dec XS with hev | ⟨xs0, y0, zs, hev0, hy0, rfl⟩
+    · exfalso
+      have hts := toS_allEven_prefix hx hev y1
+      rw [hs] at hts
+      have hy1 : Even y1 := oddb_eq_false_iff.1 hts.symm
+      have htn : toN (x1 + 1, XS ++ [y1]) = 0 :=
+        toN_allEven (fun a ha => by
+          rcases List.mem_append.1 ha with h' | h'
+          · exact hev a h'
+          · rcases List.mem_singleton.1 h'; exact hy1)
+      omega
+    · exact increment_even_step hx (fun a ha => hnz a (by simp [ha])) hev0 hy0
+        (fun a ha => hnz a (by simp [ha]))
+  · exact increment_odd_step hx hnz
+
+/-- Coq `Halve_precond1`. -/
+lemma Halve_precond1 {s1 : S17} (h : WF1 s1) (hf : s1.1 = 0) (hl : 2 ≤ toL s1) :
+    ∃ s2, Halve s1 s2 ∧ WF1 s2 := by
+  obtain ⟨x, XS, y1, hnz, rfl⟩ := wf1_inv h
+  obtain rfl : x = 0 := hf
+  cases XS with
+  | nil =>
+      rw [toL_def] at hl
+      simp at hl
+  | cons a XS' =>
+      refine ⟨(a + 1, XS' ++ [y1]), Halve.intro a (XS' ++ [y1]), ?_⟩
+      exact WF1.intro _ _ _ fun b hb => hnz b (by simp [hb])
+
+/-- Coq `dec_to_0__a0_Odd`. -/
+lemma dec_to_0_a0_odd {s1 : S17} (hs : toS s1 = false) (hn : toN s1 = 0) :
+    Odd s1.1 := by
+  obtain ⟨x, xs⟩ := s1
+  obtain ⟨I1, _⟩ := toN_zero_shape (by rwa [toN_def] at hn)
+  have hhd : (listToBinary xs).headD false = false := by
+    rw [I1]
+    cases hxl : xs.length <;> simp [List.replicate_succ]
+  rw [toS_def, hhd] at hs
+  simp only [Bool.xor_false] at hs
+  simpa [Nat.not_even_iff_odd] using of_decide_eq_false hs
+
+/-- Coq `Zero_precond`. -/
+lemma Zero_precond {s1 : S17} (h : WF1 s1) (hs : toS s1 = false) (hn : toN s1 = 0) :
+    ∃ s2, Zero s1 s2 ∧ WF2 s2 := by
+  have hodd := dec_to_0_a0_odd hs hn
+  obtain ⟨x, xs, y, hnz, rfl⟩ := wf1_inv h
+  obtain ⟨x1, rfl⟩ : ∃ x1, x = x1 + 1 := ⟨x - 1, by
+    have := odd_ne_zero hodd
+    omega⟩
+  have hx1 : Even x1 := by
+    have : Odd (x1 + 1) := hodd
+    rcases this with ⟨k, hk⟩
+    exact ⟨k, by omega⟩
+  have hev : AllEven (xs ++ [y]) := toN_zero_allEven hn
+  have hevxs : AllEven xs := fun a ha => hev a (by simp [ha])
+  have hy : Even y := hev y (by simp)
+  refine ⟨(x1, xs ++ [y + 1, 0, 0]), Zero.intro hnz hevxs hx1 hy, ?_⟩
+  have e : xs ++ [y + 1, 0, 0] = xs ++ (y + 1) :: [] ++ [0, 0] := by simp
+  rw [e]
+  exact WF2.intro _ _ _ _ hnz hevxs (Even.add_one hy) nonzero_nil
+
+/-- Coq `Overflow_precond_0`: a full counter over `xs ++ [y]` forces the shape. -/
+lemma overflow_precond_0 : ∀ (xs : List ℕ) (y : ℕ),
+    binaryToNat (listToBinary (xs ++ [y])) = 2 ^ (xs.length + 1) - 1 →
+    AllEven xs ∧ Odd y
+  | [], y => by
+      intro h
+      simp only [List.nil_append, List.length_nil] at h
+      have hl : listToBinary [y] = [oddb y] := by
+        simp [listToBinary_cons, listToBinary_nil]
+      rw [hl] at h
+      cases hy : oddb y
+      · simp [binaryToNat] at h
+        exact absurd h (Nat.not_odd_iff_even.2 (oddb_eq_false_iff.1 hy))
+      · exact ⟨fun a ha => absurd ha (by simp), oddb_eq_true_iff.1 hy⟩
+  | a :: xs, y => by
+      intro h
+      rw [List.cons_append, listToBinary_cons] at h
+      have hpow : 0 < 2 ^ (xs.length + 1) := Nat.two_pow_pos _
+      have h2 : (2:ℕ) ^ (xs.length + 1 + 1) = 2 ^ (xs.length + 1) + 2 ^ (xs.length + 1) :=
+        two_pow_succ' _
+      simp only [List.length_cons] at h
+      have hb : xor (oddb a) ((listToBinary (xs ++ [y])).headD false) = true ∧
+          binaryToNat (listToBinary (xs ++ [y])) = 2 ^ (xs.length + 1) - 1 := by
+        cases hx : xor (oddb a) ((listToBinary (xs ++ [y])).headD false) <;>
+          rw [hx] at h <;> simp at h ⊢ <;> omega
+      obtain ⟨I2, I3⟩ := overflow_precond_0 xs y hb.2
+      -- head digit of the tail is true, so `a` is even
+      have hhd : (listToBinary (xs ++ [y])).headD false = true := by
+        rw [listToBinary_allEven_prefix I2, headD_replicate_append_self]
+        simp [listToBinary_cons, listToBinary_nil, I3]
+      have hodda : oddb a = false := by
+        have hb1 := hb.1
+        rw [hhd] at hb1
+        cases ha : oddb a <;> rw [ha] at hb1 <;> simp at hb1 ⊢
+      refine ⟨?_, I3⟩
+      intro b hb'
+      rcases List.mem_cons.1 hb' with rfl | hb''
+      exacts [oddb_eq_false_iff.1 hodda, I2 b hb'']
+
+/-- Coq `Overflow_precond`. -/
+lemma Overflow_precond {s1 : S17} (h : WF1 s1) (hs : toS s1 = true)
+    (hn : toN s1 = 2 ^ toL s1 - 1) (hf : s1.1 = 1) :
+    ∃ s2, Overflow s1 s2 ∧ WF1 s2 := by
+  obtain ⟨x, xs, y, hnz, rfl⟩ := wf1_inv h
+  obtain rfl : x = 1 := hf
+  rw [toN_def, toL_def, show (xs ++ [y]).length = xs.length + 1 by simp] at hn
+  obtain ⟨hev, hy⟩ := overflow_precond_0 xs y hn
+  refine ⟨(1, xs ++ [y + 1, 0]), ?_, ?_⟩
+  · exact Overflow.intro (x := 0) hnz hev (by simp) hy
+  · have e : xs ++ [y + 1, 0] = (xs ++ [y + 1]) ++ [0] := by simp
+    rw [e]
+    exact WF1.intro _ _ _ (nonzero_append hnz (nonzero_singleton (by omega)))
+
+/-! ### Iterated preconditions (Coq lines 2435–2606, WF1 track) -/
+
+/-- Coq `Increments_inc_precond1`. -/
+lemma Increments_inc_precond1 {s1 : S17} (n : ℕ) (h : WF1 s1) (hs : toS s1 = true)
+    (hn : toN s1 + n < 2 ^ toL s1) (hf : n ≤ s1.1) :
+    ∃ s2, Increments n s1 s2 ∧ WF1 s2 := by
+  induction n generalizing s1 with
+  | zero => exact ⟨s1, Increments.zero s1, h⟩
+  | succ n ih =>
+      obtain ⟨s4, I1, I2⟩ := Increment_inc_precond1 h hs (by omega) (by omega)
+      have hsgn := Increment_sgn I1
+      have hnn := Increment_n I1
+      have hlen := Increment_len I1
+      have hfst := Increment_fst I1
+      rw [hs] at hnn
+      simp at hnn
+      obtain ⟨s3, X1, X2⟩ := ih I2 (by rw [← hsgn]; exact hs)
+        (by rw [← hlen]; omega) (by omega)
+      exact ⟨s3, Increments.succ I1 X1, X2⟩
+
+/-- Coq `Increments_dec_precond1`. -/
+lemma Increments_dec_precond1 {s1 : S17} (n : ℕ) (h : WF1 s1) (hs : toS s1 = false)
+    (hn : n ≤ toN s1) (hf : n ≤ s1.1) :
+    ∃ s2, Increments n s1 s2 ∧ WF1 s2 := by
+  induction n generalizing s1 with
+  | zero => exact ⟨s1, Increments.zero s1, h⟩
+  | succ n ih =>
+      obtain ⟨s4, I1, I2⟩ := Increment_dec_precond1 h hs (by omega) (by omega)
+      have hsgn := Increment_sgn I1
+      have hnn := Increment_n I1
+      have hfst := Increment_fst I1
+      rw [hs] at hnn
+      simp at hnn
+      obtain ⟨s3, X1, X2⟩ := ih I2 (by rw [← hsgn]; exact hs) (by omega) (by omega)
+      exact ⟨s3, Increments.succ I1 X1, X2⟩
+
 end Deciders.Skelet.Skelet17
