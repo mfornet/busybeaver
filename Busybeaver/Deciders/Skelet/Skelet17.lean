@@ -355,4 +355,29 @@ lemma ZIHIO_embanked_batch_toConfig {i k : ℕ} {e ne ne' : S17} {h_1 h_2 : ℕ}
       exact (ZIHIO_emb_toConfig HZ He t1 t').trans
         (embanked_batch_toConfig Heb t' t2)
 
+
+/-- Coq `Sk_closed`: one full `Base k → Base (k+1)` round trip on the tape. -/
+lemma Sk_closed {k : ℕ} (hk : k ≠ 0) {b : S17} {c : Config 4 1}
+    (Hb : BaseS k b) (C : toConfig b c) :
+    ∃ b' c', BaseS (k + 1) b' ∧ toConfig b' c' ∧ (c -[M]->* c') := by
+  obtain ⟨e, ne, HN, Heb, HA, Ha, n'ne, HebB, Hl', Ha0', Ha1', Ha', Ha_last'⟩ :=
+    Sk_to_E'' Hb hk
+  obtain ⟨c1, C1⟩ := embanked_batch_postcond_toConfig Heb
+  have c_c1 : c -[M]->* c1 := embanked_batch_toConfig Heb C C1
+  obtain ⟨c2, C2⟩ := embanked_batch_precond_toConfig HebB
+  have c1_c2 : c1 -[M]->* c2 := NSteps_toConfig HN C1 C2
+  obtain ⟨c3, C3⟩ := embanked_batch_postcond_toConfig HebB
+  have c2_c3 : c2 -[M]->* c3 := embanked_batch_toConfig HebB C2 C3
+  obtain ⟨ez, HZ⟩ := E''_Overflow hk ⟨ne, HebB⟩ Hl' Ha0' Ha1' Ha' Ha_last'
+  obtain ⟨nez, Hemb⟩ := ZIHIO_emb hk HZ
+  obtain ⟨nez2, HebC, HlC, Ha0C, Ha1C, HaC⟩ :=
+    ZIHIO_embanked_batch hk HZ Hemb
+  obtain ⟨b', h_1, h_2, HebD, Hb'⟩ := last_step HebC HlC Ha0C Ha1C HaC
+  obtain ⟨c4, C4⟩ := embanked_batch_postcond_toConfig HebC
+  have c3_c4 : c3 -[M]->* c4 := ZIHIO_embanked_batch_toConfig HZ HebC C3 C4
+  obtain ⟨c5, C5⟩ := embanked_batch_postcond_toConfig HebD
+  have c4_c5 : c4 -[M]->* c5 := embanked_batch_toConfig HebD C4 C5
+  exact ⟨b', c5, Hb', C5,
+    c_c1.trans (c1_c2.trans (c2_c3.trans (c3_c4.trans c4_c5)))⟩
+
 end Deciders.Skelet.Skelet17
