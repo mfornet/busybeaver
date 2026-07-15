@@ -380,4 +380,180 @@ lemma Sk_closed {k : ℕ} (hk : k ≠ 0) {b : S17} {c : Config 4 1}
   exact ⟨b', c5, Hb', C5,
     c_c1.trans (c1_c2.trans (c2_c3.trans (c3_c4.trans c4_c5)))⟩
 
+
+/-! ### The final assembly (Coq lines 6690–6866) -/
+
+/-- `n`-fold application of the machine step (computable). -/
+private def stepN : ℕ → Config 4 1 → Option (Config 4 1)
+  | 0, c => some c
+  | n + 1, c => (Machine.step M c).bind (stepN n)
+
+/-- A successful `stepN` run yields an `EvStep` reachability. -/
+private lemma stepN_evstep : ∀ (n : ℕ) {c d : Config 4 1},
+    stepN n c = some d → c -[M]->* d
+  | 0, c, d, h => by
+      simp only [stepN, Option.some.injEq] at h
+      subst h
+      exact Machine.EvStep.refl
+  | n + 1, c, d, h => by
+      rw [stepN] at h
+      cases hc : Machine.step M c with
+      | none => rw [hc] at h; simp at h
+      | some c1 =>
+          rw [hc] at h
+          exact Machine.EvStep.step hc (stepN_evstep n h)
+
+/-- Coq `base`: the blank tape reaches `lower [0, 4, 2, 0]` in 205 steps. -/
+lemma base : init -[M]->* lower [0, 4, 2, 0] := by
+  refine stepN_evstep 205 ?_
+  native_decide
+
+/-- Coq `Base_1`. -/
+def Base1 : S17 := (1, [4, 2, 0])
+
+/-- Coq `Base_1_spec`. -/
+lemma Base1_spec : BaseS 1 Base1 := by
+  refine BaseS.intro _ rfl ?_ (by rw [toL_eq_length]; rfl)
+  intro i
+  match i with
+  | 0 => rfl
+  | 1 => rfl
+  | 2 => rfl
+  | (n + 3) =>
+      have h1 : ai (n + 3) Base1 = 0 := by
+        simp [ai, Base1]
+      rw [h1, if_neg (by omega)]
+
+/-- Coq `Base_1_toConfig`. -/
+lemma Base1_toConfig : toConfig Base1 (lower [0, 4, 2, 0]) :=
+  toConfig.intro 0 [4, 2, 0]
+
+/-! ### `Base k` configs at distinct `k` have distinct tapes (Coq `Base_ne`) -/
+
+/-- `pow10L` shifts `nth` by `2a`. -/
+lemma pow10L_nth_shift (a : ℕ) (n : ℕ) (l : ListBlank (Symbol 1)) :
+    (pow10L a l).nth (2 * a + n) = l.nth n := by
+  induction a with
+  | zero => rw [show 2 * 0 + n = n by omega]; rfl
+  | succ a ih =>
+      show (ListBlank.cons (0 : Symbol 1) (ListBlank.cons (1 : Symbol 1) (pow10L a l))).nth
+        (2 * (a + 1) + n) = l.nth n
+      rw [show 2 * (a + 1) + n = 2 * a + n + 1 + 1 by omega,
+        ListBlank.nth_succ, ListBlank.tail_cons,
+        ListBlank.nth_succ, ListBlank.tail_cons]
+      exact ih
+
+/-- Even positions inside a `pow10L` block read `𝟘`. -/
+lemma pow10L_nth_even (a : ℕ) (j : ℕ) (l : ListBlank (Symbol 1)) (h : j < a) :
+    (pow10L a l).nth (2 * j) = (0 : Symbol 1) := by
+  induction a generalizing j with
+  | zero => omega
+  | succ a ih =>
+      match j with
+      | 0 =>
+          show (ListBlank.cons (0 : Symbol 1) (ListBlank.cons (1 : Symbol 1) (pow10L a l))).nth 0 = (0 : Symbol 1)
+          rw [ListBlank.nth_zero, ListBlank.head_cons]
+      | j + 1 =>
+          show (ListBlank.cons (0 : Symbol 1) (ListBlank.cons (1 : Symbol 1) (pow10L a l))).nth
+            (2 * (j + 1)) = (0 : Symbol 1)
+          rw [show 2 * (j + 1) = 2 * j + 1 + 1 by omega,
+            ListBlank.nth_succ, ListBlank.tail_cons,
+            ListBlank.nth_succ, ListBlank.tail_cons]
+          exact ih j (by omega)
+
+/-- The head-block distinguisher: `lowerL'` separates lists whose head
+exponents differ, provided the smaller one has a successor entry. -/
+lemma lowerL'_head_ne {a a' : ℕ} {t t' : List ℕ} (h : a < a')
+    (ht : t ≠ []) : lowerL' (a :: t) ≠ lowerL' (a' :: t') := by
+  intro heq
+  have h1 : (lowerL' (a :: t)).nth (2 * a + 1) = (1 : Symbol 1) := by
+    show (ListBlank.cons (1 : Symbol 1) (pow10L a (lowerL' t))).nth (2 * a + 1) = (1 : Symbol 1)
+    rw [ListBlank.nth_succ, ListBlank.tail_cons,
+      show 2 * a = 2 * a + 0 by omega, pow10L_nth_shift]
+    obtain ⟨y, t2, rfl⟩ := List.exists_cons_of_ne_nil ht
+    show (ListBlank.cons (1 : Symbol 1) (pow10L y (lowerL' t2))).nth 0 = (1 : Symbol 1)
+    rw [ListBlank.nth_zero, ListBlank.head_cons]
+  have h2 : (lowerL' (a' :: t')).nth (2 * a + 1) = (0 : Symbol 1) := by
+    show (ListBlank.cons (1 : Symbol 1) (pow10L a' (lowerL' t'))).nth (2 * a + 1) = (0 : Symbol 1)
+    rw [ListBlank.nth_succ, ListBlank.tail_cons]
+    exact pow10L_nth_even a' a _ h
+  rw [heq, h2] at h1
+  exact absurd h1 (by decide)
+
+/-- Coq `Base_ne`: consecutive base camps have distinct tape configs. -/
+lemma Base_ne {k : ℕ} (hk : k ≠ 0) {b b' : S17} {c c' : Config 4 1}
+    (Hb : BaseS k b) (Hb' : BaseS (k + 1) b')
+    (C : toConfig b c) (C' : toConfig b' c') : c ≠ c' := by
+  obtain ⟨hb0, hba, hbl⟩ := baseS_inv Hb
+  obtain ⟨hb0', hba', hbl'⟩ := baseS_inv Hb'
+  obtain ⟨x, xs, hbeq, rfl⟩ := toConfig_inv C
+  obtain ⟨x', xs', hbeq', rfl⟩ := toConfig_inv C'
+  rw [hbeq] at hb0 hba hbl
+  rw [hbeq'] at hb0' hba' hbl'
+  obtain rfl : x = 0 := by simpa using hb0
+  obtain rfl : x' = 0 := by simpa using hb0'
+  rw [toL_eq_length] at hbl hbl'
+  -- decompose the digit lists
+  rcases xs with _ | ⟨a, t⟩
+  · simp at hbl
+  rcases xs' with _ | ⟨a', t'⟩
+  · simp at hbl'
+  · have ha : a = 2 ^ (k * 2) := by
+      have := hba 0
+      rw [if_pos (by omega)] at this
+      simpa [ai] using this
+    have ha' : a' = 2 ^ ((k + 1) * 2) := by
+      have := hba' 0
+      rw [if_pos (by omega)] at this
+      simpa [ai] using this
+    have hlt : a < a' := by
+      rw [ha, ha']
+      exact Nat.pow_lt_pow_right (by omega) (by omega)
+    have ht : t ≠ [] := by
+      intro hnil
+      rw [hnil] at hbl
+      simp at hbl
+      omega
+    have hne := lowerL'_head_ne (t' := t') hlt ht
+    intro heq
+    apply hne
+    -- extract the left `ListBlank` from the config equality
+    have htape : Tape.mk' (lowerL' (a :: t)).tail
+          (ListBlank.cons (lowerL' (a :: t)).head ∅)
+        = Tape.mk' (lowerL' (a' :: t')).tail
+          (ListBlank.cons (lowerL' (a' :: t')).head ∅) :=
+      congrArg (fun cfg : Config 4 1 => cfg.2) heq
+    have hL : (lowerL' (a :: t)).tail = (lowerL' (a' :: t')).tail := by
+      have := congrArg Turing.Tape.left htape
+      simpa [Tape.mk'_left] using this
+    have hH : (lowerL' (a :: t)).head = (lowerL' (a' :: t')).head := by
+      have := congrArg Turing.Tape.head htape
+      simpa [Tape.mk'_head, ListBlank.head_cons] using this
+    calc lowerL' (a :: t)
+        = ((lowerL' (a :: t)).tail).cons ((lowerL' (a :: t)).head) :=
+          (ListBlank.cons_head_tail _).symm
+      _ = ((lowerL' (a' :: t')).tail).cons ((lowerL' (a' :: t')).head) := by
+          rw [hH, hL]
+      _ = lowerL' (a' :: t') := ListBlank.cons_head_tail _
+
+/-- Turn a nontrivial reachability into strict progress. -/
+lemma evstep_progress {c c' : Config 4 1} (h : c -[M]->* c') (hne : c ≠ c') :
+    c -[M]->+ c' := by
+  cases h with
+  | refl => exact absurd rfl hne
+  | step h1 h2 => exact Trans.trans (Machine.Progress.single h1) h2
+
+/-- Skelet #17 does not halt (Coq `nonhalt`). -/
+theorem nonHalting : ¬ M.halts init := by
+  have cs : ClosedSet M
+      (fun c => ∃ k b, k ≠ 0 ∧ BaseS k b ∧ toConfig b c) init := by
+    refine ⟨?_, ?_⟩
+    · rintro ⟨c, k, b, hk, Hb, Hc⟩
+      obtain ⟨b', c', Hb', Hc', hcc⟩ := Sk_closed hk Hb Hc
+      exact ⟨⟨c', k + 1, b', by omega, Hb', Hc'⟩,
+        evstep_progress hcc (Base_ne hk Hb Hb' Hc Hc')⟩
+    · exact ⟨⟨lower [0, 4, 2, 0], 1, Base1, by omega, Base1_spec,
+        Base1_toConfig⟩, base⟩
+  exact cs.nonHalting
+
 end Deciders.Skelet.Skelet17
