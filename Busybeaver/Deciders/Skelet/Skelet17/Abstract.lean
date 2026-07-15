@@ -869,4 +869,161 @@ lemma Increment_a0 {s1 s2 : S17} (h : Increment s1 s2) :
     else s2.1 + toN s1 = s1.1 + toN s2 :=
   Increments_a0 (Increments.succ h (Increments.zero s2))
 
+/-! ### Decomposition and zero-counter lemmas (Coq lines 1630–1846) -/
+
+/-- Coq `Forall_Even_dec`: split a list at its first odd entry. -/
+lemma allEven_dec (xs : List ℕ) :
+    AllEven xs ∨ ∃ xs0 y zs, AllEven xs0 ∧ Odd y ∧ xs = xs0 ++ y :: zs := by
+  induction xs with
+  | nil => exact .inl fun a ha => absurd ha (by simp)
+  | cons a xs ih =>
+      rcases Nat.even_or_odd a with ha | ha
+      · rcases ih with h | ⟨xs0, y, zs, h0, h1, rfl⟩
+        · refine .inl fun b hb => ?_
+          rcases List.mem_cons.1 hb with rfl | hb
+          exacts [ha, h b hb]
+        · refine .inr ⟨a :: xs0, y, zs, fun b hb => ?_, h1, rfl⟩
+          rcases List.mem_cons.1 hb with rfl | hb
+          exacts [ha, h0 b hb]
+      · exact .inr ⟨[], a, xs, fun b hb => absurd hb (by simp), ha, rfl⟩
+
+/-- Coq `to_n_Even`. -/
+lemma toN_allEven {x : ℕ} {xs : List ℕ} (h : AllEven xs) : toN (x, xs) = 0 := by
+  rw [toN_def]
+  have h1 := listToBinary_allEven_prefix h []
+  simp only [listToBinary_nil, List.headD_nil, List.append_nil] at h1
+  rw [h1, binaryToNat_replicate_false]
+
+/-- Coq `to_n_0_binary_0_Even`. -/
+lemma toN_zero_shape : ∀ {xs : List ℕ}, binaryToNat (listToBinary xs) = 0 →
+    listToBinary xs = List.replicate xs.length false ∧ AllEven xs
+  | [], _ => ⟨rfl, fun a ha => absurd ha (by simp)⟩
+  | a :: xs, h => by
+      rw [listToBinary_cons] at h
+      have hb : xor (oddb a) ((listToBinary xs).headD false) = false ∧
+          binaryToNat (listToBinary xs) = 0 := by
+        cases hx : xor (oddb a) ((listToBinary xs).headD false)
+        · rw [hx, binaryToNat_cons_false] at h
+          exact ⟨rfl, by omega⟩
+        · rw [hx, binaryToNat_cons_true] at h
+          exact absurd h (by omega)
+      obtain ⟨I1, I2⟩ := toN_zero_shape hb.2
+      have hhd : (listToBinary xs).headD false = false := by
+        rw [I1]
+        cases hxl : xs.length <;> simp [List.replicate_succ]
+      have hodda : oddb a = false := by
+        have hb1 := hb.1
+        rw [hhd] at hb1
+        simpa using hb1
+      constructor
+      · rw [listToBinary_cons, hb.1, I1, List.length_cons, List.replicate_succ]
+      · intro b hb'
+        rcases List.mem_cons.1 hb' with rfl | hb''
+        exacts [oddb_eq_false_iff.1 hodda, I2 b hb'']
+
+/-- Coq `to_n_0_Even`. -/
+lemma toN_zero_allEven {x : ℕ} {xs : List ℕ} (h : toN (x, xs) = 0) : AllEven xs :=
+  (toN_zero_shape (by rwa [toN_def] at h)).2
+
+/-! ### WF machinery -/
+
+/-- Coq `WF`. -/
+inductive WF : S17 → Prop
+  | one {s : S17} : WF1 s → WF s
+  | two {s : S17} : WF2 s → WF s
+
+lemma wf1_inv {s : S17} (h : WF1 s) :
+    ∃ x xs y, Nonzero xs ∧ s = (x, xs ++ [y]) := by
+  cases h with | intro x xs y hnz => exact ⟨x, xs, y, hnz, rfl⟩
+
+lemma wf2_inv {s : S17} (h : WF2 s) :
+    ∃ x xs y zs, Nonzero xs ∧ AllEven xs ∧ Odd y ∧ Nonzero zs ∧
+      s = (x, xs ++ y :: zs ++ [0, 0]) := by
+  cases h with | intro x xs y zs hnz hev hy hnzz => exact ⟨x, xs, y, zs, hnz, hev, hy, hnzz, rfl⟩
+
+/-- Coq `WF1_00`. -/
+lemma WF1_00 (x : ℕ) (xs : List ℕ) : ¬ WF1 (x, xs ++ [0, 0]) := by
+  intro h
+  obtain ⟨x', xs', y', hnz, heq⟩ := wf1_inv h
+  have hl : xs ++ [0, 0] = xs' ++ [y'] := congrArg Prod.snd heq
+  have h00 : (xs ++ [0]) ++ [0] = xs' ++ [y'] := by rw [← hl]; simp
+  obtain ⟨hxs', hy⟩ := List.append_inj' h00 rfl
+  exact hnz 0 (by rw [← hxs']; simp) rfl
+
+/-- Coq `WF_nonempty`. -/
+lemma WF_nonempty {x : ℕ} {xs : List ℕ} (h : WF (x, xs)) : xs ≠ [] := by
+  cases h with
+  | one h1 =>
+      obtain ⟨_, xs', y', _, heq⟩ := wf1_inv h1
+      have hx : xs = xs' ++ [y'] := congrArg Prod.snd heq
+      rw [hx]
+      simp
+  | two h2 =>
+      obtain ⟨_, xs', y', zs', _, _, _, _, heq⟩ := wf2_inv h2
+      have hx : xs = xs' ++ y' :: zs' ++ [0, 0] := congrArg Prod.snd heq
+      rw [hx]
+      simp
+
+/-- Coq `to_n_pow2sub1`: a full counter forces the shape. -/
+lemma toN_pow2sub1 : ∀ (xs : List ℕ) (y : ℕ),
+    binaryToNat (listToBinary (xs ++ [y, 0, 0])) = 2 ^ (xs.length + 1) - 1 →
+    (listToBinary (xs ++ [y, 0, 0])).headD false = true ∧ AllEven xs ∧ Odd y
+  | [], y => by
+      intro h
+      simp only [List.nil_append, List.length_nil] at h ⊢
+      have hl : listToBinary [y, 0, 0] = [oddb y, false, false] := by
+        simp [listToBinary_cons, listToBinary_nil, show oddb 0 = false from rfl]
+      rw [hl] at h ⊢
+      cases hy : oddb y
+      · simp [binaryToNat] at h
+        exact absurd h (Nat.not_odd_iff_even.2 (oddb_eq_false_iff.1 hy))
+      · exact ⟨rfl, fun a ha => absurd ha (by simp), oddb_eq_true_iff.1 hy⟩
+  | a :: xs, y => by
+      intro h
+      rw [List.cons_append, listToBinary_cons] at h
+      have hpow : 0 < 2 ^ (xs.length + 1) := Nat.two_pow_pos _
+      have h2 : (2:ℕ) ^ (xs.length + 1 + 1) = 2 ^ (xs.length + 1) + 2 ^ (xs.length + 1) :=
+        two_pow_succ' _
+      simp only [List.length_cons] at h
+      have hb : xor (oddb a) ((listToBinary (xs ++ [y, 0, 0])).headD false) = true ∧
+          binaryToNat (listToBinary (xs ++ [y, 0, 0])) = 2 ^ (xs.length + 1) - 1 := by
+        cases hx : xor (oddb a) ((listToBinary (xs ++ [y, 0, 0])).headD false) <;>
+          rw [hx] at h <;> simp at h ⊢ <;> omega
+      obtain ⟨I1, I2, I3⟩ := toN_pow2sub1 xs y hb.2
+      have hodda : oddb a = false := by
+        have hb1 := hb.1
+        rw [I1] at hb1
+        cases ha : oddb a <;> rw [ha] at hb1 <;> simp at hb1 ⊢
+      refine ⟨?_, ?_, I3⟩
+      · rw [List.cons_append, listToBinary_cons, List.headD_cons, hodda, I1]
+        rfl
+      · intro b hb'
+        rcases List.mem_cons.1 hb' with rfl | hb''
+        exacts [oddb_eq_false_iff.1 hodda, I2 b hb'']
+
+/-- Any counter over a list ending in `[0, 0]` is small (core of Coq `WF2_n_lt`). -/
+lemma toN_append_00_lt : ∀ (l : List ℕ),
+    binaryToNat (listToBinary (l ++ [0, 0])) < 2 ^ l.length
+  | [] => by
+      simp [listToBinary_cons, listToBinary_nil, show oddb 0 = false from rfl]
+  | a :: l => by
+      have ih := toN_append_00_lt l
+      rw [List.cons_append, listToBinary_cons]
+      have h2 : (2:ℕ) ^ (l.length + 1) = 2 ^ l.length + 2 ^ l.length := two_pow_succ' _
+      cases hx : xor (oddb a) ((listToBinary (l ++ [0, 0])).headD false) <;>
+        simp [List.length_cons, h2] <;> omega
+
+/-- Coq `WF2_n_lt`. -/
+lemma WF2_n_lt {s1 : S17} (h : WF2 s1) : toN s1 < 2 ^ (toL s1 - 2) := by
+  obtain ⟨x, xs, y, zs, _, _, _, _, rfl⟩ := wf2_inv h
+  rw [toN_def, toL_def]
+  have hb := toN_append_00_lt (xs ++ y :: zs)
+  have e : (xs ++ y :: zs) ++ [0, 0] = xs ++ y :: zs ++ [0, 0] := by simp
+  rw [e] at hb
+  have hlen : (xs ++ y :: zs ++ [0, 0]).length - 2 = (xs ++ y :: zs).length := by
+    simp
+    omega
+  rw [hlen]
+  exact hb
+
 end Deciders.Skelet.Skelet17
