@@ -376,7 +376,6 @@ lemma embanked_4batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
   exact ⟨e2, _, e3, _, e4, _, e5, _, Hb2, Hb3, Hb4, Hb5, by omega, hl5,
     by omega, by omega, Ha⟩
 
-set_option maxHeartbeats 1000000 in
 /-- Proposition 4.1, 4-step case (Coq `embanked_8batch`): parities
 `0,0,0,1` for `ctzS m … ctzS (m+3)` give eight batches advancing by `m+4`. -/
 lemma embanked_8batch {k : ℕ} {m i0 : ℕ} {e0 e1 : S17}
@@ -823,7 +822,6 @@ inductive ZIHIO (k : ℕ) : S17 → S17 → Prop
       (ha6last : ai' (k * 2 + 3) s6 = 0) :
       ZIHIO k s1 s6
 
-set_option maxHeartbeats 1000000 in
 /-- Coq `E''_Overflow`: from the `Sk_to_E''` profile the overflow chain fires. -/
 lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
     (Heb : ∃ s0, EmbankedBatch 1 s0 s1 1 (2 ^ (k * 2) * 2 - 1))
@@ -1076,7 +1074,6 @@ lemma zihio_inv {k : ℕ} {e ne : S17} (h : ZIHIO k e ne) :
   cases h
   aesop
 
-set_option maxHeartbeats 1000000 in
 /-- Coq `ZIHIO_emb`. -/
 lemma ZIHIO_emb {k : ℕ} (hk : k ≠ 0) {e ne : S17} (HZ : ZIHIO k e ne) :
     ∃ ne', Embanked ne ne' (2 ^ (k * 2 + 3) - 1) (2 ^ (k * 2 + 2) - 1)
@@ -1130,7 +1127,6 @@ lemma ZIHIO_emb {k : ℕ} (hk : k ≠ 0) {e ne : S17} (HZ : ZIHIO k e ne) :
   rw [hs_1, hh_1, hs_2, hh_2] at Hemb
   exact ⟨s7, Hemb⟩
 
-set_option maxHeartbeats 2000000 in
 /-- Coq `ZIHIO_emb_Add2`. -/
 lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e ne)
     (He : Embanked ne ne' (2 ^ (k * 2 + 3) - 1) (2 ^ (k * 2 + 2) - 1)
