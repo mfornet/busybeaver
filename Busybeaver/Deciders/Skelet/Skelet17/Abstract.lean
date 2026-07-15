@@ -1935,4 +1935,138 @@ lemma embanked_precond {s1 s6 : S17} {s_1 h_1 s_2 h_2 : ℕ}
     hwf1 hs1s hs1n hs1l hs1a0_odd hs1a0_lt hs1a1_lt hwf6 hs6s hs6l n34 n56
     n3e n4e n5e n6e a60 a6
 
+/-! ### `divpow2r` bridges and `ctzS` (Coq lines 3294–3433) -/
+
+lemma divpow2r_mono {n1 n2 : ℕ} (h : n1 ≤ n2) (i : ℕ) :
+    divpow2r n1 i ≤ divpow2r n2 i :=
+  Nat.div_le_div_right (by omega)
+
+lemma divpow2r_div2 (n i : ℕ) : divpow2r (n / 2) i = divpow2r n (i + 1) := by
+  unfold divpow2r
+  have h1 : (2:ℕ) ^ (i + 1 + 1) = 2 ^ (i + 1) * 2 := pow_succ 2 (i + 1)
+  have h2 : (n + 2 ^ (i + 1)) / 2 = n / 2 + 2 ^ i := by
+    have := two_pow_succ' i
+    omega
+  rw [h1, mul_comm, ← Nat.div_div_eq_div_mul, h2]
+
+lemma divpow2r_div2_add2 (n i : ℕ) :
+    divpow2r (n / 2 + 1) i = divpow2r (n + 2) (i + 1) := by
+  rw [← divpow2r_div2, show (n + 2) / 2 = n / 2 + 1 by omega]
+
+lemma divpow2r_S (n i : ℕ) :
+    divpow2r (n + 1) i
+      = divpow2r n i + (if n % 2 ^ (i + 1) = 2 ^ i - 1 then 1 else 0) := by
+  by_cases h : n % 2 ^ (i + 1) = 2 ^ i - 1
+  · rw [if_pos h, ← divpow2r_inc h]
+  · rw [if_neg h, ← divpow2r_eq h]
+    omega
+
+/-- Coq `ctzS n`: the number of trailing binary zeros of `n + 1`. -/
+def ctzS (n : ℕ) : ℕ :=
+  if n % 2 = 1 then ctzS (n / 2) + 1 else 0
+decreasing_by omega
+
+/-- Coq `ctzS_spec`. -/
+lemma ctzS_spec : ∀ (n i : ℕ), ctzS n = i ↔ n % 2 ^ (i + 1) = 2 ^ i - 1 := by
+  intro n
+  induction n using Nat.strong_induction_on with
+  | _ n ih =>
+    intro i
+    rcases Nat.mod_two_eq_zero_or_one n with hpar | hpar
+    · have hct : ctzS n = 0 := by rw [ctzS]; simp [hpar]
+      cases i with
+      | zero =>
+          rw [hct]
+          norm_num
+          omega
+      | succ i' =>
+          constructor
+          · intro h
+            rw [hct] at h
+            omega
+          · intro h
+            exfalso
+            have hdvd : (2:ℕ) ∣ 2 ^ (i' + 1 + 1) := ⟨2 ^ (i' + 1), by rw [pow_succ]; ring⟩
+            have hmm := Nat.mod_mod_of_dvd n hdvd
+            rw [h] at hmm
+            have hsp := two_pow_succ' i'
+            have hp' : 0 < 2 ^ i' := Nat.two_pow_pos i'
+            omega
+    · have hct : ctzS n = ctzS (n / 2) + 1 := by rw [ctzS]; simp [hpar]
+      cases i with
+      | zero =>
+          rw [hct]
+          norm_num
+          omega
+      | succ i' =>
+          have ih' := ih (n / 2) (by omega) i'
+          have key : n % 2 ^ (i' + 1 + 1) = 2 ^ (i' + 1) - 1
+              ↔ (n / 2) % 2 ^ (i' + 1) = 2 ^ i' - 1 := by
+            have h2M : (2:ℕ) ^ (i' + 1 + 1) = 2 * 2 ^ (i' + 1) := by
+              rw [pow_succ]; ring
+            have htq := Nat.div_add_mod (n / 2) (2 ^ (i' + 1))
+            have hrlt : (n / 2) % 2 ^ (i' + 1) < 2 ^ (i' + 1) :=
+              Nat.mod_lt _ (Nat.two_pow_pos _)
+            have hmul : 2 ^ (i' + 1 + 1) * (n / 2 / 2 ^ (i' + 1))
+                = 2 * (2 ^ (i' + 1) * (n / 2 / 2 ^ (i' + 1))) := by
+              rw [h2M]; ring
+            have hnm : n % 2 ^ (i' + 1 + 1) = 2 * ((n / 2) % 2 ^ (i' + 1)) + 1 := by
+              have e1 : n = 2 ^ (i' + 1 + 1) * (n / 2 / 2 ^ (i' + 1))
+                  + (2 * ((n / 2) % 2 ^ (i' + 1)) + 1) := by omega
+              calc n % 2 ^ (i' + 1 + 1)
+                  = (2 ^ (i' + 1 + 1) * (n / 2 / 2 ^ (i' + 1))
+                    + (2 * ((n / 2) % 2 ^ (i' + 1)) + 1)) % 2 ^ (i' + 1 + 1) := by
+                    rw [← e1]
+                _ = (2 * ((n / 2) % 2 ^ (i' + 1)) + 1) % 2 ^ (i' + 1 + 1) :=
+                    Nat.mul_add_mod _ _ _
+                _ = 2 * ((n / 2) % 2 ^ (i' + 1)) + 1 := Nat.mod_eq_of_lt (by omega)
+            have hsp := two_pow_succ' i'
+            have hp' : 0 < 2 ^ i' := Nat.two_pow_pos i'
+            omega
+          rw [hct, key]
+          constructor
+          · intro h
+            exact ih'.1 (by omega)
+          · intro h
+            have := ih'.2 h
+            omega
+
+/-! ### Lemma 3.5: how the four counters move under `Add2 i` -/
+
+lemma emb_wemb_s_h {e ne nne : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' : ℕ}
+    (He : Embanked e ne s_1 h_1 s_2 h_2)
+    (Hwe : WeaklyEmbanked ne nne s_1' h_1' s_2' h_2')
+    (Hadd : Add2 i e ne) :
+    match i with
+    | 0 => (s_1, h_1, s_2, h_2) = (s_1' + 2, h_1' + 1, s_2', h_2')
+    | 1 => (s_1, h_1, s_2 + 2, h_2 + 1) = (s_1', h_1', s_2', h_2')
+    | _ + 2 => (s_1, h_1, s_2, h_2) = (s_1', h_1', s_2', h_2') := by
+  obtain ⟨n1, e, s6, ne, s8, s_1, h_1, s_2, h_2, hwemb, I67, Z78, hge, a70, a7,
+    hwf7, hs7s, hs7n, hleq⟩ := He
+  obtain ⟨m1, m2, e, e2, e3, e4, e5, s6, Z12, I23, H34, I45, H56, hwf1, hs1s,
+    hs1n, hs1l, hs1a0_odd, hs1a0_lt, hs1a1_lt, hwf6, hs6s, hs6l, n34, n56, n3e,
+    n4e, n5e, n6e, a60, a6⟩ := hwemb
+  obtain ⟨k1, k2, ne, f2, f3, f4, f5, nne, Z12', I23', H34', I45', H56', hwf1',
+    hs1s', hs1n', hs1l', hs1a0_odd', hs1a0_lt', hs1a1_lt', hwf6', hs6s', hs6l',
+    n34', n56', n3e', n4e', n5e', n6e', a60', a6'⟩ := Hwe
+  obtain ⟨hadd2⟩ := Hadd
+  have h0 := hadd2 0
+  have h1 := hadd2 1
+  simp only [ai'] at h0 h1
+  rw [← hleq] at n3e' n4e' n5e' n6e'
+  match i with
+  | 0 =>
+      norm_num at h0 h1
+      simp only [Prod.mk.injEq]
+      refine ⟨by omega, by omega, by omega, by omega⟩
+  | 1 =>
+      norm_num at h0 h1
+      simp only [Prod.mk.injEq]
+      refine ⟨by omega, by omega, by omega, by omega⟩
+  | (j + 2) =>
+      rw [if_neg (by omega : ¬(0:ℕ) = j + 2)] at h0
+      rw [if_neg (by omega : ¬(1:ℕ) = j + 2)] at h1
+      simp only [Prod.mk.injEq]
+      refine ⟨by omega, by omega, by omega, by omega⟩
+
 end Deciders.Skelet.Skelet17
