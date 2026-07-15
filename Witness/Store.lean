@@ -149,7 +149,7 @@ def openAt (path : System.FilePath) : IO Store := do
        (code, l, s, kind, halt_state, halt_symbol, halt_steps, decider)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?);"
   let lookupStmt ← db.prepare
-    "SELECT kind, halt_state, halt_symbol, halt_steps, decider
+    "SELECT kind, halt_state, halt_symbol, halt_steps, decider, l, s
      FROM witness WHERE code = ?;"
   let dbLock ← Std.BaseMutex.new
   return { db, insertStmt, lookupStmt, dbLock }
@@ -198,7 +198,9 @@ def get? (store : Store) (code : String) : IO (Option Record) := do
       let haltSymbol ← colOptNat stmt 2
       let haltSteps ← colOptNat stmt 3
       let decider ← colOptText stmt 4
-      pure (some { code, l := 0, s := 0, kind, haltState, haltSymbol, haltSteps, decider })
+      let l := i64ToNat (← stmt.columnInt64 5)
+      let s := i64ToNat (← stmt.columnInt64 6)
+      pure (some { code, l, s, kind, haltState, haltSymbol, haltSteps, decider })
     else
       pure none
   finally
