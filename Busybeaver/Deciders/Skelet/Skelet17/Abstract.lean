@@ -2598,4 +2598,37 @@ lemma ctzS_sub {i m : ℕ} (hi : 0 < i) (h : m < 2 ^ i - 1) :
     rw [e, Nat.add_mod_right, Nat.mod_eq_of_lt (by omega)] at key
     omega
 
+/-! ### Field accessors (avoid fragile positional destructuring) -/
+
+lemma weaklyEmbanked_fields {s1 s6 : S17} {s_1 h_1 s_2 h_2 : ℕ}
+    (h : WeaklyEmbanked s1 s6 s_1 h_1 s_2 h_2) :
+    WF1 s1 ∧ toS s1 = false ∧ toN s1 = 0 ∧ 3 ≤ toL s1 ∧ Odd s1.1 ∧
+    s1.1 < 2 ^ toL s1 - 1 ∧ ai 0 s1 < 3 * 2 ^ (toL s1 - 1) ∧
+    WF1 s6 ∧ toS s6 = false ∧ toL s6 = toL s1 ∧
+    h_1 = s_1 / 2 ∧ h_2 = s_2 / 2 ∧
+    s_1 + s1.1 = 2 ^ toL s1 ∧ h_1 + s1.1 / 2 + 1 = 2 ^ (toL s1 - 1) ∧
+    s_2 = ai 0 s1 + 2 ^ (toL s1 - 1) ∧ h_2 = ai 0 s1 / 2 + 2 ^ (toL s1 - 2) ∧
+    (ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r s_2 0 + 1
+      = s6.1 + divpow2r h_1 0 + divpow2r s_1 1) ∧
+    (∀ i, ai (i + 2) s1 + (if i + 2 = toL s1 - 1 then 1 else 0)
+        + divpow2r (2 ^ toL s1 - 1) (i + 2) + divpow2r s_2 (i + 1)
+      = ai i s6 + divpow2r h_1 (i + 1) + divpow2r s_1 (i + 2)) := by
+  obtain ⟨n1, n2, s1, s2, s3, s4, s5, s6, Z12, I23, H34, I45, H56, hwf1, hs1s,
+    hs1n, hs1l, hs1a0_odd, hs1a0_lt, hs1a1_lt, hwf6, hs6s, hs6l, n34, n56, n3e,
+    n4e, n5e, n6e, a60, a6⟩ := h
+  exact ⟨hwf1, hs1s, hs1n, hs1l, hs1a0_odd, hs1a0_lt, hs1a1_lt, hwf6, hs6s,
+    hs6l, n34, n56, n3e, n4e, n5e, n6e, a60, a6⟩
+
+lemma embanked_fields {s1 s7 : S17} {s_1 h_1 s_2 h_2 : ℕ}
+    (h : Embanked s1 s7 s_1 h_1 s_2 h_2) :
+    (ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r s_2 0 - toN s7 + 1
+      = s7.1 + h_2 + divpow2r h_1 0 + divpow2r s_1 1) ∧
+    (∀ i, ai (i + 2) s1 + (if i + 2 = toL s1 - 1 then 1 else 0)
+        + divpow2r (2 ^ toL s1 - 1) (i + 2) + divpow2r s_2 (i + 1) + divpow2r h_2 i
+      = ai i s7 + divpow2r h_1 (i + 1) + divpow2r s_1 (i + 2)) ∧
+    WF1 s7 ∧ toS s7 = false ∧ toN s7 = 0 ∧ toL s1 = toL s7 := by
+  obtain ⟨n1, s1, s6, s7, s8, s_1, h_1, s_2, h_2, hwemb, I67, Z78, hge, a70, a7,
+    hwf7, hs7s, hs7n, hleq⟩ := h
+  exact ⟨a70, a7, hwf7, hs7s, hs7n, hleq⟩
+
 end Deciders.Skelet.Skelet17
