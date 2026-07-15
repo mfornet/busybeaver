@@ -25,26 +25,8 @@ lemma toConfig_inv {s : S17} {c : Config 4 1} (h : toConfig s c) :
     ∃ x xs, s = (x + 1, xs) ∧ c = lower (x :: xs) := by
   cases h with | intro x xs => exact ⟨x, xs, rfl, rfl⟩
 
-lemma tryHalve_inv {s1 s2 : S17} (h : TryHalve s1 s2) :
-    (s1.1 = 0 ∧ ∃ a as, s1.2 = a :: as ∧ s2 = (a + 1, as)) ∨
-    (s1.1 ≠ 0 ∧ s2 = s1) := by
-  cases h with
-  | one a as => exact .inl ⟨rfl, a, as, rfl, rfl⟩
-  | zero a as => exact .inr ⟨Nat.succ_ne_zero a, rfl⟩
 
-lemma increment_inv {s1 s2 : S17} (h : Increment s1 s2) :
-    (∃ x xs y z zs, Even x ∧ Nonzero xs ∧ AllEven xs ∧ Odd y ∧
-      s1 = (x + 1, xs ++ y :: z :: zs) ∧ s2 = (x, xs ++ y :: (z + 1) :: zs)) ∨
-    (∃ x y xs, Odd x ∧ s1 = (x + 1, y :: xs) ∧ s2 = (x, (y + 1) :: xs)) := by
-  cases h with
-  | even hx hnz hev hy => exact .inl ⟨_, _, _, _, _, hx, hnz, hev, hy, rfl, rfl⟩
-  | odd hx => exact .inr ⟨_, _, _, hx, rfl, rfl⟩
 
-lemma overflow_inv {s1 s2 : S17} (h : Overflow s1 s2) :
-    ∃ x xs y, Nonzero xs ∧ AllEven xs ∧ Even x ∧ Odd y ∧
-      s1 = (x + 1, xs ++ [y]) ∧ s2 = (x + 1, xs ++ [y + 1, 0]) := by
-  cases h with
-  | intro hnz hev hx hy => exact ⟨_, _, _, hnz, hev, hx, hy, rfl, rfl⟩
 
 /-- Coq `Increment_toConfig`. -/
 lemma Increment_toConfig {s1 s2 s3 : S17} {c1 c3 : Config 4 1}
@@ -88,11 +70,6 @@ lemma Increment_toConfig {s1 s2 s3 : S17} {c1 c3 : Config 4 1}
         subst hl1
         exact increment_S_odd (by simpa using hx)
 
-lemma zero_inv {s1 s2 : S17} (h : Zero s1 s2) :
-    ∃ x xs y, Nonzero xs ∧ AllEven xs ∧ Even x ∧ Even y ∧
-      s1 = (x + 1, xs ++ [y]) ∧ s2 = (x, xs ++ [y + 1, 0, 0]) := by
-  cases h with
-  | intro hnz hev hx hy => exact ⟨_, _, _, hnz, hev, hx, hy, rfl, rfl⟩
 
 /-- Coq `Zero_toConfig`. -/
 lemma Zero_toConfig {s1 s2 s3 : S17} {c1 c3 : Config 4 1}
