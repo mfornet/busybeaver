@@ -1360,4 +1360,126 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             rw [h2]
             omega
 
+/-- Coq `ZIHIO_embanked_batch`: the ZIHIO-produced embanked step extends to a
+full batch at index `k*2+1`, and the resulting configuration has the clean
+doubled digit profile. -/
+lemma ZIHIO_embanked_batch {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17}
+    (HZ : ZIHIO k e ne)
+    (He : Embanked ne ne' (2 ^ (k * 2 + 3) - 1) (2 ^ (k * 2 + 2) - 1)
+      (2 ^ (k * 2 + 3) - 4) (2 ^ (k * 2 + 2) - 2)) :
+    ∃ n'ne, EmbankedBatch (k * 2 + 1) ne n'ne
+        (2 ^ (k * 2 + 2) - 1) (2 ^ (k * 2 + 2) - 2) ∧
+      toL n'ne = k * 2 + 3 ∧
+      ai' 0 n'ne = 1 ∧
+      ai' 1 n'ne = 2 ^ (k * 2 + 2) - 2 ∧
+      (∀ i, 2 ≤ i →
+        ai' i n'ne = if i < k * 2 + 3 then 2 ^ (k * 2 + 3 - i) else 0) := by
+  have Ha := ZIHIO_emb_Add2 hk HZ He
+  obtain ⟨n'ne, Heb⟩ := embanked_embanked_batch He Ha
+  obtain ⟨hwf, hs, hn, hl, ha0, ha1, ha, halast⟩ := zihio_inv HZ
+  have hlen := embanked_batch_len Heb
+  have hln : toL n'ne = k * 2 + 3 := by rw [← hlen, hl]
+  have hpar : (k * 2 + 1) % 2 = 1 := by omega
+  have hp2 : (4:ℕ) ≤ 2 ^ (k * 2 + 2) := by
+    calc (4:ℕ) = 2 ^ 2 := by norm_num
+    _ ≤ 2 ^ (k * 2 + 2) := Nat.pow_le_pow_right (by omega) (by omega)
+  obtain ⟨hb0, hb1⟩ := embanked_batch_a0_a1 Heb
+  rw [hpar] at hb0 hb1
+  have HA := embanked_batch_Add2s Heb
+  refine ⟨n'ne, Heb, hln, ?_, ?_, ?_⟩
+  · simp only [ai'] at hb0 ⊢
+    rw [hb0, ha0]
+  · simp only [ai'] at hb1 ⊢
+    rw [hb1, ha1]
+    omega
+  · intro i hi
+    obtain ⟨m, rfl⟩ : ∃ m, i = m + 2 := ⟨i - 2, by omega⟩
+    have hadd := add2s_inv HA (m + 2)
+    rw [hpar] at hadd
+    rcases (by omega : m + 2 ≤ k * 2 + 2 ∨ m + 2 = k * 2 + 3 ∨
+        k * 2 + 4 ≤ m + 2) with hc | hc | hc
+    · have hv := ha (m + 2) (by omega) (by omega)
+      rw [if_pos (by omega : m + 2 < k * 2 + 3)]
+      rw [hv] at hadd
+      have hpw : (2:ℕ) ≤ 2 ^ (k * 2 + 3 - (m + 2)) := by
+        calc (2:ℕ) = 2 ^ 1 := by norm_num
+        _ ≤ 2 ^ (k * 2 + 3 - (m + 2)) :=
+          Nat.pow_le_pow_right (by omega) (by omega)
+      split_ifs at hadd <;> omega
+    · rw [if_neg (by omega)]
+      rw [hc] at hadd ⊢
+      rw [halast] at hadd
+      split_ifs at hadd <;> omega
+    · rw [if_neg (by omega)]
+      have hv : ai' (m + 2) ne = 0 := by
+        simp only [ai']
+        exact ai_out_of_bound (by omega)
+      rw [hv] at hadd
+      split_ifs at hadd <;> omega
+
+/-- Coq `last_step`: from the post-ZIHIO batch profile, one more batch lands
+exactly on `Base (k+1)`. -/
+lemma last_step {k : ℕ} {e ne : S17}
+    (Heb : EmbankedBatch (k * 2 + 1) e ne
+      (2 ^ (k * 2 + 2) - 1) (2 ^ (k * 2 + 2) - 2))
+    (hl : toL ne = k * 2 + 3)
+    (ha0 : ai' 0 ne = 1)
+    (ha1 : ai' 1 ne = 2 ^ (k * 2 + 2) - 2)
+    (ha : ∀ i, 2 ≤ i →
+      ai' i ne = if i < k * 2 + 3 then 2 ^ (k * 2 + 3 - i) else 0) :
+    ∃ b h_1 h_2, EmbankedBatch 1 ne b h_1 h_2 ∧ BaseS (k + 1) b := by
+  have hp2 : (4:ℕ) ≤ 2 ^ (k * 2 + 2) := by
+    calc (4:ℕ) = 2 ^ 2 := by norm_num
+    _ ≤ 2 ^ (k * 2 + 2) := Nat.pow_le_pow_right (by omega) (by omega)
+  have hp3 : (2:ℕ) ^ (k * 2 + 3) = 2 ^ (k * 2 + 2) + 2 ^ (k * 2 + 2) :=
+    two_pow_succ' _
+  obtain ⟨b, hb⟩ := embanked_batch_precond' Heb
+    (by rw [hl, ha0]; omega)
+    (by rw [hl, show k * 2 + 3 - 1 = k * 2 + 2 by omega, ha1]; omega)
+  rw [show (k * 2 + 1) % 2 = 1 by omega] at hb
+  have hctz : ctzS (2 ^ (k * 2 + 2) - 2) = 0 := by
+    have h := ctzS_sub (i := k * 2 + 2) (m := 0) (by omega) (by omega)
+    rw [show 2 ^ (k * 2 + 2) - 0 - 2 = 2 ^ (k * 2 + 2) - 2 by omega] at h
+    rw [h]
+    exact (ctzS_spec 0 0).2 (by norm_num)
+  have hb1 : EmbankedBatch 1 ne b
+      (2 ^ (k * 2 + 2) - 1) (2 ^ (k * 2 + 2) - 1) := by
+    have h : EmbankedBatch (ctzS (2 ^ (k * 2 + 2) - 2) + 1) ne b
+        (2 ^ (k * 2 + 2) - 1) (2 ^ (k * 2 + 2) - 2 + 1) := hb
+    rw [hctz, show 2 ^ (k * 2 + 2) - 2 + 1 = 2 ^ (k * 2 + 2) - 1 by omega] at h
+    exact h
+  have HA := embanked_batch_Add2s hb1
+  have hlen := embanked_batch_len hb1
+  refine ⟨b, _, _, hb1, BaseS.intro _ ?_ ?_ ?_⟩
+  · -- head counter
+    have h0 := add2s_inv HA 0
+    rw [if_neg (by omega)] at h0
+    simp only [ai'] at h0 ha0
+    omega
+  · -- digit profile
+    intro i
+    have hi := add2s_inv HA (i + 1)
+    match i with
+    | 0 =>
+        rw [if_pos (by omega)] at hi
+        simp only [ai'] at hi ha1
+        rw [if_pos (by omega : 0 < (k + 1) * 2),
+          show (k + 1) * 2 - 0 = k * 2 + 2 by omega]
+        omega
+    | (m + 1) =>
+        rw [if_neg (by omega)] at hi
+        simp only [ai'] at hi
+        have hv := ha (m + 2) (by omega)
+        simp only [ai'] at hv
+        by_cases hc : m + 2 < k * 2 + 3
+        · rw [if_pos hc] at hv
+          rw [if_pos (by omega : m + 1 < (k + 1) * 2),
+            show (k + 1) * 2 - (m + 1) = k * 2 + 3 - (m + 2) by omega]
+          omega
+        · rw [if_neg hc] at hv
+          rw [if_neg (by omega : ¬(m + 1 < (k + 1) * 2))]
+          omega
+  · rw [← hlen, hl]
+    omega
+
 end Deciders.Skelet.Skelet17
