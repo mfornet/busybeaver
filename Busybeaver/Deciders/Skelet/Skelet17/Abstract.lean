@@ -1666,4 +1666,104 @@ lemma Increments_dec_precond2 {s1 : S17} (n : ℕ) (h : WF2 s1) (hs : toS s1 = f
       obtain ⟨s3, X1, X2⟩ := ih I2 (by rw [← hsgn]; exact hs) (by omega) (by omega)
       exact ⟨s3, Increments.succ I1 X1, X2⟩
 
+/-! ## Level 4: `weakly_embanked` / `embanked` (Coq lines 2606–2684) -/
+
+/-- Coq `weakly_embanked` (Proposition 3.4 packaging): the composite
+`Zero, Increments(dec), Halve, Increments(inc), Halve` with all counter
+bookkeeping.  The four ℕ indices are `s_1 = toN s3`, `h_1 = toN s4`,
+`s_2 = toN s5`, `h_2 = toN s6`. -/
+inductive WeaklyEmbanked : S17 → S17 → ℕ → ℕ → ℕ → ℕ → Prop
+  | intro (n1 n2 : ℕ) (s1 s2 s3 s4 s5 s6 : S17)
+      (Z12 : Zero s1 s2)
+      (I23 : Increments n1 s2 s3)
+      (H34 : Halve s3 s4)
+      (I45 : Increments (n2 + 1) s4 s5)
+      (H56 : Halve s5 s6)
+      (hwf1 : WF1 s1)
+      (hs1s : toS s1 = false)
+      (hs1n : toN s1 = 0)
+      (hs1l : 3 ≤ toL s1)
+      (hs1a0_odd : Odd s1.1)
+      (hs1a0_lt : s1.1 < 2 ^ toL s1 - 1)
+      (hs1a1_lt : ai 0 s1 < 3 * 2 ^ (toL s1 - 1))
+      (hwf6 : WF1 s6)
+      (hs6s : toS s6 = false)
+      (hs6l : toL s6 = toL s1)
+      (n34 : toN s4 = toN s3 / 2)
+      (n56 : toN s6 = toN s5 / 2)
+      (n3e : toN s3 + s1.1 = 2 ^ toL s1)
+      (n4e : toN s4 + s1.1 / 2 + 1 = 2 ^ (toL s1 - 1))
+      (n5e : toN s5 = ai 0 s1 + 2 ^ (toL s1 - 1))
+      (n6e : toN s6 = ai 0 s1 / 2 + 2 ^ (toL s1 - 2))
+      (a60 : ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r (toN s5) 0 + 1
+        = s6.1 + divpow2r (toN s4) 0 + divpow2r (toN s3) 1)
+      (a6 : ∀ i, ai (i + 2) s1 + (if i + 2 = toL s1 - 1 then 1 else 0)
+          + divpow2r (2 ^ toL s1 - 1) (i + 2) + divpow2r (toN s5) (i + 1)
+        = ai i s6 + divpow2r (toN s4) (i + 1) + divpow2r (toN s3) (i + 2)) :
+      WeaklyEmbanked s1 s6 (toN s3) (toN s4) (toN s5) (toN s6)
+
+/-- Coq `embanked`: a `weakly_embanked` followed by `Increments(dec), Zero`
+(with the `Zero` undone in the bookkeeping). -/
+inductive Embanked : S17 → S17 → ℕ → ℕ → ℕ → ℕ → Prop
+  | intro (n1 : ℕ) (s1 s6 s7 s8 : S17) (s_1 h_1 s_2 h_2 : ℕ)
+      (hwemb : WeaklyEmbanked s1 s6 s_1 h_1 s_2 h_2)
+      (I67 : Increments n1 s6 s7)
+      (Z78 : Zero s7 s8)
+      (h_a60_ge_n6 : h_2 ≤ s6.1)
+      (a70 : ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r s_2 0 - toN s7 + 1
+        = s7.1 + h_2 + divpow2r h_1 0 + divpow2r s_1 1)
+      (a7 : ∀ i, ai (i + 2) s1 + (if i + 2 = toL s1 - 1 then 1 else 0)
+          + divpow2r (2 ^ toL s1 - 1) (i + 2) + divpow2r s_2 (i + 1) + divpow2r h_2 i
+        = ai i s7 + divpow2r h_1 (i + 1) + divpow2r s_1 (i + 2))
+      (hwf7 : WF1 s7)
+      (hs7s : toS s7 = false)
+      (hs7n : toN s7 = 0)
+      (hleq : toL s1 = toL s7) :
+      Embanked s1 s7 s_1 h_1 s_2 h_2
+
+/-- Coq `Add2`: state `s2` is `s1` with `ai' i0` bumped by two. -/
+inductive Add2 : ℕ → S17 → S17 → Prop
+  | intro (i0 : ℕ) (s1 s2 : S17)
+      (h : ∀ i, ai' i s1 + (if i = i0 then 2 else 0) = ai' i s2) :
+      Add2 i0 s1 s2
+
+/-! ### div2 helpers (Coq lines 2820–2938) -/
+
+lemma pow2_split {n : ℕ} (h : n ≠ 0) : 2 ^ n = 2 ^ (n - 1) + 2 ^ (n - 1) := by
+  conv_lhs => rw [show n = (n - 1) + 1 by omega]
+  exact two_pow_succ' _
+
+lemma div2ceil_pow2sub1 {n : ℕ} (h : n ≠ 0) : (2 ^ n - 1 + 1) / 2 = 2 ^ (n - 1) := by
+  have e := pow2_split h
+  have := Nat.two_pow_pos (n - 1)
+  omega
+
+lemma divpow2r_zero (n : ℕ) : divpow2r n 0 = (n + 1) / 2 := by
+  unfold divpow2r
+  norm_num
+
+lemma div2ceil_div2floor_odd {n : ℕ} (h : Odd n) : (n + 1) / 2 = n / 2 + 1 := by
+  obtain ⟨k, rfl⟩ := h
+  omega
+
+lemma div2ceil_div2floor_even {n : ℕ} (h : Even n) : (n + 1) / 2 = n / 2 := by
+  obtain ⟨k, rfl⟩ := h
+  omega
+
+lemma div2_add_odd {n1 n2 : ℕ} (h1 : Odd n1) (h2 : Odd n2) :
+    n1 / 2 + n2 / 2 + 1 = (n1 + n2) / 2 := by
+  obtain ⟨k, rfl⟩ := h1
+  obtain ⟨j, rfl⟩ := h2
+  omega
+
+lemma pow2_div2 {i : ℕ} (h : i ≠ 0) : 2 ^ i / 2 = 2 ^ (i - 1) := by
+  have e := pow2_split h
+  omega
+
+lemma pow2_add (i : ℕ) : 2 ^ i + 2 ^ i = 2 ^ (i + 1) := (two_pow_succ' i).symm
+
+lemma pow2_even {i : ℕ} (h : i ≠ 0) : Even (2 ^ i) := ⟨2 ^ (i - 1), pow2_split h⟩
+
+lemma div2_add2 (a : ℕ) : (a + 2) / 2 = a / 2 + 1 := by omega
+
 end Deciders.Skelet.Skelet17
