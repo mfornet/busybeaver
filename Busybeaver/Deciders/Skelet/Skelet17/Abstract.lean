@@ -2069,4 +2069,193 @@ lemma emb_wemb_s_h {e ne nne : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' : ℕ
       simp only [Prod.mk.injEq]
       refine ⟨by omega, by omega, by omega, by omega⟩
 
+/-! ### Proposition 3.6: each embanked step spawns the next (Coq lines 3451–3663) -/
+
+lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' : ℕ}
+    (He : Embanked e ne s_1 h_1 s_2 h_2)
+    (Hwe : WeaklyEmbanked ne ne' s_1' h_1' s_2' h_2')
+    (Hadd : Add2 i e ne) :
+    ∃ nne, Embanked ne nne s_1' h_1' s_2' h_2' ∧
+      match i with
+      | 0 => Add2 (ctzS (h_1 - 1)) ne nne
+      | 1 => Add2 (ctzS h_2 + 1) ne nne
+      | i0 + 2 => Add2 i0 ne nne := by
+  have Hsh := emb_wemb_s_h He Hwe Hadd
+  obtain ⟨n1, e, s6, ne, s8, s_1, h_1, s_2, h_2, hwemb, I67, Z78, hge, a70, a7,
+    hwf7, hs7s, hs7n, hleq⟩ := He
+  obtain ⟨m1, m2, e, e2, e3, e4, e5, s6, Z12, I23, H34, I45, H56, hwf1, hs1s,
+    hs1n, hs1l, hs1a0_odd, hs1a0_lt, hs1a1_lt, hwf6, hs6s, hs6l, n34, n56, n3e,
+    n4e, n5e, n6e, a60, a6⟩ := hwemb
+  obtain ⟨k1, k2, ne, f2, f3, f4, f5, ne', Z12', I23', H34', I45', H56', hwf1',
+    hs1s', hs1n', hs1l', hs1a0_odd', hs1a0_lt', hs1a1_lt', hwf6', hs6s', hs6l',
+    n34', n56', n3e', n4e', n5e', n6e', a60', a6'⟩ := Hwe
+  obtain ⟨hadd2⟩ := Hadd
+  rw [hleq] at a70 a7
+  -- monotonicity facts for nat-subtraction safety
+  have E1 : divpow2r (toN f4) 0 ≤ divpow2r (toN f4 + 1) 0 := divpow2r_mono (by omega) 0
+  have E2 : divpow2r (toN f3) 1 ≤ divpow2r (toN f3 + 2) 1 := divpow2r_mono (by omega) 1
+  have E3 : divpow2r (toN e5) 0 ≤ divpow2r (toN e5 + 2) 0 := divpow2r_mono (by omega) 0
+  cases i with
+  | zero =>
+    have Hsh' := Hsh
+    simp only [Prod.mk.injEq] at Hsh'
+    obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh'
+    rw [Q1, Q2, Q3, Q4] at a70 a7
+    have hadd2_2 := hadd2 2
+    rw [if_neg (by omega : ¬(2:ℕ) = 0)] at hadd2_2
+    simp only [ai'] at hadd2_2
+    obtain ⟨nne, He'⟩ := embanked_precond
+      (WeaklyEmbanked.intro k1 k2 ne f2 f3 f4 f5 ne' Z12' I23' H34' I45' H56'
+        hwf1' hs1s' hs1n' hs1l' hs1a0_odd' hs1a0_lt' hs1a1_lt' hwf6' hs6s' hs6l'
+        n34' n56' n3e' n4e' n5e' n6e' a60' a6') (by omega)
+    obtain ⟨w1, ne, ne'2, nne, w8, ww1, ww2, ww3, ww4, hwemb', I67', Z78', hge',
+      a70', a7', hwf7', hs7s', hs7n', hleq'⟩ := He'
+    refine ⟨nne, ?_, ?_⟩
+    · exact Embanked.intro w1 ne ne'2 nne w8 _ _ _ _ hwemb' I67' Z78' hge'
+        a70' a7' hwf7' hs7s' hs7n' hleq'
+    · have H1 : ∀ j, divpow2r (toN f4 + 1) j = divpow2r (toN f3 + 2) (j + 1) := by
+        intro j
+        rw [n34', divpow2r_div2_add2]
+      have H2 : ∀ j, divpow2r (toN f4) j = divpow2r (toN f3) (j + 1) := by
+        intro j
+        rw [n34', divpow2r_div2]
+      have Ha : ∀ k, ai' k ne + 2 * divpow2r (toN f4 + 1) k
+          = ai' k nne + 2 * divpow2r (toN f4) k := by
+        intro k
+        match k with
+        | 0 =>
+            simp only [ai']
+            have h1 : divpow2r (toN f4 + 1) 0 = divpow2r (toN f3 + 2) 1 := H1 0
+            have h2 : divpow2r (toN f4) 0 = divpow2r (toN f3) 1 := H2 0
+            omega
+        | (j + 1) =>
+            simp only [ai']
+            have ha7 := a7 j
+            have ha7' := a7' j
+            have hadj := hadd2 (j + 3)
+            rw [if_neg (by omega : ¬(j + 3 : ℕ) = 0)] at hadj
+            simp only [ai'] at hadj
+            have h1 : divpow2r (toN f4 + 1) (j + 1) = divpow2r (toN f3 + 2) (j + 2) :=
+              H1 (j + 1)
+            have h2 : divpow2r (toN f4) (j + 1) = divpow2r (toN f3) (j + 2) :=
+              H2 (j + 1)
+            omega
+      refine Add2.intro _ _ _ fun k => ?_
+      rw [show toN e4 - 1 = toN f4 by omega]
+      by_cases hE : k = ctzS (toN f4)
+      · rw [if_pos hE]
+        have hcond := (ctzS_spec (toN f4) k).1 hE.symm
+        have hinc := divpow2r_inc hcond
+        have hHa := Ha k
+        omega
+      · rw [if_neg hE]
+        have hcond : ¬ toN f4 % 2 ^ (k + 1) = 2 ^ k - 1 :=
+          fun hc => hE ((ctzS_spec (toN f4) k).2 hc).symm
+        have heq := divpow2r_eq hcond
+        have hHa := Ha k
+        omega
+  | succ i =>
+    cases i with
+    | zero =>
+      have Hsh' := Hsh
+      simp only [Prod.mk.injEq] at Hsh'
+      obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh'
+      rw [Q1, Q2] at a70 a7
+      have a60c := a60'
+      rw [← Q3] at a60c
+      have hadd2_2 := hadd2 2
+      rw [if_neg (by omega : ¬(2:ℕ) = 1)] at hadd2_2
+      simp only [ai'] at hadd2_2
+      have hd20 : divpow2r (toN e5 + 2) 0 = divpow2r (toN e5) 0 + 1 := by
+        rw [divpow2r_zero, divpow2r_zero]
+        omega
+      obtain ⟨nne, He'⟩ := embanked_precond
+        (WeaklyEmbanked.intro k1 k2 ne f2 f3 f4 f5 ne' Z12' I23' H34' I45' H56'
+          hwf1' hs1s' hs1n' hs1l' hs1a0_odd' hs1a0_lt' hs1a1_lt' hwf6' hs6s' hs6l'
+          n34' n56' n3e' n4e' n5e' n6e' a60' a6') (by omega)
+      obtain ⟨w1, ne, ne'2, nne, w8, ww1, ww2, ww3, ww4, hwemb', I67', Z78', hge',
+        a70', a7', hwf7', hs7s', hs7n', hleq'⟩ := He'
+      refine ⟨nne, ?_, ?_⟩
+      · exact Embanked.intro w1 ne ne'2 nne w8 _ _ _ _ hwemb' I67' Z78' hge'
+          a70' a7' hwf7' hs7s' hs7n' hleq'
+      · rw [← Q3, ← Q4] at a70' a7'
+        have H1 : ∀ j, divpow2r (toN s6 + 1) j = divpow2r (toN e5 + 2) (j + 1) := by
+          intro j
+          rw [n56, divpow2r_div2_add2]
+        have H2 : ∀ j, divpow2r (toN s6) j = divpow2r (toN e5) (j + 1) := by
+          intro j
+          rw [n56, divpow2r_div2]
+        have Ha : ∀ j, ai j ne + 2 * divpow2r (toN s6 + 1) j
+            = ai j nne + 2 * divpow2r (toN s6) j := by
+          intro j
+          have ha7 := a7 j
+          have ha7' := a7' j
+          have hadj := hadd2 (j + 3)
+          rw [if_neg (by omega : ¬(j + 3 : ℕ) = 1)] at hadj
+          simp only [ai'] at hadj
+          have h1 : divpow2r (toN s6 + 1) j = divpow2r (toN e5 + 2) (j + 1) := H1 j
+          have h2 : divpow2r (toN s6) j = divpow2r (toN e5) (j + 1) := H2 j
+          omega
+        refine Add2.intro _ _ _ fun k => ?_
+        match k with
+        | 0 =>
+            rw [if_neg (by omega : ¬(0:ℕ) = ctzS (toN s6) + 1)]
+            simp only [ai']
+            have h1 : divpow2r (toN s6 + 1) 0 = divpow2r (toN e5 + 2) 1 := H1 0
+            have h2 : divpow2r (toN s6) 0 = divpow2r (toN e5) 1 := H2 0
+            omega
+        | (j + 1) =>
+            simp only [ai']
+            have hHa := Ha j
+            by_cases hE : j = ctzS (toN s6)
+            · rw [if_pos (by omega : j + 1 = ctzS (toN s6) + 1)]
+              have hcond := (ctzS_spec (toN s6) j).1 hE.symm
+              have hinc := divpow2r_inc hcond
+              omega
+            · rw [if_neg (by omega : ¬(j + 1 : ℕ) = ctzS (toN s6) + 1)]
+              have hcond : ¬ toN s6 % 2 ^ (j + 1) = 2 ^ j - 1 :=
+                fun hc => hE ((ctzS_spec (toN s6) j).2 hc).symm
+              have heq := divpow2r_eq hcond
+              omega
+    | succ i0 =>
+      have Hsh' := Hsh
+      simp only [Prod.mk.injEq] at Hsh'
+      obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh'
+      rw [Q1, Q2, Q3, Q4] at a70 a7
+      have hadd2_2 := hadd2 2
+      simp only [ai'] at hadd2_2
+      obtain ⟨nne, He'⟩ := embanked_precond
+        (WeaklyEmbanked.intro k1 k2 ne f2 f3 f4 f5 ne' Z12' I23' H34' I45' H56'
+          hwf1' hs1s' hs1n' hs1l' hs1a0_odd' hs1a0_lt' hs1a1_lt' hwf6' hs6s' hs6l'
+          n34' n56' n3e' n4e' n5e' n6e' a60' a6') (by omega)
+      obtain ⟨w1, ne, ne'2, nne, w8, ww1, ww2, ww3, ww4, hwemb', I67', Z78', hge',
+        a70', a7', hwf7', hs7s', hs7n', hleq'⟩ := He'
+      refine ⟨nne, ?_, ?_⟩
+      · exact Embanked.intro w1 ne ne'2 nne w8 _ _ _ _ hwemb' I67' Z78' hge'
+          a70' a7' hwf7' hs7s' hs7n' hleq'
+      · refine Add2.intro _ _ _ fun k => ?_
+        match k with
+        | 0 =>
+            simp only [ai']
+            by_cases hE : (0 : ℕ) = i0
+            · rw [if_pos hE]
+              rw [if_pos (by omega : (2 : ℕ) = i0 + 1 + 1)] at hadd2_2
+              omega
+            · rw [if_neg hE]
+              rw [if_neg (by omega : ¬(2 : ℕ) = i0 + 1 + 1)] at hadd2_2
+              omega
+        | (j + 1) =>
+            simp only [ai']
+            have ha7 := a7 j
+            have ha7' := a7' j
+            have hadj := hadd2 (j + 3)
+            simp only [ai'] at hadj
+            by_cases hE : (j + 1 : ℕ) = i0
+            · rw [if_pos hE]
+              rw [if_pos (by omega : (j + 3 : ℕ) = i0 + 1 + 1)] at hadj
+              omega
+            · rw [if_neg hE]
+              rw [if_neg (by omega : ¬(j + 3 : ℕ) = i0 + 1 + 1)] at hadj
+              omega
+
 end Deciders.Skelet.Skelet17
