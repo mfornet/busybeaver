@@ -1095,7 +1095,7 @@ lemma zihio_inv {k : ℕ} {e ne : S17} (h : ZIHIO k e ne) :
 
 set_option maxHeartbeats 1000000 in
 /-- Coq `ZIHIO_emb`. -/
-lemma ZIHIO_emb {k : ℕ} (hk : k ≠ 0) {e ne : S17} (HZ : ZIHIO k e ne) :
+lemma ZIHIO_emb {k : ℕ} (_hk : k ≠ 0) {e ne : S17} (HZ : ZIHIO k e ne) :
     ∃ ne', Embanked ne ne' (2 ^ (k * 2 + 3) - 1) (2 ^ (k * 2 + 2) - 1)
       (2 ^ (k * 2 + 3) - 4) (2 ^ (k * 2 + 2) - 2) := by
   obtain ⟨hwf, hs, hn, hl, ha0, ha1, ha, halast⟩ := zihio_inv HZ
