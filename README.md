@@ -138,6 +138,30 @@ pipeline for which Lean has executable equivalents; and `"bb5TableExecutable"`.
 The generated table contains all 8,228 hardcoded Coq rows, including custom
 NGram, RepWL, halt, Loop1, FAR, WFAR, and sporadic entries.
 
+# Value theorems (gated build)
+
+The concrete values `BB(2,2)` … `BB(5,2)` are stated as Lean theorems in the
+[BBTheorems](./BBTheorems/) library (e.g. `BBTheorems.bb4 : Busybeaver 3 1 = 106`,
+with a `_literature` companion in the convention that counts the halting
+transition, `Busybeaver 3 1 + 1 = 107`). Each theorem instantiates
+`Busybeaver.BBCompute.correct_complete` with the CLI's decider pipeline and
+discharges the "no undecided machines" hypothesis by `native_decide`.
+
+Because `BBCompute` uses well-founded recursion, the kernel cannot evaluate it,
+so these theorems necessarily trust the compiled evaluator (`native_decide`).
+They are therefore **not part of the default build** — `lake build` skips them.
+Build them explicitly:
+
+```bash
+lake build BBTheorems        # everything (BB5 evaluates the full pipeline: hours)
+lake build BBTheorems.BB4    # a single value (minutes)
+```
+
+The root module prints `#print axioms` for each theorem on build. `bb2`–`bb4`
+depend on `propext`, `Classical.choice`, `Quot.sound` plus their own
+`native_decide` axiom; `bb5` additionally inherits `sorryAx` from the one
+remaining `sorry` (Skelet #1, `sporadicMachine5`).
+
 # Architecture of the project
 
 The library/proofs are contained in [Busybeaver](./Busybeaver/):
