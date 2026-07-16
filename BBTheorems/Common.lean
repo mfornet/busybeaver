@@ -31,18 +31,24 @@ open TM TM.Table Pipeline
 namespace BBTheorems
 
 /-- Package the two facts a value theorem needs from one native evaluation:
-no machine was left undecided, and the computed maximum is `v`.
+no machine was left undecided, and the computed maximum is `v`. Stated as a
+single structural equality on `BBResult` — not a conjunction of an `undec` and
+a `val` fact — so the compiled `native_decide` evaluation runs the enumeration
+exactly once (a conjunction would evaluate `compute` independently per
+conjunct, doubling the hours-long BB5 run).
 
 The decider is a parameter (rather than fixed to `toTableDecider`) so that the
 sizes that never need the hardcoded BB5 table can use `toTableDeciderCore` and
 keep the table — and hence the sporadic-machine certificates, with their current
 `sorry`/`native_decide` axioms — out of their constant closure. -/
 abbrev ResultSpec (l s v : ℕ) (dec : (M : Machine l s) → HaltM M Unit) : Prop :=
-  (compute l s dec).undec = ∅ ∧ (compute l s dec).val = v
+  compute l s dec = { val := v, undec := ∅ }
 
 /-- Turn a `ResultSpec` into the value theorem via `correct_complete`. -/
 theorem ResultSpec.busybeaver {l s v : ℕ} {dec : (M : Machine l s) → HaltM M Unit}
     (hl : l ≠ 0) (h : ResultSpec l s v dec) : Busybeaver l s = v :=
-  (Busybeaver.BBCompute.correct_complete hl h.1).trans h.2
+  (Busybeaver.BBCompute.correct_complete hl
+    (congrArg Busybeaver.BBResult.undec h)).trans
+    (congrArg Busybeaver.BBResult.val h)
 
 end BBTheorems
