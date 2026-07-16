@@ -1,5 +1,7 @@
 import Busybeaver.Deciders.Skelet.Skelet1Sim
-import Mathlib.Tactic
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Cases
 
 /-!
 # Skelet #1 — the "stride" acceleration
@@ -153,7 +155,7 @@ lemma stride_more (t t' : Rtape) (xs xs' n : ℕ) (h : stride xs' n t = some t')
 lemma stride_Grs (t t' : Rtape) (xs gs n : ℕ) (h : stride 0 n t = some t') :
     stride xs n (Grs gs t) = some (rxs xs (Grs gs t')) := by
       induction' gs with gs gs_ih generalizing t t' xs;
-      · convert stride_more t t' xs 0 n h using 1;
+      · simpa [Grs] using (stride_more t t' xs 0 n h);
       · rcases t with ( _ | ⟨ hd, t ⟩ );
         · cases h;
         · rcases hd with ( _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | hd );
@@ -277,10 +279,14 @@ Head case `Rsym.xs xs' :: t` (Coq `case_xs`).
 lemma stride_correct_xs (t : Rtape) (xs' : ℕ) (IHt : StrideIH t)
     (t' : Rtape) (xs : ℕ) (l : LB) (H : stride xs 1 (Rsym.xs xs' :: t) = some t') :
     AR (lpow x xs ++ l) (liftR (Rsym.xs xs' :: t)) -[M]->* CL l (liftR t') := by
-      have := IHt t' ( xs + xs' ) l H;
-      convert Machine.EvStep.trans _ this using 1;
-      convert rule_xn_right xs' ( lpow x xs ++ l ) ( liftR t ) using 1;
-      simp +decide [ ← ListBlank.append_assoc', lpow_add, add_comm ]
+  simp only [stride] at H
+  have htail := IHt t' (xs + xs') l H
+  have htail' :
+      AR (lpow x xs' ++ (lpow x xs ++ l)) (liftR t) -[M]->*
+        CL l (liftR t') := by
+    convert htail using 1
+    rw [← ListBlank.append_assoc', ← lpow_add, Nat.add_comm]
+  exact (rule_xn_right xs' (lpow x xs ++ l) (liftR t)).trans htail'
 
 /-
 Head case `Rsym.D :: t` (Coq `case_D`).
@@ -289,11 +295,13 @@ lemma stride_correct_D (t : Rtape) (IHt : StrideIH t)
     (t' : Rtape) (xs : ℕ) (l : LB) (H : stride xs 1 (Rsym.D :: t) = some t') :
     AR (lpow x xs ++ l) (liftR (Rsym.D :: t)) -[M]->* CL l (liftR t') := by
       obtain ⟨t1, ht1⟩ : ∃ t1, stride 0 1 t = some t1 ∧ t' = rxs xs (Rsym.D :: t1) := by
-        unfold stride at H;
+        rw [ stride ] at H;
         cases h : stride 0 1 t <;> aesop;
-      convert ( rule_D_right ( lpow x xs ++ l ) ( liftR t ) ).trans ( ( IHt t1 0 ( Dl ++ ( lpow x xs ++ l ) ) ht1.1 ).trans ( ( rule_D_left ( lpow x xs ++ l ) ( liftR t1 ) ).trans ( rule_xn_left xs l ( Dr ++ liftR t1 ) ) ) ) using 1;
-      rw [ ht1.2, liftR_rxs ];
-      rfl
+      have := IHt t1 0 ( Dl ++ ( lpow x xs ++ l ) ) ht1.1;
+      convert rule_D_right ( lpow x xs ++ l ) ( liftR t ) |> Machine.EvStep.trans <| this |> Machine.EvStep.trans <| rule_D_left ( lpow x xs ++ l ) ( liftR t1 ) |> Machine.EvStep.trans <| rule_xn_left xs l ( Dr ++ liftR t1 ) using 1;
+      · simp [liftR]
+      · rw [ ht1.2, liftR_rxs ]
+        simp [liftR]
 
 /-
 Head case `Rsym.Gs gs :: t` (Coq `case_Gs`).
@@ -306,7 +314,9 @@ lemma stride_correct_Gs (t : Rtape) (gs : ℕ) (IHt : StrideIH t)
         cases h : stride 0 1 t <;> aesop;
       have := IHt t1 0 ( lpow Gl gs ++ ( lpow x xs ++ l ) ) ht1.1;
       convert rule_Gn_right gs ( lpow x xs ++ l ) ( liftR t ) |> Machine.EvStep.trans <| this |> Machine.EvStep.trans <| rule_Gn_left gs ( lpow x xs ++ l ) ( liftR t1 ) |> Machine.EvStep.trans <| rule_xn_left xs l ( lpow Gr gs ++ liftR t1 ) using 1;
-      rw [ ht1.2, liftR_rxs, liftR_Grs ]
+      · rfl
+      · rw [ ht1.2, liftR_rxs ]
+        rw [liftR_Grs]
 
 /-
 Head case `Rsym.P :: t` (Coq `case_P`); no tape-IH needed.
@@ -316,8 +326,8 @@ lemma stride_correct_P (t : Rtape)
     AR (lpow x xs ++ l) (liftR (Rsym.P :: t)) -[M]->* CL l (liftR t') := by
       cases t <;> cases H;
       convert rule_P_R ( lpow x xs ++ l ) |> Machine.EvStep.trans <| rule_xn_left xs l ( P ++ RB ) using 1;
-      rw [ liftR_rxs, show liftR [ Rsym.P ] = P ++ RB from ?_ ];
-      rfl
+      · simp [liftR]
+      · rw [liftR_rxs]; simp [liftR]
 
 /-
 Head case `Rsym.Cr :: t` (Coq's `r_C` case).  Requires the level-IH `IHk`
@@ -328,18 +338,52 @@ lemma stride_correct_Cr (k : ℕ) (t : Rtape) (hk : stride_level t = k)
       stride xs 1 t = some t' → AR (lpow x xs ++ l) (liftR t) -[M]->* CL l (liftR t'))
     (t' : Rtape) (xs : ℕ) (l : LB) (H : stride xs 1 (Rsym.Cr :: t) = some t') :
     AR (lpow x xs ++ l) (liftR (Rsym.Cr :: t)) -[M]->* CL l (liftR t') := by
-      obtain ⟨t1, t2, t3, tfin, ht1, ht2, ht3, htfin⟩ : ∃ t1 t2 t3 tfin, stride 0 1 t = some t1 ∧ stride 0 1 t1 = some t2 ∧ stride 0 1 t2 = some t3 ∧ stride 0 1 t3 = some tfin ∧ t' = rxs (xs - 1) (Rsym.Cr :: rxs 2 tfin) := by
-        rcases xs with ( _ | xs ) <;> simp_all +decide [ stride ];
-        rcases h : stride 0 4 t with ( _ | tfin ) <;> simp_all +decide;
-        rcases stride_add t tfin 0 1 3 h with ⟨ t1, ht1, ht2 ⟩ ; rcases stride_add t1 tfin 0 1 2 ht2 with ⟨ t2, ht3, ht4 ⟩ ; rcases stride_add t2 tfin 0 1 1 ht4 with ⟨ t3, ht5, ht6 ⟩ ; use t1, ht1, t2, ht3, t3, ht5, tfin, ht6, H.symm;
-      rcases xs with ( _ | xs ) <;> simp_all +decide [ lpow_succ ];
-      · cases H;
-      · convert rule_C30 ( lpow x xs ++ l ) ( liftR t ) |> Machine.EvStep.trans <| IHk t t1 0 ( C0 ++ lpow x xs ++ l ) ( by linarith ) ht1 |> Machine.EvStep.trans <| rule_C01 ( lpow x xs ++ l ) ( liftR t1 ) |> Machine.EvStep.trans <| IHk t1 t2 0 ( x ++ C1 ++ lpow x xs ++ l ) ( by
-          rw [ ← hk, ← stride_same_level t t1 0 1 ht1 ] ) ht2 |> Machine.EvStep.trans <| rule_x_left ( C1 ++ lpow x xs ++ l ) ( liftR t2 ) |> Machine.EvStep.trans <| rule_C12 ( lpow x xs ++ l ) ( x ++ liftR t2 ) |> Machine.EvStep.trans <| rule_x_right ( C2 ++ lpow x xs ++ l ) ( liftR t2 ) |> Machine.EvStep.trans <| IHk t2 t3 0 ( x ++ C2 ++ lpow x xs ++ l ) ( by
-          have := stride_same_level t t1 0 1 ht1; have := stride_same_level t1 t2 0 1 ht2; have := stride_same_level t2 t3 0 1 ht3; aesop; ) ht3 |> Machine.EvStep.trans <| rule_x_left ( C2 ++ lpow x xs ++ l ) ( liftR t3 ) |> Machine.EvStep.trans <| rule_C23 ( lpow x xs ++ l ) ( x ++ liftR t3 ) |> Machine.EvStep.trans <| rule_x_right ( x ++ C ++ lpow x xs ++ l ) ( liftR t3 ) |> Machine.EvStep.trans <| IHk t3 tfin 0 ( x ++ x ++ C ++ lpow x xs ++ l ) ( by
-          have := stride_same_level t t1 0 1 ht1; have := stride_same_level t1 t2 0 1 ht2; have := stride_same_level t2 t3 0 1 ht3; aesop; ) htfin.1 |> Machine.EvStep.trans <| rule_x_left ( x ++ C ++ lpow x xs ++ l ) ( liftR tfin ) |> Machine.EvStep.trans <| rule_x_left ( C ++ lpow x xs ++ l ) ( x ++ liftR tfin ) |> Machine.EvStep.trans <| rule_C_left ( lpow x xs ++ l ) ( x ++ x ++ liftR tfin ) |> Machine.EvStep.trans <| rule_xn_left xs l ( C ++ x ++ x ++ liftR tfin ) using 1;
-        simp +decide [ liftR_rxs, liftR, lpow_succ ];
-        simp +decide [ ListBlank.append_assoc' ]
+  simp only [stride] at H
+  split at H
+  · rename_i hxs
+    cases hfin : stride 0 (4 * 1) t with
+    | none => simp [hfin] at H
+    | some tfin =>
+      simp [hfin] at H
+      subst t'
+      obtain ⟨u, rfl⟩ := Nat.exists_eq_succ_of_ne_zero (by omega : xs ≠ 0)
+      obtain ⟨t₁, ht₁, hrest₁⟩ :=
+        stride_add t tfin 0 1 3 (by simpa using hfin)
+      obtain ⟨t₂, ht₂, hrest₂⟩ :=
+        stride_add t₁ tfin 0 1 2 (by simpa using hrest₁)
+      obtain ⟨t₃, ht₃, ht₄⟩ :=
+        stride_add t₂ tfin 0 1 1 (by simpa using hrest₂)
+      have hlevel₁ : stride_level t₁ = k := by
+        rw [← hk]
+        exact (stride_same_level t t₁ 0 1 ht₁).symm
+      have hlevel₂ : stride_level t₂ = k := by
+        rw [← hlevel₁]
+        exact (stride_same_level t₁ t₂ 0 1 ht₂).symm
+      have hlevel₃ : stride_level t₃ = k := by
+        rw [← hlevel₂]
+        exact (stride_same_level t₂ t₃ 0 1 ht₃).symm
+      have e₁ := IHk t t₁ 0 (C0 ++ (lpow x u ++ l)) hk ht₁
+      have e₂ := IHk t₁ t₂ 0 (x ++ C1 ++ (lpow x u ++ l)) hlevel₁ ht₂
+      have e₃ := IHk t₂ t₃ 0 (x ++ C2 ++ (lpow x u ++ l)) hlevel₂ ht₃
+      have e₄ := IHk t₃ tfin 0 (x ++ x ++ C ++ (lpow x u ++ l)) hlevel₃ ht₄
+      have steps :=
+        (rule_C30 (lpow x u ++ l) (liftR t)).trans e₁ |>.trans
+        (rule_C01 (lpow x u ++ l) (liftR t₁)) |>.trans e₂ |>.trans
+        (rule_x_left (C1 ++ (lpow x u ++ l)) (liftR t₂)) |>.trans
+        (rule_C12 (lpow x u ++ l) (x ++ liftR t₂)) |>.trans
+        (rule_x_right (C2 ++ (lpow x u ++ l)) (liftR t₂)) |>.trans e₃ |>.trans
+        (rule_x_left (C2 ++ (lpow x u ++ l)) (liftR t₃)) |>.trans
+        (rule_C23 (lpow x u ++ l) (x ++ liftR t₃)) |>.trans
+        (rule_x_right (x ++ C ++ (lpow x u ++ l)) (liftR t₃)) |>.trans e₄ |>.trans
+        (rule_x_left (x ++ C ++ (lpow x u ++ l)) (liftR tfin)) |>.trans
+        (rule_x_left (C ++ (lpow x u ++ l)) (x ++ liftR tfin)) |>.trans
+        (rule_C_left (lpow x u ++ l) (x ++ x ++ liftR tfin)) |>.trans
+        (rule_xn_left u l (C ++ x ++ x ++ liftR tfin))
+      convert steps using 1
+      · simp [liftR, lpow_succ, ListBlank.append_assoc']
+      · simp only [Nat.succ_sub_one]
+        simp [liftR, lpow, ListBlank.append_assoc', liftR_rxs]
+  · simp at H
 
 /-- Auxiliary form of `stride_correct` with the level as an explicit induction
 parameter (Coq `stride_correct'`). -/
