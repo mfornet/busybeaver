@@ -1,5 +1,7 @@
 import Busybeaver.Deciders.Skelet.Skelet1
-import Mathlib.Tactic
+import Mathlib.Tactic.Ring
+import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.Cases
 
 /-!
 # Skelet #1 — accelerated symbolic simulator
@@ -297,119 +299,195 @@ Soundness of the `right`-facing cases of `simple_step`.
 -/
 lemma simple_step_spec_right (l : Ltape) (r : Rtape) (c' : Turing.Dir × Ltape × Rtape)
     (h : simple_step (.right, l, r) = some c') : lift (.right, l, r) -[M]->* lift c' := by
-  rcases r with ( _ | ⟨ a, r ⟩ ) <;> norm_num at h ⊢;
-  · rcases l with ( _ | ⟨ a, l ⟩ ) <;> norm_num at h ⊢;
-    · cases h;
-    · cases a <;> simp_all +decide [ simple_step ];
-      · cases ‹ℕ› <;> simp_all +decide [ simple_step ];
-        convert rule_xR _ using 1;
-        subst h; simp +decide [ lift, liftL_lxs ] ;
-        congr;
-      · subst h;
-        convert rule_DR ( liftL l ) using 1;
-  · rcases a with ( _ | _ | _ | _ | _ | a ) <;> norm_num at h ⊢;
-    all_goals simp_all +decide [ simple_step ];
-    any_goals subst h; simp +decide [ lift, liftL, liftR ];
-    any_goals rw [ liftL_Gls ];
-    any_goals rw [ liftL_lxs ];
-    any_goals rw [ lpow_zero ] ; simp +decide [ AR ];
-    any_goals exact?;
-    · rcases l with ( _ | ⟨ a, l ⟩ ) <;> norm_num at *;
-      · contradiction;
-      · rcases a with ( _ | _ | _ | _ | _ | a ) <;> norm_num at *;
-        all_goals norm_cast at h;
-        · cases ‹ℕ› <;> simp_all +decide;
-          subst h;
-          convert rule_C30 ( liftL ( lxs ‹_› l ) ) ( liftR r ) using 1;
-          simp +decide [ lift, liftL_lxs ];
-          congr;
-        · subst h;
-          convert rule_DC ( liftL l ) ( liftR r ) using 1;
-        · subst h;
-          convert rule_C03 ( liftL l ) ( liftR r ) using 1;
-        · subst h;
-          convert rule_C2_C ( liftL l ) ( liftR r ) using 1;
-    · rcases r with ⟨⟩ | ⟨a, r⟩;
-      · cases h;
-        convert rule_P_R ( liftL l ) using 1;
-      · rcases a with ( _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ );
-        any_goals cases h;
-        · convert rule_P_xn _ _ _ using 1;
-          simp +decide [ lift, liftL_lxs, liftR ];
-        · rcases r with ( _ | ⟨ a, r ⟩ );
-          · cases h;
-          · rcases a with ( _ | _ | _ | _ | _ );
-            · rename_i n;
-              rcases n with ( _ | n ) <;> simp +decide [ simple_step ] at h ⊢;
-              subst h;
-              convert rule_P_Dx _ _ using 1;
-              simp +decide [ lift, liftL, liftR, liftR_rxs ];
-              simp +decide [ List.append_assoc, ListBlank.append_assoc' ];
-              congr;
-            · rcases h' : unrxs r with ( _ | r' ) <;> simp +decide [ h' ] at h ⊢;
-              have := unrxs_spec r r' h';
-              unfold lift at *;
-              simp +decide [ ← h, this ];
-              convert rule_P_DDx ( liftL l ) ( liftR r' ) using 1;
-              simp +decide [ liftR, this ];
-              grind +suggestions;
-            · rcases h' : unrxs r with ( _ | r' ) <;> simp +decide [ h' ] at h ⊢;
-              have := unrxs_spec r r' h';
-              unfold lift; simp +decide [ ← h ] ;
-              convert rule_P_DCx ( liftL l ) ( liftR r' ) using 1;
-              simp +decide [ liftR, this ];
-              simp +decide [ List.append_assoc, ListBlank.append_assoc' ];
-            · cases h;
-              convert rule_P_DP ( liftL l ) ( liftR r ) using 1;
-            · cases h;
-              convert rule_P_DGn _ _ _ using 1;
-              exact congr_arg _ ( congr_arg₂ _ ( liftL_Hls _ _ ) rfl );
-        · rcases h' : unrxs r with ( _ | r' ) <;> simp +decide [ h' ] at h ⊢;
-          have := unrxs_spec r r' h';
-          unfold lift; simp +decide [ ← h ] ;
-          simp +decide [ liftR, this ];
-          convert rule_P_Cx ( liftL l ) ( liftR r' ) using 1;
-        · convert rule_P_P ( liftL l ) ( liftR r ) using 1;
-          unfold lift;
-          convert congr_arg ( fun x => AR x ( liftR r ) ) ( liftL_lxs 1 l ) using 1
+  rcases r with (_ | ⟨a, r⟩)
+  · rcases l with (_ | ⟨a, l⟩)
+    · simp [simple_step] at h
+    · cases a <;> simp [simple_step] at h
+      · rename_i n
+        cases n with
+        | zero => cases h
+        | succ n =>
+          simp at h
+          subst c'
+          simpa [lift, liftL, liftR, liftL_lxs, lpow_succ,
+            ListBlank.append_assoc'] using rule_xR (liftL (lxs n l))
+      · subst c'
+        simpa [lift, liftL, liftR, RB, lpow_succ, lpow_zero,
+          ListBlank.append_assoc'] using rule_DR (liftL l)
+  · cases a with
+    | xs n =>
+      simp [simple_step] at h
+      subst c'
+      simpa [lift, liftR, liftL_lxs] using
+        rule_xn_right n (liftL l) (liftR r)
+    | D =>
+      simp [simple_step] at h
+      subst c'
+      simpa [lift, liftL, liftR] using rule_D_right (liftL l) (liftR r)
+    | Cr =>
+      rcases l with (_ | ⟨a, l⟩)
+      · cases h
+      · cases a <;> simp [simple_step] at h
+        · rename_i n
+          cases n with
+          | zero => cases h
+          | succ n =>
+            simp at h
+            subst c'
+            simpa [lift, liftL, liftR, liftL_lxs, lpow_succ,
+              ListBlank.append_assoc'] using
+              rule_C30 (liftL (lxs n l)) (liftR r)
+        · subst c'
+          simpa [lift, liftL, liftR, lpow_succ, lpow_zero,
+            ListBlank.append_assoc'] using rule_DC (liftL l) (liftR r)
+        · subst c'
+          simpa [lift, liftL, liftR] using rule_C03 (liftL l) (liftR r)
+        · subst c'
+          simpa [lift, liftL, liftR] using rule_C2_C (liftL l) (liftR r)
+    | P =>
+      rcases r with (_ | ⟨a, r⟩)
+      · simp [simple_step] at h
+        subst c'
+        simpa [lift, liftR, ListBlank.append_assoc'] using rule_P_R (liftL l)
+      · cases a with
+        | xs n =>
+          simp [simple_step] at h
+          subst c'
+          simpa only [lift, liftR, liftL_lxs, ListBlank.append_assoc'] using
+            rule_P_xn n (liftL l) (liftR r)
+        | D =>
+          rcases r with (_ | ⟨a, r⟩)
+          · cases h
+          · cases a with
+            | xs n =>
+              cases n with
+              | zero => cases h
+              | succ n =>
+                simp [simple_step] at h
+                subst c'
+                simpa [lift, liftL, liftR, liftR_rxs, lpow_succ,
+                  ListBlank.append_assoc'] using
+                  rule_P_Dx (liftL l) (liftR (rxs n r))
+            | D =>
+              rcases hu : unrxs r with (_ | r') <;> simp [simple_step, hu] at h
+              subst c'
+              have hr := unrxs_spec r r' hu
+              simpa [lift, liftL, liftR, hr, ListBlank.append_assoc'] using
+                rule_P_DDx (liftL l) (liftR r')
+            | Cr =>
+              rcases hu : unrxs r with (_ | r') <;> simp [simple_step, hu] at h
+              subst c'
+              have hr := unrxs_spec r r' hu
+              simpa [lift, liftL, liftR, hr, ListBlank.append_assoc'] using
+                rule_P_DCx (liftL l) (liftR r')
+            | P =>
+              simp [simple_step] at h
+              subst c'
+              simpa only [lift, liftL, liftR, ListBlank.append_assoc'] using
+                rule_P_DP (liftL l) (liftR r)
+            | Gs n =>
+              simp [simple_step] at h
+              subst c'
+              simpa [lift, liftL_Hls, liftR, ListBlank.append_assoc'] using
+                rule_P_DGn n (liftL l) (liftR r)
+        | Cr =>
+          rcases hu : unrxs r with (_ | r') <;> simp [simple_step, hu] at h
+          subst c'
+          have hr := unrxs_spec r r' hu
+          simpa [lift, liftR, hr, ListBlank.append_assoc'] using
+            rule_P_Cx (liftL l) (liftR r')
+        | P =>
+          simp [simple_step] at h
+          subst c'
+          simpa [lift, liftL_lxs, liftR, lpow_succ, lpow_zero,
+            ListBlank.append_assoc'] using rule_P_P (liftL l) (liftR r)
+        | Gs n => cases h
+    | Gs n =>
+      simp [simple_step] at h
+      subst c'
+      simpa [lift, liftR, liftL_Gls] using
+        rule_Gn_right n (liftL l) (liftR r)
 
 /-
 Soundness of the `left`-facing cases of `simple_step`.
 -/
 lemma simple_step_spec_left (l : Ltape) (r : Rtape) (c' : Turing.Dir × Ltape × Rtape)
     (h : simple_step (.left, l, r) = some c') : lift (.left, l, r) -[M]->* lift c' := by
-  unfold simple_step at h;
-  rcases l with ( _ | ⟨ a, l ⟩ );
-  · rcases r with ( _ | ⟨ a, r ⟩ );
-    · cases h;
-    · rcases a with ( _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ ) <;> simp +decide at h ⊢;
-      rcases h' : unrxs r with ( _ | r' ) <;> simp_all +decide;
-      subst h;
-      convert rule_L ( liftR r' ) |> fun h => h.trans _ using 1;
-      · convert congr_arg ( fun x => CL RB ( C ++ x ) ) ( unrxs_spec r r' h' ) using 1;
-      · convert rule_P_xn 0 ( Dl ++ C1 ++ RB ) ( liftR r' ) using 1;
-  · cases a;
-    any_goals cases h;
-    all_goals simp +decide [ lift, liftL, liftR, liftL_lxs, liftR_rxs, liftR_Grs, lpow_succ ];
-    all_goals try { exact? };
-    convert rule_C01 ( liftL l ) ( liftR r ) using 1;
-    convert rule_C23 ( liftL l ) ( liftR r ) using 1;
-    · convert rule_F0 ( liftL l ) ( liftR r ) using 1;
-    · convert rule_F2 ( liftL l ) ( liftR r ) using 1;
-    · rcases l with ( _ | ⟨ a, l ⟩ );
-      · cases r <;> cases h;
-      · rcases a with ( _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | _ | a );
-        any_goals cases h;
-        rename_i k;
-        rcases k with ( _ | k );
-        · cases h;
-        · convert rule_F3 _ _ using 1;
-          cases h;
-          simp +decide [ liftL, liftR, ListBlank.append_assoc' ];
-          rw [ liftL_lxs ];
-          congr;
-    · convert rule_G0 ( liftL l ) ( liftR r ) using 1;
-    · convert rule_G2 ( liftL l ) ( liftR r ) using 1
+  rcases l with (_ | ⟨a, l⟩)
+  · rcases r with (_ | ⟨a, r⟩)
+    · simp [simple_step] at h
+    · cases a <;> simp [simple_step] at h
+      · rcases hu : unrxs r with (_ | r') <;> simp [hu] at h
+        subst c'
+        have hr := unrxs_spec r r' hu
+        simpa [lift, liftL, liftR, hr, ListBlank.append_assoc'] using
+          rule_L (liftR r')
+  · cases a <;> simp [simple_step] at h
+    · rename_i n
+      subst c'
+      simpa [lift, liftL, liftR_rxs] using
+        rule_xn_left n (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, liftR] using rule_D_left (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, liftR] using rule_P_left (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, lpow_succ, lpow_zero, ListBlank.append_assoc'] using
+        rule_C01 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL] using rule_C12 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, lpow_succ, lpow_zero, ListBlank.append_assoc'] using
+        rule_C23 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, liftR] using rule_C_left (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, lpow_succ, lpow_zero, ListBlank.append_assoc'] using
+        rule_F0 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL] using rule_F1 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, lpow_succ, lpow_zero, ListBlank.append_assoc'] using
+        rule_F2 (liftL l) (liftR r)
+    · rcases l with (_ | ⟨a, l⟩)
+      · cases h
+      · cases a with
+        | xs n =>
+          cases n with
+          | zero => cases h
+          | succ n =>
+            simp at h
+            subst c'
+            simpa [lift, liftL, liftL_lxs, lpow_succ, ListBlank.append_assoc'] using
+              rule_F3 (liftL (lxs n l)) (liftR r)
+        | D => cases h
+        | P => cases h
+        | C0 => cases h
+        | C1 => cases h
+        | C2 => cases h
+        | C3 => cases h
+        | F0 => cases h
+        | F1 => cases h
+        | F2 => cases h
+        | F3 => cases h
+        | G0 => cases h
+        | G1 => cases h
+        | G2 => cases h
+        | Fs n => cases h
+        | Gs n => cases h
+        | Hs n => cases h
+    · subst c'
+      simpa [lift, liftL, lpow_succ, lpow_zero, ListBlank.append_assoc'] using
+        rule_G0 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL] using rule_G1 (liftL l) (liftR r)
+    · subst c'
+      simpa [lift, liftL, lpow_succ, lpow_zero, ListBlank.append_assoc'] using
+        rule_G2 (liftL l) (liftR r)
+    · rename_i n
+      subst c'
+      simpa [lift, liftL, liftR_Grs] using
+        rule_Gn_left n (liftL l) (liftR r)
 
 /-- Soundness of `simple_step` (Coq `simple_step_spec`). -/
 lemma simple_step_spec (c c' : Turing.Dir × Ltape × Rtape) (h : simple_step c = some c') :
