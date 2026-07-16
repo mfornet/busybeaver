@@ -27,7 +27,7 @@ lemma peel_stride_execution (N : ℕ) (t t' : Rtape) (l : Ltape)
       stride 0 (N - 1) u = some t' := by
   have heq : 1 + (N - 1) = N := by omega
   obtain ⟨u, hu, hrest⟩ := prepare_strideK t t' 0 1 (N - 1) (by simpa [heq] using h)
-  exact ⟨u, use_strideK t u l (by simpa using hu id), hrest⟩
+  exact ⟨u, use_strideK t (rxs 0 u) l (by simpa using hu id), by simpa using hrest⟩
 
 /-- Successor-indexed variant of `peel_stride_execution`, avoiding subtraction
 in long symbolic replays. -/
@@ -36,7 +36,7 @@ lemma peel_stride_execution_succ (N : ℕ) (t t' : Rtape) (l : Ltape)
     ∃ u, (lift (.right, l, t) -[M]->* lift (.left, l, u)) ∧
       stride 0 N u = some t' := by
   obtain ⟨u, hu, hrest⟩ := prepare_strideK t t' 0 1 N (by simpa [Nat.add_comm] using h)
-  exact ⟨u, use_strideK t u l (by simpa using hu id), hrest⟩
+  exact ⟨u, use_strideK t (rxs 0 u) l (by simpa using hu id), hrest⟩
 
 /-
 Execute a unit stride on an explicit symbolic tape when its reduction calls
@@ -51,11 +51,12 @@ lemma consume_stride_segment (N m xs : ℕ) (t t' current : Rtape)
     ∃ u, (lift (.right, l, current) -[M]->*
       lift (.left, l, k (rxs xs u))) ∧
       stride 0 (N - m) u = some t' := by
-  obtain ⟨ u, hu ⟩ := prepare_strideK t t' xs m ( N - m ) ( by
-    lia );
+  have hmn : m + (N - m) = N := by omega
+  obtain ⟨u, hu, hrest⟩ := prepare_strideK t t' xs m (N - m) (by simpa [hmn] using h)
   have h_step : strideK 0 1 current id = some (k (rxs xs u)) := by
-    grind;
-  exact ⟨ u, use_strideK current ( k ( rxs xs u ) ) l h_step, hu.2 ⟩
+    rw [hreduce]
+    simpa using hu k
+  exact ⟨u, use_strideK current (k (rxs xs u)) l h_step, hrest⟩
 
 /-
 Consume a variable-size stride segment and immediately replay a fixed number
