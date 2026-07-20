@@ -888,7 +888,7 @@ private lemma stepN_evstep : ∀ (n : ℕ) {c d : Config 4 1}, stepN n c = some 
 /-- `init` reaches `D 0 0 11` (Coq `c0 -->* D 0 0 11`). -/
 lemma enters : init -[M]->* D 0 0 11 := by
   refine stepN_evstep 85 ?_
-  native_decide
+  decide
 
 /-- Skelet #26 (`sporadicMachine9`) does not halt (Coq `nonhalt`). -/
 theorem nonHalting : ¬ M.halts init := by
@@ -911,7 +911,7 @@ to `E`.  From `⟨4, default⟩` the machine reaches the counter configuration
 family, so it never halts. -/
 lemma enters_E : (⟨(4 : Label 4), default⟩ : Config 4 1) -[M]->* D 0 0 1 := by
   refine stepN_evstep 21 ?_
-  native_decide
+  decide
 
 theorem nonHalting_E : ¬ M.halts (⟨(4 : Label 4), default⟩ : Config 4 1) := by
   have cs : ClosedSet M
@@ -1314,10 +1314,11 @@ private lemma stepN_evstep : ∀ (n : ℕ) {c d : Config 4 1}, stepN n c = some 
           rw [hc] at h
           exact Machine.EvStep.step hc (stepN_evstep n h)
 
+set_option maxRecDepth 8192 in
 /-- `init` reaches `D 0 1441` (Coq `c0 -->* D 0 1441`). -/
 lemma enters : init -[M]->* D 0 1441 := by
   refine stepN_evstep 608 ?_
-  native_decide
+  decide
 
 /-- Skelet #34 (`sporadicMachine11`) does not halt (Coq `nonhalt`). -/
 theorem nonHalting : ¬ M.halts init := by
@@ -1708,10 +1709,11 @@ private lemma stepN_evstep : ∀ (n : ℕ) {c d : Config 4 1}, stepN n c = some 
           rw [hc] at h
           exact Machine.EvStep.step hc (stepN_evstep n h)
 
+set_option maxRecDepth 8192 in
 /-- `init` reaches `D 0 1441` (Coq `c0 -->* D 0 1441`). -/
 lemma enters : init -[M]->* D 0 1441 := by
   refine stepN_evstep 552 ?_
-  native_decide
+  decide
 
 /-- Skelet #35 (`sporadicMachine12`) does not halt (Coq `nonhalt`). -/
 theorem nonHalting : ¬ M.halts init := by
@@ -2354,7 +2356,7 @@ private lemma stepN_evstep : ∀ (n : ℕ) {c d : Config 4 1}, stepN n c = some 
 /-- `init` reaches `E 1 17` (Coq `c0 -->* E 1 17`). -/
 lemma enters : init -[M]->* E 1 17 := by
   refine stepN_evstep 175 ?_
-  native_decide
+  decide
 
 lemma leads_b_17 : leads (b 17) := by
   refine ⟨PosNum.bit0 (PosNum.bit1 (PosNum.bit1 PosNum.one)), ?_, ?_⟩
@@ -3515,7 +3517,7 @@ theorem sporadicMachine7_nonHalting : ¬ sporadicMachine7.halts init := by
                   default⟩ : Config 4 1)) :=
     Machine.perm.equiv
   have hfin : ((((sporadicMachine7.symm).perm 1 2).perm 3 1).perm 4 3).perm 0 4
-      = Deciders.Skelet.Skelet26.M := by native_decide
+      = Deciders.Skelet.Skelet26.M := by decide
   have hstate : Machine.swap (0 : Label 4) 4 (Machine.swap 4 3 (Machine.swap 3 1 (Machine.swap 1 2 0)))
       = (4 : Label 4) := by decide
   have E := ((((e0.trans e1).trans e2).trans e3).trans e4)

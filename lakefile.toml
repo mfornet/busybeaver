@@ -32,6 +32,12 @@ name = "Busybeaver"
 [[lean_lib]]
 name = "Witness"
 
+# Gated value theorems (BB(2,2) … BB(5,2)): NOT in defaultTargets, so plain
+# `lake build` skips them. Build explicitly with `lake build BBTheorems`
+# (or a single module, e.g. `lake build BBTheorems.BB4`). BB5 takes hours.
+[[lean_lib]]
+name = "BBTheorems"
+
 [[lean_exe]]
 name = "beaver"
 root = "Main"
