@@ -403,10 +403,11 @@ private lemma stepN_evstep : ∀ (n : ℕ) {c d : Config 4 1},
           rw [hc] at h
           exact Machine.EvStep.step hc (stepN_evstep n h)
 
+set_option maxRecDepth 2048 in
 /-- Coq `base`: the blank tape reaches `lower [0, 4, 2, 0]` in 205 steps. -/
 lemma base : init -[M]->* lower [0, 4, 2, 0] := by
   refine stepN_evstep 205 ?_
-  native_decide
+  decide
 
 /-- Coq `Base_1`. -/
 def Base1 : S17 := (1, [4, 2, 0])

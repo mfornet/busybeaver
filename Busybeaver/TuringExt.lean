@@ -167,11 +167,11 @@ by
 
 end Turing.ListBlank
 
-instance Turing.Tape.instDecidableEq {Γ} [Inhabited Γ] [DecidableEq Γ]: DecidableEq (Turing.Tape Γ) := by
-  unfold DecidableEq
-  rintro ⟨ha, La, Ra⟩ ⟨hb, Lb, Rb⟩
-  simp only [Turing.Tape.mk.injEq]
-  infer_instance
+instance Turing.Tape.instDecidableEq {Γ} [Inhabited Γ] [DecidableEq Γ]: DecidableEq (Turing.Tape Γ) :=
+  -- NB: tactic-free so that `decide` can kernel-reduce this instance.
+  fun a b =>
+    decidable_of_iff (a.head = b.head ∧ a.left = b.left ∧ a.right = b.right)
+      (by cases a; cases b; simp)
 
 namespace Turing.Dir
 instance: Repr Turing.Dir where

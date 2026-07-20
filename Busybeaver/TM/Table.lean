@@ -194,14 +194,11 @@ structure Config (l s : ℕ) where
 
 end Defs
 
-instance : DecidableEq (Config l s) := by {
-  unfold DecidableEq
-  intro a b
-  obtain ⟨sa, ta⟩ := a
-  obtain ⟨sb, tb⟩ := b
-  simp_all
-  apply instDecidableAnd
-}
+instance : DecidableEq (Config l s) :=
+  -- NB: tactic-free so that `decide` can kernel-reduce this instance.
+  fun a b =>
+    decidable_of_iff (a.state = b.state ∧ a.tape = b.tape)
+      (by cases a; cases b; simp)
 
 variable {l s: ℕ }
 
@@ -311,11 +308,11 @@ instance Machine.finite: Fintype $ Machine l s := by {
   exact Fintype.ofEquiv (Fin n → Stmt l s) e.symm
 }
 
-instance Machine.decEq: DecidableEq (Machine l s) := by {
-  intro ⟨Ac, Ah⟩ ⟨Bc, Bh⟩
-  simp
-  infer_instance
-}
+instance Machine.decEq: DecidableEq (Machine l s) :=
+  -- NB: tactic-free so that `decide` can kernel-reduce this instance.
+  fun A B =>
+    decidable_of_iff (A.vals = B.vals)
+      (by cases A; cases B; simp)
 
 @[ext]
 lemma Machine.ext {M M': Machine l s}: (∀ lab sym, M.get lab sym = M'.get lab sym) → M = M' := by {

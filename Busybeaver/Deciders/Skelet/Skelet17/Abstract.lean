@@ -204,14 +204,12 @@ lemma xor_not_right (a b : Bool) : xor a (!b) = !(xor a b) := by
 @[simp] lemma decide_even_succ (n : ℕ) : decide (Even (n + 1)) = !decide (Even n) := by
   rcases Nat.even_or_odd n with h | h
   · simp [h, Nat.even_add_one]
-  · simp [Nat.not_even_iff_odd.2 h, Nat.even_add_one, Nat.not_odd_iff_even]
+  · simp [Nat.not_even_iff_odd.2 h, Nat.even_add_one]
 
 lemma decide_even_succ_eq_oddb (n : ℕ) : decide (Even (n + 1)) = oddb n := by
   rcases Nat.even_or_odd n with h | h
-  · simp [Nat.even_add_one, Nat.not_even_iff_odd, h, Nat.not_odd_iff_even,
-      oddb_eq_false_iff.2 h]
-  · simp [Nat.even_add_one, Nat.not_even_iff_odd.2 h, oddb_eq_true_iff.2 h,
-      Nat.even_add_one, h]
+  · simp [Nat.even_add_one, h, oddb_eq_false_iff.2 h]
+  · simp [oddb_eq_true_iff.2 h, h]
 
 /-! ### `greyToBinary` and `binaryToNat` support -/
 
@@ -405,7 +403,7 @@ lemma Overflow_sgn {s1 s2 : S17} (h : Overflow s1 s2) : toS s2 = false := by
   obtain ⟨x, xs, y, hnz, hev, hx, hy, rfl, rfl⟩ := overflow_inv h
   rw [toS_def, listToBinary_allEven_prefix hev, headD_replicate_append_self]
   simp [listToBinary_cons, listToBinary_nil, hy, show oddb 0 = false from rfl,
-    Nat.even_add_one, hx, Nat.not_even_iff_odd]
+    Nat.even_add_one, hx]
 
 /-- The digit shape of a list starting with an all-even prefix and one odd
 entry: `(!c)^(n+1) c ⋯` where `c` is the head digit of the tail (Coq
@@ -451,7 +449,7 @@ lemma Increment_n {s1 s2 : S17} (h : Increment s1 s2) :
     have hS : toS (x + 1, xs ++ y :: z :: zs) = !c := by
       rw [toS_def, hsplit1]
       have hde : decide (Even (x + 1)) = false := by
-        simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+        simp [Nat.even_add_one, hx]
       rw [hde]
       simp [List.replicate_succ]
     rw [hS]
@@ -469,7 +467,7 @@ lemma Increment_n {s1 s2 : S17} (h : Increment s1 s2) :
         exact binaryToNat_succ _ _
     | true =>
         rw [hcv] at hn1 hn2
-        simp only [Bool.not_true, if_false]
+        simp only [Bool.not_true]
         rw [hn1, hn2]
         exact (binaryToNat_succ _ _).symm
   · -- odd head-counter case
@@ -481,7 +479,7 @@ lemma Increment_n {s1 s2 : S17} (h : Increment s1 s2) :
     have hS : toS (x + 1, y :: xs) = !d := by
       rw [toS_def, hcons1]
       have hde : decide (Even (x + 1)) = true := by
-        simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+        simp [hx]
       rw [hde, List.headD_cons]
       cases d <;> rfl
     rw [hS, toN_def, toN_def, hcons1, hcons2]
@@ -493,7 +491,8 @@ lemma Halve_n {s1 s2 : S17} (h : Halve s1 s2) : toN s1 / 2 = toN s2 := by
   obtain ⟨x, xs, rfl, rfl⟩ := halve_inv h
   rw [toN_def, toN_def, listToBinary_cons]
   simp only [binaryToNat]
-  cases xor (oddb x) ((listToBinary xs).headD false) <;> simp <;> omega
+  cases xor (oddb x) ((listToBinary xs).headD false) <;> simp
+  omega
 
 lemma Zero_n {s1 s2 : S17} (h : Zero s1 s2) : toN s2 = 2 ^ toL s1 - 1 := by
   obtain ⟨x, xs, y, hnz, hev, hx, hy, rfl, rfl⟩ := zero_inv h
@@ -690,7 +689,7 @@ lemma increment_even_toS {x : ℕ} (hx : Even x) {xs : List ℕ} (hev : AllEven 
       = !xor (oddb z) ((listToBinary zs).headD false) := by
   rw [toS_def, (increment_even_shapes hev hy z zs).1]
   have hde : decide (Even (x + 1)) = false := by
-    simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+    simp [Nat.even_add_one, hx]
   rw [hde]
   simp [List.replicate_succ]
 
@@ -775,7 +774,7 @@ lemma Increment_a {s1 s2 : S17} (h : Increment s1 s2) :
     have hS : toS (x + 1, y :: xs) = !xor (oddb y) ((listToBinary xs).headD false) := by
       rw [toS_def, hcons1]
       have hde : decide (Even (x + 1)) = true := by
-        simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+        simp [hx]
       rw [hde, List.headD_cons]
       cases xor (oddb y) ((listToBinary xs).headD false) <;> rfl
     cases hcv : xor (oddb y) ((listToBinary xs).headD false) with
@@ -993,7 +992,8 @@ lemma toN_pow2sub1 : ∀ (xs : List ℕ) (y : ℕ),
       have hodda : oddb a = false := by
         have hb1 := hb.1
         rw [I1] at hb1
-        cases ha : oddb a <;> rw [ha] at hb1 <;> simp at hb1 ⊢
+        cases ha : oddb a <;> rw [ha] at hb1
+        simp at hb1 ⊢
       refine ⟨?_, ?_, I3⟩
       · rw [List.cons_append, listToBinary_cons, List.headD_cons, hodda, I1]
         rfl
@@ -1051,7 +1051,7 @@ lemma toS_allEven_prefix {x1 : ℕ} (hx : Even x1) {xs : List ℕ} (hev : AllEve
     (y : ℕ) : toS (x1 + 1, xs ++ [y]) = oddb y := by
   rw [toS_def, listToBinary_allEven_prefix hev, headD_replicate_append_self]
   have hde : decide (Even (x1 + 1)) = false := by
-    simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+    simp [Nat.even_add_one, hx]
   rw [hde]
   simp [listToBinary_cons, listToBinary_nil]
 
@@ -1239,7 +1239,8 @@ lemma overflow_precond_0 : ∀ (xs : List ℕ) (y : ℕ),
       have hodda : oddb a = false := by
         have hb1 := hb.1
         rw [hhd] at hb1
-        cases ha : oddb a <;> rw [ha] at hb1 <;> simp at hb1 ⊢
+        cases ha : oddb a <;> rw [ha] at hb1
+        simp at hb1 ⊢
       refine ⟨?_, I3⟩
       intro b hb'
       rcases List.mem_cons.1 hb' with rfl | hb''
@@ -1517,7 +1518,7 @@ lemma Increment_inc_precond21 {s1 : S17} (h : WF2 s1) (hs : toS s1 = true)
         · exact hx
         · exfalso
           have hde : decide (Even (x1 + 1)) = true := by
-            simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+            simp [hx]
           rw [hde] at hs
           simp at hs
       refine ⟨(x1, xs ++ y :: 1 :: [0]), ?_, ?_⟩
@@ -1546,7 +1547,7 @@ lemma Increment_dec_precond2 {s1 : S17} (h : WF2 s1) (hs : toS s1 = false)
             = true := headD_L_odd3 hev hy
         rw [toS_def, hhd] at hs
         have hde : decide (Even (x1 + 1)) = false := by
-          simp [Nat.even_add_one, Nat.not_even_iff_odd, hx]
+          simp [Nat.even_add_one, hx]
         rw [hde] at hs
         simp at hs
     | cons z zs' =>
@@ -2563,7 +2564,7 @@ lemma ctzS_add {i m : ℕ} (h : m < 2 ^ i - 1) : ctzS (2 ^ i + m) = ctzS m := by
     _ = 2 ^ (ctzS m) - 1 := hspec
 
 /-- Coq `ctzS_sub`: the mirror position keeps `ctzS`. -/
-lemma ctzS_sub {i m : ℕ} (hi : 0 < i) (h : m < 2 ^ i - 1) :
+lemma ctzS_sub {i m : ℕ} (_hi : 0 < i) (h : m < 2 ^ i - 1) :
     ctzS (2 ^ i - m - 2) = ctzS m := by
   have hub := ctz_upper_bound h
   have hspec := (ctzS_spec m (ctzS m)).1 rfl
