@@ -13,6 +13,7 @@ import Busybeaver.TM.Table.Parse
 import Busybeaver.Deciders.Skelet.ShiftOverflowBins
 import Busybeaver.Deciders.Skelet.Skelet17
 import Busybeaver.Deciders.Skelet.TapeCalc
+import Busybeaver.Deciders.Skelet.Skelet1.Cycle
 
 /-- `evsteps t₁, …, tₙ` applies `n` consecutive single machine steps via
 `Machine.EvStep.step` and closes the chain with `Machine.EvStep.refl`. -/
@@ -3237,8 +3238,8 @@ end SM4
 theorem sporadicMachine4_nonHalting : ¬ sporadicMachine4.halts init := SM4.nonHalting
 
 def sporadicMachine5 : Machine 4 1 := mach["1RB1RD_1LC0RC_1RA1LD_0RE0LB_---1RC"]
-theorem sporadicMachine5_nonHalting : ¬ sporadicMachine5.halts init := by
-  sorry
+theorem sporadicMachine5_nonHalting : ¬ sporadicMachine5.halts init :=
+  Deciders.Skelet.Skelet1.nonHalting
 
 def sporadicMachine6 : Machine 4 1 := mach["1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB"]
 /-!
