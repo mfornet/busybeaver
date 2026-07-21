@@ -25,6 +25,15 @@ namespace Deciders.Skelet.Skelet1
 
 open Turing TM.Table
 
+/-!
+The composite blocks contain powers with tens of thousands of concrete symbols.
+The base module needs their definitions while proving the composite rules, but
+symbolic-simulator proofs should treat their names atomically.  Marking them
+irreducible here (rather than in the base module) also keeps changes to the
+symbolic layer from invalidating the expensive block-rule artifact.
+-/
+attribute [local irreducible] Fl Gl Gr Hl
+
 /-- Symbolic left-tape alphabet (Coq `lsym`). -/
 inductive Lsym
   | xs (n : ℕ)

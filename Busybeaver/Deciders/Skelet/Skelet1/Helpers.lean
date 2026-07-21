@@ -4,6 +4,121 @@ namespace Deciders.Skelet.Skelet1
 
 open Turing TM.Table
 
+/-- Symbolic reachability between compressed configurations.  Keeping the
+large `lift` terms out of intermediate replay goals avoids repeatedly
+unifying their enormous concrete tape expansions. -/
+inductive SymReach : conf → conf → Prop
+  | refl (c : conf) : SymReach c c
+  | simple {c c' : conf} (h : simple_step c = some c') : SymReach c c'
+  | stride {l : Ltape} {r r' : Rtape} (h : stride 0 1 r = some r') :
+      SymReach (.right, l, r) (.left, l, r')
+  | trans {c₁ c₂ c₃ : conf} : SymReach c₁ c₂ → SymReach c₂ c₃ → SymReach c₁ c₃
+
+/-- Symbolic reachability is sound for the concrete machine. -/
+lemma SymReach.sound {c c' : conf} (h : SymReach c c') :
+    lift c -[M]->* lift c' := by
+  induction h with
+  | refl => exact Machine.EvStep.refl
+  | simple hs => exact simple_step_spec _ _ hs
+  | stride hs => exact stride_correct_0 _ _ _ hs
+  | trans _ _ ih₁ ih₂ => exact ih₁.trans ih₂
+
+/-- Add one computable symbolic simulator step, in continuation-passing form.
+The explicit `next` argument lets elaboration reduce `simple_step` before it has
+to unify the rest of a long replay. -/
+lemma use_simple_step_sym_cps (current next target : conf)
+    (h : simple_step current = some next)
+    (cont : SymReach next target) : SymReach current target := by
+  exact SymReach.trans (SymReach.simple h) cont
+
+/-- A batch of ordinary simulator steps gives one compact symbolic edge.  This
+keeps long non-stride stretches from producing deeply nested `SymReach.trans`
+terms in generated universe replays. -/
+lemma simpleSteps_sym (n : ℕ) (current next : conf)
+    (h : simpleSteps n current = some next) : SymReach current next := by
+  induction n generalizing current with
+  | zero =>
+      simp only [simpleSteps, Option.some.injEq] at h
+      subst next
+      exact SymReach.refl current
+  | succ n ih =>
+      simp only [simpleSteps] at h
+      cases hs : simple_step current with
+      | none => simp [hs] at h
+      | some middle =>
+          rw [hs] at h
+          exact SymReach.trans (SymReach.simple hs) (ih middle h)
+
+/-- Continuation-passing wrapper for a batch of ordinary symbolic steps. -/
+lemma use_simpleSteps_sym_cps (n : ℕ) (current next target : conf)
+    (h : simpleSteps n current = some next)
+    (cont : SymReach next target) : SymReach current target := by
+  exact SymReach.trans (simpleSteps_sym n current next h) cont
+
+/-- Symbolic counterpart of `use_strideK`. -/
+lemma use_strideK_sym (t t' : Rtape) (l : Ltape)
+    (h : strideK 0 1 t id = some t') :
+    SymReach (.right, l, t) (.left, l, t') := by
+  rw [strideK_spec] at h
+  cases hs : stride 0 1 t with
+  | none => simp [hs] at h
+  | some u =>
+      simp [hs] at h
+      subst t'
+      exact SymReach.stride hs
+
+/-- Symbolic/CPS version of `consume_stride_segment`.  Unlike the concrete
+version below, its continuation never mentions `lift`, so a long generated
+replay only manipulates small compressed configurations. -/
+lemma consume_stride_segment_sym_cps
+    (N m strideXs : ℕ) (t t' current : Rtape) (k : Rtape → Rtape)
+    (left : Ltape) (target : conf)
+    (h : stride 0 N t = some t')
+    (hreduce : strideK 0 1 current id = strideK strideXs m t k)
+    (hm : m ≤ N)
+    (cont : ∀ u, stride 0 (N - m) u = some t' →
+      SymReach (.left, left, k (rxs strideXs u)) target) :
+    SymReach (.right, left, current) target := by
+  have hmn : m + (N - m) = N := by omega
+  obtain ⟨u, hu, hrest⟩ :=
+    prepare_strideK t t' strideXs m (N - m) (by simpa [hmn] using h)
+  have hstep : strideK 0 1 current id = some (k (rxs strideXs u)) := by
+    rw [hreduce]
+    simpa using hu k
+  exact SymReach.trans (use_strideK_sym current (k (rxs strideXs u)) left hstep)
+    (cont u hrest)
+
+/-- Consume a variable-size stride segment and batch the following ordinary
+steps in the compressed replay.  Generated certificates can use one such node
+per stride phase instead of one node per simulator transition. -/
+lemma consume_stride_segment_then_steps_sym_cps
+    (N m strideXs steps : ℕ) (t t' current : Rtape)
+    (k : Rtape → Rtape) (left : Ltape) (next : Rtape → conf)
+    (target : conf)
+    (h : stride 0 N t = some t')
+    (hreduce : strideK 0 1 current id = strideK strideXs m t k)
+    (hm : m ≤ N)
+    (hsteps : ∀ u,
+      simpleSteps steps (.left, left, k (rxs strideXs u)) = some (next u))
+    (cont : ∀ u, stride 0 (N - m) u = some t' →
+      SymReach (next u) target) :
+    SymReach (.right, left, current) target := by
+  exact consume_stride_segment_sym_cps N m strideXs t t' current k left target
+    h hreduce hm fun u hu =>
+      use_simpleSteps_sym_cps steps _ (next u) target (hsteps u) (cont u hu)
+
+/-- Consume one unit directly from an abstract tail.  This specialized form
+avoids asking elaboration to infer the segment length and continuation when a
+replay reaches a bare tail variable. -/
+lemma consume_stride_head_sym_cps
+    (N : ℕ) (t t' : Rtape) (left : Ltape) (target : conf)
+    (h : stride 0 N t = some t') (hN : 1 ≤ N)
+    (cont : ∀ u, stride 0 (N - 1) u = some t' →
+      SymReach (.left, left, u) target) :
+    SymReach (.right, left, t) target := by
+  simpa only [rxs, id_eq] using
+    consume_stride_segment_sym_cps N 1 0 t t' t id left target h rfl hN cont
+
 /-- Turn a successful continuation-passing unit stride into a concrete machine
 execution.  This is the Lean counterpart of Coq's `use_stride'`, and is the
 basic proof-producing operation needed by the universe-cycle replay. -/
