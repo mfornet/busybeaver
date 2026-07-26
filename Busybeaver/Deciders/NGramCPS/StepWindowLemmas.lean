@@ -89,14 +89,14 @@ lemma leftWindowAt_moveRight_zero_succ (n : ℕ) (A : Config l s) (writeSym : Sy
           rw [Array.getElem_pop]
           simpa [leftWindowAt, Turing.ListBlank.take.length] using
             (Turing.ListBlank.take_nth (Γ := Symbol s) (Lb := A.tape.left) (n := n + 1) (i := j) hj')
-        have happend :
+        have happened :
             (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound =
               (shiftInNear writeSym (leftWindowAt (n + 1) 0 A))[j + 1]'hi2 := by
           change (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound =
             (#[writeSym] ++ (leftWindowAt (n + 1) 0 A).pop)[j + 1]'hi2
           exact Array.getElem_append_right' #[writeSym] (ys := (leftWindowAt (n + 1) 0 A).pop)
             (i := j) hpopBound
-        exact hlhs.trans (hpop.symm.trans happend)
+        exact hlhs.trans (hpop.symm.trans happened)
 
 /--
 For positive window width, the visible right window after a left move is obtained
@@ -129,14 +129,14 @@ lemma rightWindowAt_moveLeft_zero_succ (n : ℕ) (A : Config l s) (writeSym : Sy
           rw [Array.getElem_pop]
           simpa [rightWindowAt, Turing.ListBlank.take.length] using
             (Turing.ListBlank.take_nth (Γ := Symbol s) (Lb := A.tape.right) (n := n + 1) (i := j) hj')
-        have happend :
+        have happened :
             (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound =
               (shiftInNear writeSym (rightWindowAt (n + 1) 0 A))[j + 1]'hi2 := by
           change (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound =
             (#[writeSym] ++ (rightWindowAt (n + 1) 0 A).pop)[j + 1]'hi2
           exact Array.getElem_append_right' #[writeSym] (ys := (rightWindowAt (n + 1) 0 A).pop)
             (i := j) hpopBound
-        exact hlhs.trans (hpop.symm.trans happend)
+        exact hlhs.trans (hpop.symm.trans happened)
 
 /--
 After a right move, every non-visible left window of the successor is a one-cell

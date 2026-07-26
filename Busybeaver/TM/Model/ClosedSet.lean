@@ -33,7 +33,7 @@ lemma nonHalting {m : M} {p : Config M → Prop} {I : Config M}
       have hIN' : I -[m]->+' N' := Machine.EvStep.trans_progress hN hNN'
       obtain ⟨nfin, hnfin⟩ := Progress.to_multistep hIN'
       have hnfinn := halts_in_base.within hFinal hnfin
-      have hnfinHalts := halts_in_base.preceeds hFinal hnfin hnfinn
+      have hnfinHalts := halts_in_base.precedes hFinal hnfin hnfinn
       refine IH _ ?_ (inst.offset pN') hnfinHalts
       rw [Nat.succ_sub_succ_eq_sub]
       exact Nat.sub_le n nfin

@@ -30,7 +30,7 @@ lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
     /-
     Assume that I is the final state.
 
-    Based on that, I itself is necessarily in the closed set (e.g. I is the state mentionned in
+    Based on that, I itself is necessarily in the closed set (e.g. I is the state mentioned in
     .enters). This is a contradiction because that would mean we can step from I.
     -/
     obtain ⟨F, hFL, hFR⟩ := hFinal
@@ -69,7 +69,7 @@ lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
 
     obtain ⟨nfin, hnfin⟩ := hIN'.to_multistep
     have hnfinn := TM.Table.Machine.halts_in.within hFinal hnfin
-    have hnfinHalts := TM.Table.Machine.halts_in.preceeds hFinal hnfin hnfinn
+    have hnfinHalts := TM.Table.Machine.halts_in.precedes hFinal hnfin hnfinn
     simp [*] at hnfinn hnfinHalts
 
     -- hnfinHalts : M halts in at most n steps from N', we can apply the induction hypothesis
