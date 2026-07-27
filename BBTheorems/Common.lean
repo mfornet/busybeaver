@@ -40,7 +40,7 @@ conjunct, doubling the hours-long BB5 run).
 The decider is a parameter (rather than fixed to `toTableDecider`) so that the
 sizes that never need the hardcoded BB5 table can use `toTableDeciderCore` and
 keep the table — and hence the sporadic-machine certificates, with their current
-`sorry`/`native_decide` axioms — out of their constant closure. -/
+`native_decide` axioms — out of their constant closure. -/
 abbrev ResultSpec (l s v : ℕ) (dec : (M : Machine l s) → HaltM M Unit) : Prop :=
   compute l s dec = { val := v, undec := ∅ }
 

@@ -116,7 +116,7 @@ def runBB5TableNF
 `.bb5Table*` passes are inert (`.unknown`). Split out so statements about sizes
 that never need the hardcoded BB5 table (the `BBTheorems.bb2`–`bb4` value
 theorems) do not pull the table — and hence the sporadic-machine certificates,
-with their current `sorry`/`native_decide` axioms — into their constant closure. -/
+with their current `native_decide` axioms — into their constant closure. -/
 def DeciderConfig.deciderTableCore (cfg: DeciderConfig) (M: Machine l s) : HaltM M Unit := match cfg with
 | .backwardsReasoning n => backwardsReasoningDecider n M
 | .nGramCPS cfg => nGramCPSDecider cfg M

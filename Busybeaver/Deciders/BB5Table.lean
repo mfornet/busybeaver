@@ -2408,10 +2408,10 @@ the pipeline can handle — the "sporadic" holdouts — each with its own hand-b
 non-halting argument.  We mirror that structure: every holdout is a concrete
 machine paired with its own `…_nonHalting` theorem.
 
-These theorems carry the real mathematical content and are still `sorry`.  But
-unlike a single `∀ M, ¬M.halts` placeholder (which is *false* as stated, since
-halting BB(5) machines exist), each is a *true* statement about one specific
-machine — so discharging them is ordinary proof work, not a redesign.
+These theorems carry the real mathematical content. Unlike a single
+`∀ M, ¬M.halts` placeholder (which is *false* as stated, since halting BB(5)
+machines exist), each proves a statement about one specific machine. The proofs
+below port the corresponding hand-built Coq arguments.
 -/
 
 def sporadicMachine0 : Machine 4 1 := mach["1RB0LE_1RC1RB_1RD1LC_0LE0RB_---1LA"]
@@ -3708,9 +3708,9 @@ images, or machines whose leading transition writes a blank).  We port `TM_to_NF
 (`List_Tape.v`) as an executable transform built from the existing `perm` (state
 swap) and `symm` (tape reversal) symmetries.
 
-The transform preserves non-halting, so a non-halting verdict for `toNF M` transfers
-to `M`.  That preservation lemma is currently `sorry`: the executable behaviour is
-correct, the proof is future work.  See [bb5-undecided-holdouts-diagnosis].
+The transform preserves non-halting, so a non-halting verdict for `toNF M`
+transfers to `M`; `toNF_equiv` and `toNF_nonHalting` below establish that
+transfer.
 -/
 
 /-- `St_suc`, saturating at the top state, matching Coq's `St_suc` (`St4 ↦ St4`). -/

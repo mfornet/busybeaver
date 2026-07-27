@@ -9,9 +9,8 @@ import BBTheorems.BB5
 
 /- Axiom audit, printed on every build of this root module. Expected for
 `bb2`–`bb4`: `propext`, `Classical.choice`, `Quot.sound`, plus the theorem's own
-`native_decide` axiom. `bb5` additionally inherits the axioms of the hardcoded
-table's sporadic certificates — currently `sorryAx` (Skelet #1) and the
-table-internal `native_decide` axioms. -/
+`native_decide` axiom. `bb5` additionally inherits the native-evaluation axioms
+selected by the hardcoded table's expensive sporadic certificates. -/
 #print axioms BBTheorems.bb2
 #print axioms BBTheorems.bb3
 #print axioms BBTheorems.bb4
