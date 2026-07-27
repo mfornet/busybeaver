@@ -59,14 +59,14 @@ lemma leftWindowAt_moveRight_zero_succ (n : ℕ) (A : GConfig l α) (writeSym : 
           rw [Array.getElem_pop]
           simpa [leftWindowAt, Turing.ListBlank.take.length] using
             (Turing.ListBlank.take_nth (Γ := α) (Lb := A.tape.left) (n := n + 1) (i := j) hj')
-        have happend :
+        have happened :
             (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound =
               (NGramCPS.shiftInNear writeSym (leftWindowAt (n + 1) 0 A))[j + 1]'hi2 := by
           change (leftWindowAt (n + 1) 0 A).pop[j]'hpopBound =
             (#[writeSym] ++ (leftWindowAt (n + 1) 0 A).pop)[j + 1]'hi2
           exact Array.getElem_append_right' #[writeSym] (ys := (leftWindowAt (n + 1) 0 A).pop)
             (i := j) hpopBound
-        exact hlhs.trans (hpop.symm.trans happend)
+        exact hlhs.trans (hpop.symm.trans happened)
 
 lemma rightWindowAt_moveLeft_zero_succ (n : ℕ) (A : GConfig l α) (writeSym : α)
     (nextState : Label l) :
@@ -94,14 +94,14 @@ lemma rightWindowAt_moveLeft_zero_succ (n : ℕ) (A : GConfig l α) (writeSym : 
           rw [Array.getElem_pop]
           simpa [rightWindowAt, Turing.ListBlank.take.length] using
             (Turing.ListBlank.take_nth (Γ := α) (Lb := A.tape.right) (n := n + 1) (i := j) hj')
-        have happend :
+        have happened :
             (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound =
               (NGramCPS.shiftInNear writeSym (rightWindowAt (n + 1) 0 A))[j + 1]'hi2 := by
           change (rightWindowAt (n + 1) 0 A).pop[j]'hpopBound =
             (#[writeSym] ++ (rightWindowAt (n + 1) 0 A).pop)[j + 1]'hi2
           exact Array.getElem_append_right' #[writeSym] (ys := (rightWindowAt (n + 1) 0 A).pop)
             (i := j) hpopBound
-        exact hlhs.trans (hpop.symm.trans happend)
+        exact hlhs.trans (hpop.symm.trans happened)
 
 lemma leftWindowAt_moveRight_succ (n k : ℕ) (A : GConfig l α) (writeSym : α)
     (nextState : Label l) :

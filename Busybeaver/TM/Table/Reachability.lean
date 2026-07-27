@@ -477,7 +477,7 @@ lemma exceeds (hM: M.halts_in k A) (hn: k < n): ¬(A -[M]{n}-> B) := by {
   exact no_multistep hCL hCB
 }
 
-lemma preceeds (hM: M.halts_in k A) (hAB: A -[M]{n}-> B) (hk: n ≤ k): M.halts_in (k - n) B := by {
+lemma precedes (hM: M.halts_in k A) (hAB: A -[M]{n}-> B) (hk: n ≤ k): M.halts_in (k - n) B := by {
   obtain ⟨C, hCl, hAC⟩ := hM
   exists C
   constructor
@@ -558,7 +558,7 @@ lemma mono (h: A -[M]{n}-> B) (hM: M.halts B): M.halts A := by {
 lemma tail (h: A -[M]{n}-> B) (hM: M.halts A): M.halts B := by {
   obtain ⟨k, hk⟩ := hM
   have hkn := halts_in.within hk h
-  have hB := halts_in.preceeds hk h hkn
+  have hB := halts_in.precedes hk h hkn
   exists k - n
 }
 

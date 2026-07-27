@@ -488,7 +488,7 @@ by match hM'C: M'.get C.state C.tape.head with
   Any child machine with a non-halting transition at C is equivalent to a next_machine':
   - if the transition uses already used states/symbols, then it is itself a child of a
     next_machine'
-  - otherwise, "normalize" the machine into a machine using the successor of the sates/symbols
+  - otherwise, "normalize" the machine into a machine using the successor of the states/symbols
     this one is a next_machine'
   -/
   right
@@ -715,7 +715,7 @@ by induction M using BBCompute.induct decider with
   }
 
   /-
-  This is the case disjunction mentionned above.
+  This is the case disjunction mentioned above.
   -/
   have hTerm: terminating_children M =
     (terminating_children M).filter (λ M ↦ M.M.get C.state C.tape.head = .halt) ∪ (terminating_children M).filter (λ M ↦ M.M.get C.state C.tape.head ≠ .halt) := by {
@@ -798,12 +798,12 @@ by induction M using BBCompute.induct decider with
 
   rw [Busybeaver'.fold_max_eq_fold_union]
   /-
-  We begin the second case mentionned above. We need to prove that the next_machines' of M are
+  We begin the second case mentioned above. We need to prove that the next_machines' of M are
   actually enough to consider to compute the busybeaver for all the other child machines.
   -/
 
   /-
-  Before embarquing in this, lets proove some properties about C
+  Before embarquing in this, lets prove some properties about C
   -/
   have hCs: C.state ∈ used_states M := used_states.mono_default hlab Clast.2
   have hCt: C.tape.head ∈ used_symbols M := used_symbols.mono_default hsym Clast.2

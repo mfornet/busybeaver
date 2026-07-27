@@ -172,7 +172,7 @@ unsafe def unquotAndPad (target: ℕ) (hT: Turing.ListBlank (Symbol s)): List (S
 unsafe def configToRects (offset: ℤ) (leftmax rightmax: ℕ) (depth: ℕ) (cfg: Config l s): List SVG.Elem :=
 
   /-
-  Tricky: depdending on `offset` we need to padd correctly on left and right.
+  Tricky: depending on `offset` we need to pad correctly on left and right.
 
    o
   XXX|XXX -> lp = l + o, lr = r - o

@@ -218,7 +218,7 @@ lemma no_multistep' {m : M} (hM : LastState m A) (hn : 0 < n) : ¬(A -[m]{n}->' 
   rw [← Nat.sub_one_add_one_eq_of_pos hn]
   exact no_multistep hM
 
-lemma preceeds {m : M} (hM : halts_in_base m k A) (hAB : A -[m]{n}->' B) (hk : n ≤ k) :
+lemma precedes {m : M} (hM : halts_in_base m k A) (hAB : A -[m]{n}->' B) (hk : n ≤ k) :
     halts_in_base m (k - n) B := by
   obtain ⟨C, hCl, hAC⟩ := hM
   exact ⟨C, hCl, Multistep.split_le hAC hAB hk⟩
@@ -240,7 +240,7 @@ lemma mono {m : M} (h : A -[m]{n}->' B) (hM : halts m B) : halts m A := by
 lemma tail {m : M} (h : A -[m]{n}->' B) (hM : halts m A) : halts m B := by
   obtain ⟨k, hk⟩ := hM
   have hkn := halts_in_base.within hk h
-  exact ⟨k - n, halts_in_base.preceeds hk h hkn⟩
+  exact ⟨k - n, halts_in_base.precedes hk h hkn⟩
 
 lemma skip {m : M} (h : A -[m]{n}->' B) (hM : ¬halts m B) : ¬halts m A :=
   fun hA => hM (tail h hA)
