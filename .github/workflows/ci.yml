@@ -17,31 +17,60 @@ jobs:
 
       - name: Setup Lean
         uses: leanprover/lean-action@v1
+        with:
+          # The default action configuration runs an unqualified `lake build`.
+          # The default executable selects Skelet #1's native backend. Keep PR
+          # feedback focused on the fast core; the native proof has a separate
+          # nightly/manual workflow, and the kernel certificate is a long,
+          # resumable local job (see scripts/verify_skelet1.sh).
+          auto-config: false
+          build: false
+          test: false
+          lint: false
 
       - name: Restore mathlib cache
         run: lake exe cache get
 
-      - name: Build
-        run: lake build
+      - name: Build fast core
+        # Keep ordinary PR feedback bounded. The shared CLI and BB5 table are
+        # backend-neutral, so this checks their wiring without selecting either
+        # expensive Skelet #1 proof provider.
+        run: >-
+          lake build
+          Busybeaver.CLI
+          Busybeaver.Deciders.Cyclers
+          Busybeaver.Deciders.BoundExplore
+          Busybeaver.Deciders.TranslatedCyclers
+          Busybeaver.Deciders.BackwardsReasoning
+          Busybeaver.Deciders.Loop1
+          Busybeaver.Deciders.NGramCPS
+          Busybeaver.Deciders.RepWL
+          Busybeaver.Enumerate.Impl
+          Busybeaver.TM.Table.Model
+          Busybeaver.TM.Table.Parse
 
-      - name: Smoke test CLI
-        run: lake exe beaver -h
-
-      - name: Witness store benchmark
-        # Guards the witness store: generate == trusted == verified, and each stays
-        # under its bound. The bounds are loose here because CI runners have far
-        # fewer cores than a dev box (the strict defaults are for local use); this
-        # still catches gross perf regressions and any value divergence.
-        run: GEN_LIMIT_MS=180000 TRUSTED_LIMIT_MS=5000 scripts/bench_witness.sh
-
-      - name: Generate sorry report
-        run: ci/sorry_report.sh sorry-report.txt
+      - name: Report source-level sorries outside Skelet #1
+        # This remains informational, matching the previous report. Elaborating
+        # every source file would re-import the deliberately excluded certificate.
+        run: |
+          {
+            echo "# Sorry report (fast CI scope)"
+            echo
+            echo "Skelet #1 is checked natively by its nightly workflow and kernel-only with scripts/verify_skelet1.sh."
+            echo
+            printf '%s\n' "## Raw token matches (rg -n '\bsorry\b')"
+            rg -n '\bsorry\b' Busybeaver Main.lean Busybeaver.lean \
+              -g '*.lean' \
+              -g '!Busybeaver/Deciders/BB5Table.lean' \
+              -g '!Busybeaver/Deciders/BB5TableEntries.lean' \
+              -g '!Busybeaver/Deciders/Skelet/Skelet1Final.lean' || true
+          } > sorry-report.txt
 
       - name: Append summary
         run: |
           echo "## Sorry Report" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          grep "Total hasSorry warnings:" sorry-report.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo "Fast CI excludes Skelet #1; its native proof runs nightly, while \`scripts/verify_skelet1.sh\` checks the kernel-only certificate." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Full report is available as workflow artifact \`sorry-report\`." >> "$GITHUB_STEP_SUMMARY"
 

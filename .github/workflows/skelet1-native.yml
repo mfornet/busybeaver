@@ -1,0 +1,35 @@
+name: Skelet #1 native verification
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skelet1-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Lean
+        uses: leanprover/lean-action@v1
+        with:
+          auto-config: false
+          build: false
+          test: false
+          lint: false
+
+      - name: Restore mathlib cache
+        run: lake exe cache get
+
+      - name: Verify Skelet #1 with native evaluation
+        run: lake build Skelet1Fast
