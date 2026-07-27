@@ -148,8 +148,8 @@ inductive WF2 : S17 → Prop
 
 /-! ## Effect of the operations on `s`, `n`, `l`, `aᵢ` (Coq level 3)
 
-These are stated now and proven in dependency order; each `sorry` is one Coq
-lemma to port. -/
+These are proven below in the dependency order of the corresponding Coq
+lemmas. -/
 
 /-! ### Inversion lemmas for the rules -/
 

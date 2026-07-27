@@ -1,21 +1,54 @@
-# Lean Busy Beaver
+# A Lean proof of BB(5)
 
 [![CI](https://github.com/mfornet/busybeaver/actions/workflows/ci.yml/badge.svg)](https://github.com/mfornet/busybeaver/actions/workflows/ci.yml)
 
-This project contains an attempt at formalising results regarding Busy Beavers.
+This repository contains a Lean 4 formalization of the five-state, two-symbol
+Busy Beaver result:
 
-The objective is to merge deciders and their proof of correctness.
+> **BB(5) = 47,176,870**
 
-More broadly, the project should rely as little as possible on
-specific numbers of states and symbols. The idea is to have an
-executable that allows querying and computing busy beaver values, as
-well as a playground to play with TMs.
+Here `BB(5)` is the maximum number of transitions made before halting by a
+halting five-state, two-symbol Turing machine started on a blank tape. The Lean
+library internally counts steps to the pre-halt configuration, so its
+corresponding theorem is `Busybeaver 4 1 = 47,176,869`; the theorem
+`BBTheorems.bb5_literature` states the standard value above.
 
-# Using the project
+The proof combines a verified tree-normal-form enumeration with proof-carrying
+halting and non-halting deciders. It ports the deciders, hardcoded table, and
+sporadic-machine arguments from
+[Coq-BB5](https://github.com/ccz181078/Coq-BB5), while retaining general
+Turing-machine and enumeration infrastructure for other state and symbol
+counts.
 
-You will need to have `lake` installed:
-```
-lake exe beaver -h
+## Reproduce and verify
+
+Install [elan](https://github.com/leanprover/elan), clone this repository, and
+run commands from its root. The pinned toolchain is in
+[`lean-toolchain`](./lean-toolchain); Lake fetches the exact dependencies
+recorded in [`lake-manifest.json`](./lake-manifest.json).
+
+Choose the check appropriate to your time and trust requirements:
+
+| Check | Command | What it establishes |
+| --- | --- | --- |
+| Fast CI scope | `lake build Busybeaver.CLI Busybeaver.Enumerate.Impl` | Elaborates the reusable verified implementation, without selecting the expensive Skelet #1 proof backend. |
+| Native Skelet #1 | `lake build Skelet1Fast` | Checks the complete Skelet #1 argument using Lean's compiled evaluator. A cold build took about 30 minutes on the development machine. |
+| Kernel-only Skelet #1 | `scripts/verify_skelet1.sh "$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)"` | Generates a deterministic, resumable certificate and checks it with the Lean kernel. This is intentionally very expensive. |
+| Concrete BB(5) value theorem | `lake build BBTheorems.BB5` | Runs the complete enumeration and decider pipeline and proves the value theorem. Expect hours; this uses `native_decide`. |
+
+Ordinary GitHub Actions run the fast scope. The separate
+[`skelet1-native.yml`](./.github/workflows/skelet1-native.yml) workflow runs the
+native Skelet #1 check nightly and on demand. See
+[Verification and trust](#verification-and-trust) below before interpreting
+these checks.
+
+## Using the executable
+
+The default `beaver` executable selects the native Skelet #1 backend. Its first
+build may therefore take roughly as long as `Skelet1Fast`.
+
+```bash
+lake exe beaver --help
 ```
 
 Follow the help from here.
@@ -33,7 +66,7 @@ machine codes already written to a holdout log, use `audit`:
 lake exe beaver audit holdouts.txt --limit 100
 ```
 
-## Codex + Lean MCP
+### Codex + Lean MCP
 
 To register [`lean-lsp-mcp`](https://github.com/oOo0oOo/lean-lsp-mcp) with Codex for this repo:
 
@@ -64,11 +97,15 @@ Manual equivalent:
 codex mcp add lean-lsp --env "LEAN_PROJECT_PATH=$(pwd)" -- uvx lean-lsp-mcp
 ```
 
-## Codex Local Environment
+### Codex local environment
 
 Codex worktrees run in separate directories and get their own local `.lake` state by default. For this Lean project, the expensive part is the dependency checkout and build cache under `.lake/packages`, especially mathlib.
 
-This repo includes a Codex local environment at [`.codex/environments/environment.toml`](/Users/mnaeraxr/Documents/projects/busy-beaver-research/busybeaver/.codex/environments/environment.toml). Its setup step delegates to [ci/codex_lean_setup.sh](./ci/codex_lean_setup.sh), which reuses or migrates `.lake/packages` from a shared cache root and then runs `lake build` in the current worktree.
+This repo includes a Codex local environment at
+[`.codex/environments/environment.toml`](./.codex/environments/environment.toml).
+Its setup step delegates to [ci/codex_lean_setup.sh](./ci/codex_lean_setup.sh),
+which reuses or migrates `.lake/packages` from a shared cache root and then runs
+`lake build` in the current worktree.
 
 Recommended shared cache location:
 
@@ -82,7 +119,7 @@ What this gives you:
 2. Only the repo-local code in the current worktree needs to rebuild.
 3. You can reset the cache later by deleting the shared cache root.
 
-## Configuration file
+### Configuration file
 
 The binary admits a configuration file for the deciders, in JSON, the
 configuration is an array of decider parameters, which can be
@@ -138,10 +175,11 @@ pipeline for which Lean has executable equivalents; and `"bb5TableExecutable"`.
 The generated table contains all 8,228 hardcoded Coq rows, including custom
 NGram, RepWL, halt, Loop1, FAR, WFAR, and sporadic entries.
 
-# Value theorems (gated build)
+## Verification and trust
 
 The concrete values `BB(2,2)` … `BB(5,2)` are stated as Lean theorems in the
-[BBTheorems](./BBTheorems/) library (e.g. `BBTheorems.bb4 : Busybeaver 3 1 = 106`,
+[BBTheorems](./BBTheorems/) library (for example,
+`BBTheorems.bb4 : Busybeaver 3 1 = 106`,
 with a `_literature` companion in the convention that counts the halting
 transition, `Busybeaver 3 1 + 1 = 107`). Each theorem instantiates
 `Busybeaver.BBCompute.correct_complete` with the CLI's decider pipeline and
@@ -157,11 +195,14 @@ lake build BBTheorems        # everything (BB5 evaluates the full pipeline: hour
 lake build BBTheorems.BB4    # a single value (minutes)
 ```
 
-The root module prints `#print axioms` for each theorem on build. `bb2`–`bb5`
-depend on `propext`, `Classical.choice`, `Quot.sound` plus their own
-`native_decide` axiom.
+The root module prints `#print axioms` for each theorem on build. In addition to
+Lean's standard logical axioms (`propext`, `Classical.choice`, and
+`Quot.sound`), the value theorems use the axiom introduced by `native_decide`.
+The BB(5) theorem also includes the native-evaluation axioms selected by the
+hardcoded table's expensive certificates. No source proof is replaced by
+`sorry`.
 
-# Skelet #1 verification backends
+### Skelet #1 verification backends
 
 The BB5 table, decider pipeline, and CLI share one implementation and accept a
 small proof-backend value for the expensive Skelet #1 non-halting theorem.
@@ -189,7 +230,7 @@ deterministic generator is committed. Once generated and cached,
 `lake build Skelet1Kernel` and `lake build beaverKernel` reuse the checked
 modules.
 
-# Architecture of the project
+## Architecture
 
 The library/proofs are contained in [Busybeaver](./Busybeaver/):
 
@@ -213,13 +254,13 @@ The library/proofs are contained in [Busybeaver](./Busybeaver/):
   History/LRU variants), RepWL, FAR/WFAR, Loop1, and the generated BB5
   table.
 
-# Acknowledgment
+## Acknowledgments
 
 Much of the BB5 formalisation builds on [Coq-BB5](https://github.com/ccz181078/Coq-BB5),
 the Coq proof that `BB(5) = 47,176,870`, from which the deciders, the hardcoded
 machine table, and the sporadic-machine arguments are ported.
 
-# Citation
+## Citation
 
 This work is described in the paper [*Determination of the fifth Busy Beaver
 value*](https://arxiv.org/abs/2509.12337) (arXiv:2509.12337):
