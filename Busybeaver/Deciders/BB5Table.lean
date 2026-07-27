@@ -12,6 +12,7 @@ import Busybeaver.Enumerate.Symmetry
 import Busybeaver.TM.Table.Parse
 import Busybeaver.Deciders.Skelet.ShiftOverflowBins
 import Busybeaver.Deciders.Skelet.Skelet17
+import Busybeaver.Deciders.Skelet.Skelet1Backend
 import Busybeaver.Deciders.Skelet.TapeCalc
 
 /-- `evsteps t₁, …, tₙ` applies `n` consecutive single machine steps via
@@ -3237,8 +3238,15 @@ end SM4
 theorem sporadicMachine4_nonHalting : ¬ sporadicMachine4.halts init := SM4.nonHalting
 
 def sporadicMachine5 : Machine 4 1 := mach["1RB1RD_1LC0RC_1RA1LD_0RE0LB_---1RC"]
-theorem sporadicMachine5_nonHalting : ¬ sporadicMachine5.halts init := by
-  sorry
+theorem sporadicMachine5_nonHalting
+    (backend : Deciders.Skelet.Skelet1.ProofBackend) :
+    ¬ sporadicMachine5.halts init := by
+  have hM : sporadicMachine5 = Deciders.Skelet.Skelet1.M := by
+    apply Machine.ext
+    intro lab sym
+    decide +revert
+  rw [hM]
+  simpa only [init] using backend.nonhalt
 
 def sporadicMachine6 : Machine 4 1 := mach["1RB0RA_0LC1RA_1RE1LD_1LC0LD_---0RB"]
 /-!
@@ -3552,22 +3560,56 @@ structure SporadicCert where
   machine : Machine 4 1
   nonHalting : ¬ machine.halts init
 
-/-- The certified sporadic holdouts.  Adding or removing a holdout means editing
-this list alongside its `…_nonHalting` theorem. -/
-def sporadicCerts : List SporadicCert :=
-  [ ⟨sporadicMachine0, sporadicMachine0_nonHalting⟩,
-    ⟨sporadicMachine1, sporadicMachine1_nonHalting⟩,
-    ⟨sporadicMachine2, sporadicMachine2_nonHalting⟩,
-    ⟨sporadicMachine3, sporadicMachine3_nonHalting⟩,
-    ⟨sporadicMachine4, sporadicMachine4_nonHalting⟩,
-    ⟨sporadicMachine5, sporadicMachine5_nonHalting⟩,
-    ⟨sporadicMachine6, sporadicMachine6_nonHalting⟩,
-    ⟨sporadicMachine7, sporadicMachine7_nonHalting⟩,
-    ⟨sporadicMachine8, sporadicMachine8_nonHalting⟩,
-    ⟨sporadicMachine9, sporadicMachine9_nonHalting⟩,
-    ⟨sporadicMachine10, sporadicMachine10_nonHalting⟩,
-    ⟨sporadicMachine11, sporadicMachine11_nonHalting⟩,
-    ⟨sporadicMachine12, sporadicMachine12_nonHalting⟩ ]
+/-- Backend-independent identifiers for the sporadic registry.  Table keys and
+proof-carrying certificates are both derived from this one ordered list. -/
+inductive SporadicId where
+  | s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7 | s8 | s9 | s10 | s11 | s12
+deriving DecidableEq, Repr
+
+def SporadicId.all : List SporadicId :=
+  [.s0, .s1, .s2, .s3, .s4, .s5, .s6, .s7, .s8, .s9, .s10, .s11, .s12]
+
+def SporadicId.machine : SporadicId → Machine 4 1
+  | .s0 => sporadicMachine0
+  | .s1 => sporadicMachine1
+  | .s2 => sporadicMachine2
+  | .s3 => sporadicMachine3
+  | .s4 => sporadicMachine4
+  | .s5 => sporadicMachine5
+  | .s6 => sporadicMachine6
+  | .s7 => sporadicMachine7
+  | .s8 => sporadicMachine8
+  | .s9 => sporadicMachine9
+  | .s10 => sporadicMachine10
+  | .s11 => sporadicMachine11
+  | .s12 => sporadicMachine12
+
+theorem SporadicId.nonHalting
+    (backend : Deciders.Skelet.Skelet1.ProofBackend) :
+    (id : SporadicId) → ¬ id.machine.halts init
+  | .s0 => sporadicMachine0_nonHalting
+  | .s1 => sporadicMachine1_nonHalting
+  | .s2 => sporadicMachine2_nonHalting
+  | .s3 => sporadicMachine3_nonHalting
+  | .s4 => sporadicMachine4_nonHalting
+  | .s5 => sporadicMachine5_nonHalting backend
+  | .s6 => sporadicMachine6_nonHalting
+  | .s7 => sporadicMachine7_nonHalting
+  | .s8 => sporadicMachine8_nonHalting
+  | .s9 => sporadicMachine9_nonHalting
+  | .s10 => sporadicMachine10_nonHalting
+  | .s11 => sporadicMachine11_nonHalting
+  | .s12 => sporadicMachine12_nonHalting
+
+def SporadicId.cert
+    (backend : Deciders.Skelet.Skelet1.ProofBackend)
+    (id : SporadicId) : SporadicCert :=
+  ⟨id.machine, id.nonHalting backend⟩
+
+/-- The certified sporadic holdouts for a selected Skelet #1 backend. -/
+def sporadicCerts
+    (backend : Deciders.Skelet.Skelet1.ProofBackend) : List SporadicCert :=
+  SporadicId.all.map (SporadicId.cert backend)
 
 /-- Sound dispatch for the `.sporadic` table entry.  We are handed an arbitrary
 `M`, so we recover its identity by matching it against the certified holdouts and
@@ -3584,7 +3626,9 @@ def haltDecider (bound : ℕ) (M : Machine l s) : HaltM M Unit := do
   let _ ← TM.Table.boundedExplore bound M
   .unknown ()
 
-def EntryDecider.run (d : EntryDecider) (M : Machine 4 1) : HaltM M Unit :=
+def EntryDecider.run
+    (backend : Deciders.Skelet.Skelet1.ProofBackend)
+    (d : EntryDecider) (M : Machine 4 1) : HaltM M Unit :=
   match d with
   | .nGram 0 len bound =>
       nGramCPSDecider { n := len, bound } M
@@ -3608,7 +3652,7 @@ def EntryDecider.run (d : EntryDecider) (M : Machine 4 1) : HaltM M Unit :=
         bound
       } M
   | .sporadic =>
-      sporadicResult sporadicCerts M
+      sporadicResult (sporadicCerts backend) M
   | .unsupported _ =>
       .unknown ()
 
@@ -3629,20 +3673,24 @@ def tableOfEntries (entries : List Entry) : Table :=
 def findInTable? (table : Table) (M : Machine 4 1) : Option EntryDecider :=
   table.get? (machineCode M)
 
-def decider (entries : List Entry) (M : Machine 4 1) : HaltM M Unit :=
+def decider
+    (backend : Deciders.Skelet.Skelet1.ProofBackend)
+    (entries : List Entry) (M : Machine 4 1) : HaltM M Unit :=
   match findEntry? entries M with
   | none => .unknown ()
-  | some d => d.run M
+  | some d => d.run backend M
 
-def tableDecider (table : Table) (M : Machine 4 1) : HaltM M Unit :=
+def tableDecider
+    (backend : Deciders.Skelet.Skelet1.ProofBackend)
+    (table : Table) (M : Machine 4 1) : HaltM M Unit :=
   match findInTable? table M with
   | none => .unknown ()
-  | some d => d.run M
+  | some d => d.run backend M
 
 def emptyEntries : List Entry := []
 
 def sporadicEntries : List Entry :=
-  sporadicCerts.map fun c => (machineCode c.machine, .sporadic)
+  SporadicId.all.map fun id => (machineCode id.machine, .sporadic)
 
 def initialEntries : List Entry :=
   sporadicEntries
@@ -3822,11 +3870,13 @@ A `.halt` row is skipped before running its decider: `toNF` preserves halting in
 directions, so a normalised machine matching a halt row necessarily halts, and the
 only verdict its `haltDecider` could produce is a `.halts_prf` we discard here.
 Running it would spend tens of millions of steps in a halting search for nothing. -/
-def nfTableDecider (table : Table) (M : Machine 4 1) : HaltM M Unit :=
+def nfTableDecider
+    (backend : Deciders.Skelet.Skelet1.ProofBackend)
+    (table : Table) (M : Machine 4 1) : HaltM M Unit :=
   match findInTable? table (toNF M) with
   | some (.halt _) => .unknown ()
   | some d =>
-      match d.run (toNF M) with
+      match d.run backend (toNF M) with
       | .loops_prf hnh => .loops_prf (toNF_nonHalting hnh)
       | _ => .unknown ()
   | none => .unknown ()

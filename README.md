@@ -157,10 +157,37 @@ lake build BBTheorems        # everything (BB5 evaluates the full pipeline: hour
 lake build BBTheorems.BB4    # a single value (minutes)
 ```
 
-The root module prints `#print axioms` for each theorem on build. `bb2`–`bb4`
+The root module prints `#print axioms` for each theorem on build. `bb2`–`bb5`
 depend on `propext`, `Classical.choice`, `Quot.sound` plus their own
-`native_decide` axiom; `bb5` additionally inherits `sorryAx` from the one
-remaining `sorry` (Skelet #1, `sporadicMachine5`).
+`native_decide` axiom.
+
+# Skelet #1 verification backends
+
+The BB5 table, decider pipeline, and CLI share one implementation and accept a
+small proof-backend value for the expensive Skelet #1 non-halting theorem.
+Choose the backend through an explicit Lake target:
+
+```bash
+lake build Skelet1Fast       # compiled native evaluation
+lake build beaver            # CLI using the native backend
+scripts/verify_skelet1.sh 12 # generate and check the kernel-only certificate
+lake build beaverKernel      # kernel CLI, after the certificate is generated
+```
+
+`Skelet1Fast` is suitable for routine verification and is run nightly (and on
+demand) by GitHub Actions. Its proof trusts Lean's native evaluator through the
+axiom introduced by `native_decide`, but contains no `sorry`. On the development
+machine used for this proof, a cold check took about 30 minutes; a cached build
+including the CLI link took under 4 seconds.
+
+`Skelet1Kernel` uses no native-evaluation axiom: it checks the generated,
+resumable checkpoint certificate using only Lean's kernel. A fresh run is
+intentionally very expensive; use `scripts/verify_skelet1.sh N` to verify it
+with `N` parallel workers and preserve completed checkpoints. The generated
+certificate sources are intentionally ignored by Git: only the compact,
+deterministic generator is committed. Once generated and cached,
+`lake build Skelet1Kernel` and `lake build beaverKernel` reuse the checked
+modules.
 
 # Architecture of the project
 

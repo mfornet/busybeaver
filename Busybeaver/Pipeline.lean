@@ -42,6 +42,8 @@ namespace Pipeline
 
 open Lean
 
+abbrev Skelet1Backend := Deciders.Skelet.Skelet1.ProofBackend
+
 /-- Run the TNF enumeration from both seeds and join the results. `undec = ∅`
 feeds `Busybeaver.BBCompute.correct_complete` to certify `val`. -/
 def compute (l s: ℕ) (dec: (M: Machine l s) → HaltM M Unit): Busybeaver.BBResult l s :=
@@ -96,14 +98,18 @@ def DeciderConfig.deciderModel {M : Type _} [TM.Model M] (cfg: DeciderConfig) (m
 | .cycler n => Deciders.Cyclers.looperDecider n m
 | _ => .unknown ()
 
-def runBB5Table (table : Deciders.BB5Table.Table) (M : Machine l s) : HaltM M Unit :=
+def runBB5Table
+    (backend : Skelet1Backend)
+    (table : Deciders.BB5Table.Table) (M : Machine l s) : HaltM M Unit :=
   match l, s with
-  | 4, 1 => Deciders.BB5Table.tableDecider table M
+  | 4, 1 => Deciders.BB5Table.tableDecider backend table M
   | _, _ => .unknown ()
 
-def runBB5TableNF (table : Deciders.BB5Table.Table) (M : Machine l s) : HaltM M Unit :=
+def runBB5TableNF
+    (backend : Skelet1Backend)
+    (table : Deciders.BB5Table.Table) (M : Machine l s) : HaltM M Unit :=
   match l, s with
-  | 4, 1 => Deciders.BB5Table.nfTableDecider table M
+  | 4, 1 => Deciders.BB5Table.nfTableDecider backend table M
   | _, _ => .unknown ()
 
 /-- Table-free interpretation of a `DeciderConfig`: like `deciderTable` but the
@@ -120,10 +126,12 @@ def DeciderConfig.deciderTableCore (cfg: DeciderConfig) (M: Machine l s) : HaltM
 | .loop1 n => Deciders.Loop1.decider n M
 | _ => TM.Table.Model.modelHaltMToTableHaltM (cfg.deciderModel M)
 
-def DeciderConfig.deciderTable (cfg: DeciderConfig) (M: Machine l s) : HaltM M Unit := match cfg with
-| .bb5TableExecutable => runBB5Table Deciders.BB5Table.Generated.executableTable M
-| .bb5TableAll => runBB5Table Deciders.BB5Table.Generated.allTable M
-| .bb5TableNF => runBB5TableNF Deciders.BB5Table.Generated.executableTable M
+def DeciderConfig.deciderTable
+    (backend : Skelet1Backend)
+    (cfg: DeciderConfig) (M: Machine l s) : HaltM M Unit := match cfg with
+| .bb5TableExecutable => runBB5Table backend Deciders.BB5Table.Generated.executableTable M
+| .bb5TableAll => runBB5Table backend Deciders.BB5Table.Generated.allTable M
+| .bb5TableNF => runBB5TableNF backend Deciders.BB5Table.Generated.executableTable M
 | cfg => cfg.deciderTableCore M
 
 @[inline]
@@ -138,37 +146,43 @@ def toTableDeciderCore (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit 
     d.deciderTableCore M
 
 @[inline]
-def toTableDecider (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
+def toTableDecider
+    (backend : Skelet1Backend)
+    (cfg: List DeciderConfig) (M: Machine l s): HaltM M Unit := do
   for d in cfg do
-    d.deciderTable M
+    d.deciderTable backend M
 
-def firstDecision?: List DeciderConfig → (M: Machine l s) → Option (String × String)
+def firstDecision? (backend : Skelet1Backend) :
+    List DeciderConfig → (M: Machine l s) → Option (String × String)
 | [], _ => none
 | d :: ds, M =>
-    let res := d.deciderTable M
+    let res := d.deciderTable backend M
     if HaltM.decided res then
       some (toString d, toString res)
     else
-      firstDecision? ds M
+      firstDecision? backend ds M
 
 /-- Like `firstDecision?`, but returns the deciding `DeciderConfig` together with the full
 `HaltM` result (needed to read the halting config for tree expansion in `export`). -/
-def firstDecisionFull?: List DeciderConfig → (M: Machine l s) → Option (DeciderConfig × HaltM M Unit)
+def firstDecisionFull? (backend : Skelet1Backend) :
+    List DeciderConfig → (M: Machine l s) → Option (DeciderConfig × HaltM M Unit)
 | [], _ => none
 | d :: ds, M =>
-    let res := d.deciderTable M
+    let res := d.deciderTable backend M
     if HaltM.decided res then
       some (d, res)
     else
-      firstDecisionFull? ds M
+      firstDecisionFull? backend ds M
 
 /-- Like `firstDecisionFull?` but keeps the proof-carrying `HaltM` alongside the
 *name* of the decider that settled it (or `.unknown`/`none` if none did). Used to
 emit witness records with provenance. Thin wrapper so the decision loop lives in
 one place (`firstDecisionFull?`). -/
-def decideWithProvenance (cfg: List DeciderConfig) (M: Machine l s) :
+def decideWithProvenance
+    (backend : Skelet1Backend)
+    (cfg: List DeciderConfig) (M: Machine l s) :
     (HaltM M Unit × Option String) :=
-  match firstDecisionFull? cfg M with
+  match firstDecisionFull? backend cfg M with
   | some (d, res) => (res, some (toString d))
   | none => (.unknown (), none)
 

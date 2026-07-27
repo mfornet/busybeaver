@@ -1,0 +1,4 @@
+# All certificate modules are deterministic outputs of Skelet1Prof.lean.
+# Generate and kernel-check them with scripts/verify_skelet1.sh.
+/*
+!/.gitignore

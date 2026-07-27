@@ -41,3 +41,27 @@ name = "BBTheorems"
 [[lean_exe]]
 name = "beaver"
 root = "Main"
+
+[[lean_exe]]
+name = "beaverKernel"
+root = "MainKernel"
+
+# Two interchangeable Skelet #1 proof backends. The fast target uses compiled
+# native evaluation; the kernel target imports the resumable checkpoint proof.
+[[lean_lib]]
+name = "Skelet1Fast"
+
+[[lean_lib]]
+name = "Skelet1Kernel"
+
+# Untrusted profiling tool for sizing the Skelet #1 chunked certificate.
+[[lean_exe]]
+name = "skelet1prof"
+root = "Skelet1Prof"
+
+# Skelet #1's generated, kernel-checked checkpoint certificate. Its large
+# modules are deliberately untracked; `scripts/verify_skelet1.sh 12` generates
+# them deterministically, then performs a resumable, memory-bounded check.
+[[lean_lib]]
+name = "Skelet1Cert"
+globs = ["Skelet1Cert.+"]
