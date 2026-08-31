@@ -62,19 +62,14 @@ by {
 }
 
 @[simp]
-lemma default_nth {Γ: Type*} [Inhabited Γ]: nth default i = default (α:=Γ) :=
-by {
+lemma default_nth {Γ: Type*} [Inhabited Γ]: nth default i = default (α:=Γ) := by
   simp [nth]
   split <;> simp
-}
 
 @[simp]
-lemma map_default {Γ Γ': Type*} [Inhabited Γ] [Inhabited Γ'] {f: PointedMap Γ Γ'}: Turing.Tape.map f default = default :=
-by {
+lemma map_default {Γ Γ': Type*} [Inhabited Γ] [Inhabited Γ'] {f: PointedMap Γ Γ'}: Turing.Tape.map f default = default := by
   apply ext
-  intro i
   simp
-}
 
 end Turing.Tape
 
@@ -133,17 +128,7 @@ instance translated.transformation: Transformation (l:=l) (s:=s) (λ C ↦ ⟨C.
 lemma translated.equi_halts: (M, C) =H (M.translated S S', ⟨C.state, C.tape.translate S S' hS hS'⟩) :=
   translated.transformation hS hS' |>.equi_halts
 
-lemma translated.equi_halts' {M: Machine l s} (hS: default ≠ S) (hS': default ≠ S'): (M, default) =H (M.translated S S', default) := by {
-  suffices (Turing.Tape.translate default S S' hS hS') = default by {
-    have hMe := translated.equi_halts (M:=M) (C:=default) hS hS'
-    conv at hMe =>
-      pattern Config.tape (default (α:=Config l s))
-      unfold default
-      unfold Config.inhabited
-      unfold Config.tape
-      simp
-    rw [this] at hMe
-    exact hMe
-  }
+lemma translated.equi_halts' {M: Machine l s} (hS: default ≠ S) (hS': default ≠ S'): (M, default) =H (M.translated S S', default) := by
+  convert translated.equi_halts (M:=M) (C:=default) hS hS'
+  change default = Turing.Tape.translate default S S' hS hS'
   simp [Turing.Tape.translate]
-}
