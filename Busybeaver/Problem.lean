@@ -16,10 +16,9 @@ structure Terminating (l s: ℕ) where
 deriving DecidableEq
 
 instance Machine.canLiftTerminating: CanLift (Machine l s) {T : Terminating l s // T.n = n } (λ M ↦ M.val.M) (λ M ↦ M.halts_in n default) where
-  prf M hM := by {
+  prf M hM := by
     simp
     use ⟨M, n, hM⟩
-  }
 
 noncomputable instance Terminating.fintype: Fintype (Terminating l s) := by {
   apply Fintype.ofInjective Terminating.M
@@ -57,22 +56,16 @@ by {
   }
 }
 
-lemma cons {M: Terminating l s} (hM: M ∉ S): Busybeaver' l s (Finset.cons M S hM) = Max.max M.n (Busybeaver' l s S) :=
-by {
-  conv =>
-    lhs
-    unfold Busybeaver'
-    simp
-  rfl
-}
+lemma cons {M: Terminating l s} (hM: M ∉ S): Busybeaver' l s (Finset.cons M S hM) = Max.max M.n (Busybeaver' l s S) := by
+  simp [Busybeaver']
 
 @[simp]
-lemma empty: Busybeaver' l s ∅ = 0 :=
-  by simp [Busybeaver']
+lemma empty: Busybeaver' l s ∅ = 0 := by
+  simp [Busybeaver']
 
 @[simp]
-lemma singleton {M: Terminating l s}: Busybeaver' l s {M} = M.n :=
-by simp [Busybeaver']
+lemma singleton {M: Terminating l s}: Busybeaver' l s {M} = M.n := by
+  simp [Busybeaver']
 
 @[simp]
 lemma insert {M: Terminating l s}: Busybeaver' l s (insert M S) = Max.max M.n (Busybeaver' l s S) :=
@@ -121,11 +114,11 @@ by induction S' using Finset.induction with
   simp [IH]
 }
 
-lemma union_left : Busybeaver' l s S ≤ Busybeaver' l s (S ∪ S') :=
-by simp
+lemma union_left : Busybeaver' l s S ≤ Busybeaver' l s (S ∪ S') := by
+  simp
 
-lemma union_right : Busybeaver' l s S' ≤ Busybeaver' l s (S ∪ S') :=
-by simp
+lemma union_right : Busybeaver' l s S' ≤ Busybeaver' l s (S ∪ S') := by
+  simp
 
 /-
 If S can be "embedded" in S' in terms of termination, then the busybeaver' function on these sets is
@@ -147,17 +140,11 @@ by induction S using Finset.induction with
 
 lemma biject_fold {S S': Finset (Terminating l s)} (hS: ∀M ∈ S, ∃M' ∈ S', M.n = M'.n) (hS': ∀M' ∈ S', ∃M ∈ S, M'.n = M.n):
   Busybeaver' l s S = Busybeaver' l s S' :=
-by {
-  apply Nat.le_antisymm
-  · exact fold_into hS
-  · exact fold_into hS'
-}
+by
+  exact Nat.le_antisymm (fold_into hS) (fold_into hS')
 
-lemma mono (hS: S ⊆ S') : Busybeaver' l s S ≤ Busybeaver' l s S' := by {
-  conv_rhs =>
-    rw [← Finset.sdiff_union_of_subset hS, Finset.union_comm]
-  exact union_left
-}
+lemma mono (hS: S ⊆ S') : Busybeaver' l s S ≤ Busybeaver' l s S' :=
+  fold_into fun M hM => ⟨M, hS hM, rfl⟩
 
 lemma upper_bound (hS: ∀ M ∈ S, M.n ≤ n): Busybeaver' l s S ≤ n :=
 by induction S using Finset.induction with
@@ -210,24 +197,16 @@ lemma max' {M: Machine l s} (hM: M.halts_in n default): n ≤ Busybeaver l s :=
 /--
 If a machine runs for more than BB(l,s) steps, then it does not terminate
 -/
-lemma not_halts {M: Machine l s} (hM: default -[M]{k}-> B) (hk: Busybeaver l s < k): ¬(M.halts default) := by {
-  intro ⟨n, hn⟩
-  suffices k < k from (lt_self_iff_false k).mp this
-  calc k
-    _ ≤ n := hn.within hM
-    _ ≤ Busybeaver l s := @max l s ⟨M, n, hn⟩
-    _ < k := hk
-}
+lemma not_halts {M: Machine l s} (hM: default -[M]{k}-> B) (hk: Busybeaver l s < k): ¬(M.halts default) := by
+  rintro ⟨n, hn⟩
+  exact (Nat.not_lt_of_ge (hn.within hM |>.trans (@max l s ⟨M, n, hn⟩))) hk
 
 /-
 There exists a busy beaver machine
 -/
-lemma get_max: ∃(M: Terminating l s), M.n = Busybeaver l s :=
-by {
-  unfold Busybeaver
-  obtain ⟨M, _, hMm⟩ := Busybeaver'.get (l:=l) (s:=s) (S:=Finset.univ) Finset.univ_nonempty
-  exists M
-}
+lemma get_max: ∃(M: Terminating l s), M.n = Busybeaver l s := by
+  obtain ⟨M, _, hM⟩ := Busybeaver'.get (l:=l) (s:=s) (S:=Finset.univ) Finset.univ_nonempty
+  exact ⟨M, hM⟩
 
 /-
 If we can prove that any machine running for more than n steps does not halt, then the busy beaver
