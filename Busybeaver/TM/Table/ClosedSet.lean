@@ -21,63 +21,32 @@ structure ClosedSet (M: TM.Table.Machine L S) (base: TM.Table.Config L S → Pro
 namespace ClosedSet
 
 theorem offset (closed: ClosedSet M p I) (hN: p N): ClosedSet M p N :=
-by use closed.closed, ⟨N, hN⟩, .refl
+  ⟨closed.closed, ⟨⟨N, hN⟩, .refl⟩⟩
 
-lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by {
-  intro ⟨final, hFinal⟩
+lemma nonHalting (inst: ClosedSet M p I): ¬M.halts I := by
+  rintro ⟨final, hFinal⟩
   induction final using Nat.caseStrongRecOn generalizing I with
-  | zero => {
-    /-
-    Assume that I is the final state.
-
-    Based on that, I itself is necessarily in the closed set (e.g. I is the state mentioned in
-    .enters). This is a contradiction because that would mean we can step from I.
-    -/
-    obtain ⟨F, hFL, hFR⟩ := hFinal
-    cases hFR
-    obtain ⟨⟨N, pN⟩, hN⟩ := inst.enters
-    have hIN := TM.Table.Machine.halts_in.evstep_same hFL hN
-    simp at hIN
-    cases hIN
-
-    -- Here, we know that I is in the closed set, we use the closure of the set to get a
-    -- contradiction
-
-    obtain ⟨_, hNN'⟩ := inst.closed ⟨I, pN⟩
-    exact TM.Table.Machine.halts_in.no_progress hFL hNN'
-  }
-  | ind n IH => {
-    /-
-    Now assume we need to take a non-zero number of steps to stop, say n+1 steps.
-
-    We have:
-
-    I -[M]->* N -[M]->+ N' ...
-        ^ .enters
-                  ^ .closed
-
-    We can _offset_ the closed set instance to that N', we know we took at least one step too to get
-    to N'. Thus, by property of progression, we know that we stop in _at most_ n steps (the +1
-    cancels with the progression) to stop and the induction hypothesis applies.
-    -/
-    obtain ⟨⟨N, pN⟩, hN⟩ := inst.enters
-    obtain ⟨⟨N', pN'⟩, hNN'⟩ := inst.closed ⟨N, pN⟩
-    simp_all
-    have hIN' := calc I
-      _ -[M]->* N := hN
-      _ -[M]->+ N' := hNN'
-
-    obtain ⟨nfin, hnfin⟩ := hIN'.to_multistep
-    have hnfinn := TM.Table.Machine.halts_in.within hFinal hnfin
-    have hnfinHalts := TM.Table.Machine.halts_in.precedes hFinal hnfin hnfinn
-    simp [*] at hnfinn hnfinHalts
-
-    -- hnfinHalts : M halts in at most n steps from N', we can apply the induction hypothesis
-
-    refine IH _ ?_ (inst.offset pN') hnfinHalts
-    · exact Nat.sub_le n nfin
-  }
-}
+  | zero =>
+      obtain ⟨F, hFL, hFR⟩ := hFinal
+      cases hFR
+      obtain ⟨⟨N, pN⟩, hN⟩ := inst.enters
+      have hIN := TM.Table.Machine.halts_in.evstep_same hFL hN
+      simp at hIN
+      cases hIN
+      obtain ⟨_, hNN'⟩ := inst.closed ⟨I, pN⟩
+      exact TM.Table.Machine.halts_in.no_progress hFL hNN'
+  | ind n IH =>
+      obtain ⟨⟨N, pN⟩, hN⟩ := inst.enters
+      obtain ⟨⟨N', pN'⟩, hNN'⟩ := inst.closed ⟨N, pN⟩
+      simp_all
+      have hIN' := calc I
+        _ -[M]->* N := hN
+        _ -[M]->+ N' := hNN'
+      obtain ⟨nfin, hnfin⟩ := hIN'.to_multistep
+      have hnfinn := TM.Table.Machine.halts_in.within hFinal hnfin
+      have hnfinHalts := TM.Table.Machine.halts_in.precedes hFinal hnfin hnfinn
+      simp [*] at hnfinn hnfinHalts
+      exact IH _ (Nat.sub_le n nfin) (inst.offset pN') hnfinHalts
 
 /-- Proves non-termination using closed set reasonning. -/
 macro "closed_set" p:term : tactic =>
