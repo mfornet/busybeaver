@@ -34,43 +34,33 @@ inductive MultiTStep (m : TickingMachine BM) :
 notation A " t-[" m ":" L "]->>' " B => MultiTStep m L A B
 
 lemma single_step {m : TickingMachine BM} (h : A t-[m:t]->' B) : A -[m]->' B := by
-  unfold TStep at h
-  unfold TM.Model.Step
-  unfold stepTick at h
-  cases hs : TM.Model.step m A with
-  | mk dn outcome =>
-      cases outcome <;> simp [hs] at h ⊢
-      exact h.1
+  rcases hs : TM.Model.step m A with ⟨dn, outcome⟩
+  cases outcome <;> simp [TStep, TM.Model.Step, stepTick, hs] at h ⊢
+  exact h.1
 
 lemma to_multistep {m : TickingMachine BM} (h : A t-[m:L]->>' B) : A -[m]{L.length}->' B := by
   induction h with
-  | refl =>
-      exact .refl
-  | step A B C t L hAB hBC IH =>
-      simpa using TM.Model.Multistep.step (single_step hAB) IH
+  | refl => exact .refl
+  | step A B C t L hAB hBC IH => exact .step (single_step hAB) IH
 
-lemma to_multistepBase {m : TickingMachine BM} (h : A t-[m:L]->>' B) : ∃ n, A -[m]{n}->>' B := by
-  exact TM.Model.Multistep.to_base (to_multistep h)
+lemma to_multistepBase {m : TickingMachine BM} (h : A t-[m:L]->>' B) : ∃ n, A -[m]{n}->>' B :=
+  TM.Model.Multistep.to_base (to_multistep h)
 
 lemma trans {m : TickingMachine BM} (hAB : A t-[m:L]->>' B) (hBC : B t-[m:L']->>' C) :
     A t-[m:L ++ L']->>' C := by
   induction hAB with
-  | refl =>
-      simpa using hBC
-  | step A B D t L hAB hBD IH =>
-      simpa using
-        MultiTStep.step (A := A) (B := B) (C := C) (t := t) (L := L ++ L') hAB (IH hBC)
+  | refl => simpa using hBC
+  | step A B D t L hAB hBD IH => exact .step A B C t _ hAB (IH hBC)
 
 lemma split {m : TickingMachine BM} (h : A t-[m:L ++ L']->>' B) :
     ∃ C, (A t-[m:L]->>' C) ∧ (C t-[m:L']->>' B) := by
   induction L generalizing A with
-  | nil =>
-      exact ⟨A, TReach.MultiTStep.refl A, by simpa using h⟩
+  | nil => exact ⟨A, .refl A, by simpa using h⟩
   | cons t L IH =>
       cases h with
       | step A B C _ L'' hAB hBC =>
           obtain ⟨C, hAC, hCB⟩ := IH hBC
-          exact ⟨C, MultiTStep.step (A := A) (B := B) (C := C) (t := t) (L := L) hAB hAC, hCB⟩
+          exact ⟨C, .step A B C t L hAB hAC, hCB⟩
 
 end TReach
 
