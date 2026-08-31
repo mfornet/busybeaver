@@ -59,28 +59,18 @@ namespace Machine.halting_trans
 
 theorem all_unreachable {M: Machine l s} (h: ∀T ∈ M.halting_trans, M.trans_unreachable_from T.1 T.2 default):
   ¬(M.halts default) :=
-by {
-  intro ⟨n, C, Clast, Creach⟩
-
-  simp [Machine.LastState] at Clast
-
-  simp at h
-  simp [Machine.trans_unreachable_from, Machine.trans_reachable_from] at h
-
-  specialize h _ _ Clast C n Creach
-
-  simp at h
-}
+by
+  rintro ⟨n, C, hC, hR⟩
+  apply h (C.state, C.tape.head) (by simpa [Machine.LastState] using hC)
+  exact ⟨C, n, hR, rfl, rfl⟩
 
 lemma empty_loops {M: Machine l s} (h: M.halting_trans = ∅): ¬(M.halts default) :=
-by {
+by
   apply all_unreachable
   simp [h]
-}
 
-lemma eq_zero_nonhalts {M: Machine l s} (hM: M.n_halting_trans = 0): ¬M.halts default := by {
-  simp [Machine.n_halting_trans] at hM
-  exact empty_loops hM
-}
+lemma eq_zero_nonhalts {M: Machine l s} (hM: M.n_halting_trans = 0): ¬M.halts default := by
+  apply empty_loops
+  simpa [Machine.n_halting_trans] using hM
 
 end Machine.halting_trans
