@@ -96,7 +96,7 @@ lemma foldl_addStep_frontier_of_not_mem_known (xs : List (PartialConfig l α))
   | cons cfg rest IH =>
       by_cases hcfg : cfg ∈ known
       · simpa [hcfg] using IH known frontier b hxnot (by simpa [hcfg] using hx)
-      · simp only [List.foldl_cons, hcfg, if_neg, not_false_iff] at hx ⊢
+      · simp only [List.foldl_cons, hcfg, ite_eq_right, not_false_iff] at hx ⊢
         by_cases hxcfg : x = cfg
         · subst x
           exact foldl_addStep_frontier_of_mem rest (known.push cfg) (cfg :: frontier) true (by simp)

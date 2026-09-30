@@ -26,38 +26,28 @@ The busybeaver number with only one state is 1.
 The numbers are slightly off because of the definitions of the various components.
 -/
 theorem one_state: Busybeaver 0 s = 0 :=
-by {
+by
   simp [symm.only_right]
   apply Nat.eq_zero_of_le_zero
   apply Nat.le_of_lt_add_one
   apply Busybeaver'.upper_bound_of_lt
   swap
   · simp
-
   intro ⟨M, n, term⟩ hM
   simp [symm.GoingTo] at *
   obtain ⟨sym, nlab, hnlab⟩ := hM
-
   have heqnlab: nlab = default := Fin.fin_one_eq_zero _
   simp [*] at *
-
   by_contra hn
-
-  suffices ¬M.halts default by {
+  suffices ¬M.halts default by
     apply this
     exists n
-  }
-
   push Not at hn
   obtain ⟨k, hk⟩ := Nat.exists_eq_succ_of_ne_zero hn
   simp_all
   obtain ⟨C, _, hCr⟩ := term
   cases hCr
   rename_i B Bstep hBC
-
-  /-
-  Proof sketch: machine is able to step once (from default to B) then it loops forever because of CTL
-  -/
   closed_set (λ C ↦ C.state = default ∧ C.tape.head = default ∧ C.tape.right = default)
   · simp
     intro A' hAs hAt hAr
@@ -83,8 +73,7 @@ by {
     constructor
     swap
     · exact Machine.EvStep.refl
-    simp [default]
-}
+    simp [default]; rfl
 
 structure BBResult (l s: ℕ) where
   val : ℕ

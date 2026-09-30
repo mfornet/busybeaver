@@ -264,7 +264,7 @@ lemma run_implies_models_start {m : TickingMachine BM} {A B : TickingConfig BM} 
             intro hi0
             rw [PartialTape.preStep_apply, hi0] at hpre
             cases hpre
-          rw [PartialTape.preStep_apply, if_neg hi] at hpre
+          rw [PartialTape.preStep_apply, ite_eq_right hi] at hpre
           have htail : B.tape.nth (i - shiftDelta (dirOfTick m (A.state, A.tape.head))) = s := by
             have hpre' :
                 startConstraint m L (i - shiftDelta (dirOfTick m (A.state, A.tape.head))) = some s := by
@@ -425,7 +425,7 @@ lemma startConstraint_cons_apply_of_ne
     startConstraint m (t :: L) i = startConstraint m L (i - shiftDelta (dirOfTick m t)) := by
   rw [startConstraint_cons]
   unfold PartialTape.merge
-  rw [PartialTape.preStep_apply, if_neg hi]
+  rw [PartialTape.preStep_apply, ite_eq_right hi]
   cases hX : startConstraint m L (i - shiftDelta (dirOfTick m t)) with
   | some s => rfl
   | none => simp [PartialTape.singleton, hi]

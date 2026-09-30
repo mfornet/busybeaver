@@ -106,8 +106,8 @@ lemma write_move_nth (T : Turing.Tape (Symbol s)) (sym : Symbol s) (dir : Turing
     | left => rw [Turing.Tape.move_left_nth]; congr 1
   rw [hd]
   by_cases hk : k + dirDelta dir = 0
-  · rw [if_pos hk, hk, Turing.Tape.write_nth_zero]
-  · rw [if_neg hk, Turing.Tape.write_nth_of_ne_zero _ _ hk]
+  · rw [ite_eq_left hk, hk, Turing.Tape.write_nth_zero]
+  · rw [ite_eq_right hk, Turing.Tape.write_nth_of_ne_zero _ _ hk]
 
 /-- Decode a successful `step?`: it is a genuine machine step, writing `sym`, moving `dir`. -/
 lemma step?_eq_some {M : Machine l s} {h h' : HistoryEntry l s} (hstep : step? M h = some h') :
@@ -137,8 +137,8 @@ lemma absSym_step {M : Machine l s} {h h' : HistoryEntry l s} (hstep : step? M h
   have hcancel : x - (h.pos + dirDelta dir) + dirDelta dir = x - h.pos := by omega
   rw [hcancel]
   by_cases hx : x = h.pos
-  · subst hx; rw [if_pos (by omega), if_pos rfl]
-  · rw [if_neg (by intro hc; apply hx; omega), if_neg hx, absSym]
+  · subst hx; rw [ite_eq_left (by omega), ite_eq_left rfl]
+  · rw [ite_eq_right (by intro hc; apply hx; omega), ite_eq_right hx, absSym]
 
 /-- A successful `step?` is a genuine machine step on the underlying configurations. -/
 lemma step?_step {M : Machine l s} {h h' : HistoryEntry l s} (hstep : step? M h = some h') :
@@ -278,9 +278,9 @@ lemma AgreeShift.step {M : Machine l s} {d : ℤ} {Reg : ℤ → Prop} {a a' b :
   rw [habsB, habsA]
   by_cases hxa : x = a.pos
   · have hb : x + d = b.pos := by rw [hpos, hxa]
-    rw [if_pos hb, if_pos hxa]; exact hsym.symm
+    rw [ite_eq_left hb, ite_eq_left hxa]; exact hsym.symm
   · have hne : x + d ≠ b.pos := by rw [hpos]; intro h; exact hxa (by omega)
-    rw [if_neg hne, if_neg hxa]
+    rw [ite_eq_right hne, ite_eq_right hxa]
     exact hag3 x hx
 
 /-- Cells right of the head are blank when the right side of the tape is the default `ListBlank`. -/
@@ -312,7 +312,7 @@ lemma absSym_const_of_unvisited {M : Machine l s} {e : ℕ → HistoryEntry l s}
       obtain ⟨sym, dir, st, _, _, _, habs⟩ := absSym_step (hrun k (by omega))
       have hne : (e (a + k)).pos ≠ x := hvis k (by omega)
       have hkeep : absSym (e (a + k + 1)) x = absSym (e (a + k)) x := by
-        rw [habs x, if_neg (fun h => hne h.symm)]
+        rw [habs x, ite_eq_right (fun h => hne h.symm)]
       rw [show a + (k + 1) = a + k + 1 from by omega, hkeep]
       exact ih (fun i hi => hrun i (by omega)) (fun i hi => hvis i (by omega))
 
@@ -412,9 +412,9 @@ private lemma window_pair_inv {M : Machine l s} {f : ℕ → HistoryEntry l s} {
       · intro hex
         rw [ha2 (x + d), ha1 x]
         by_cases hxk : x = (f k).pos
-        · rw [if_pos (by rw [hpk, hxk]), if_pos hxk, hs]
+        · rw [ite_eq_left (by rw [hpk, hxk]), ite_eq_left hxk, hs]
         · have hxd : (x + d) ≠ (f (p + k)).pos := by omega
-          rw [if_neg hxd, if_neg hxk]
+          rw [ite_eq_right hxd, ite_eq_right hxk]
           have hvis : ∃ j, j < k ∧ (f j).pos = x := by
             obtain ⟨i, hi, hix⟩ := hex
             have hik : i < k := by
@@ -430,7 +430,7 @@ private lemma window_pair_inv {M : Machine l s} {f : ℕ → HistoryEntry l s} {
         obtain ⟨ihu1, ihu2⟩ := (ihk x).2 hunk
         rw [ha2 (x + d), ha1 x]
         have hxd : (x + d) ≠ (f (p + k)).pos := by omega
-        rw [if_neg hxd, if_neg (fun h => hxk h.symm)]
+        rw [ite_eq_right hxd, ite_eq_right (fun h => hxk h.symm)]
         exact ⟨ihu1, ihu2⟩
 
 /-! ### The infinite periodic extension
@@ -628,7 +628,7 @@ theorem LoopCert.nonHalting {M : Machine l s} (c : LoopCert M) :
   simp only [baseLoopCheck, beq_self_eq_true, Bool.true_and] at hb
   rcases lt_trichotomy d 0 with hdneg | hdzero | hdpos
   · -- Left translation.
-    rw [if_neg (by omega : ¬ d = 0), if_neg (by omega : ¬ d > 0), Bool.and_eq_true] at hb
+    rw [ite_eq_right (by omega : ¬ d = 0), ite_eq_right (by omega : ¬ d > 0), Bool.and_eq_true] at hb
     obtain ⟨hnvl, _⟩ := hb
     simp only [noVisitedLeft, decide_eq_true_eq] at hnvl
     refine loopCert_nonHalting_aux (Reg := fun x => ∃ i, i < c.p ∧ x ≤ (c.f i).pos)
@@ -645,7 +645,7 @@ theorem LoopCert.nonHalting {M : Machine l s} (c : LoopCert M) :
       (fun _ _ => trivial) (mkbase _ (fun x _ hvis' => ?_))
     rw [hdzero, add_zero]; exact ((Jp x).2 hvis').2
   · -- Right translation.
-    rw [if_neg (by omega : ¬ d = 0), if_pos hdpos, Bool.and_eq_true] at hb
+    rw [ite_eq_right (by omega : ¬ d = 0), ite_eq_left hdpos, Bool.and_eq_true] at hb
     obtain ⟨hnvr, _⟩ := hb
     simp only [noVisitedRight, decide_eq_true_eq] at hnvr
     refine loopCert_nonHalting_aux (Reg := fun x => ∃ i, i < c.p ∧ (c.f i).pos ≤ x)
