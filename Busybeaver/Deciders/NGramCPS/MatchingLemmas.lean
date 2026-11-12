@@ -67,7 +67,7 @@ lemma appendFar_take_getD_succ (xs : Array α) (n : ℕ) (fallback : α)
     appendFar (xs.take n) (xs.getD n fallback) = xs := by
   have hne : xs.size ≠ 0 := by
     simp [hsize]
-  letI : Inhabited α := ⟨fallback⟩
+  let : Inhabited α := ⟨fallback⟩
   calc
     appendFar (xs.take n) (xs.getD n fallback)
         = (xs.take n).push (xs.getD n fallback) := by

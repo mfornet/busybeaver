@@ -462,7 +462,7 @@ lemma Increment_n {s1 s2 : S17} (h : Increment s1 s2) :
     cases hcv : c with
     | false =>
         rw [hcv] at hn1 hn2
-        simp only [Bool.not_false, if_true]
+        simp only [Bool.not_false, ite_true]
         rw [hn1, hn2]
         exact binaryToNat_succ _ _
     | true =>
@@ -733,7 +733,7 @@ lemma Increment_a {s1 s2 : S17} (h : Increment s1 s2) :
     | false =>
         rw [hcv] at hsh1 hsh2 hS
         simp only [Bool.not_false] at hsh1 hsh2 hS
-        rw [hS, if_pos rfl]
+        rw [hS, ite_eq_left rfl]
         intro i
         show ai i (x, xs ++ y :: (z + 1) :: zs)
             + divpow2r (toN (x + 1, xs ++ y :: z :: zs)) i
@@ -750,7 +750,7 @@ lemma Increment_a {s1 s2 : S17} (h : Increment s1 s2) :
     | true =>
         rw [hcv] at hsh1 hsh2 hS
         simp only [Bool.not_true] at hsh1 hsh2 hS
-        rw [hS, if_neg (by simp)]
+        rw [hS, ite_eq_right (by simp)]
         intro i
         show ai i (x + 1, xs ++ y :: z :: zs)
             + divpow2r (toN (x + 1, xs ++ y :: z :: zs)) i
@@ -781,7 +781,7 @@ lemma Increment_a {s1 s2 : S17} (h : Increment s1 s2) :
     | false =>
         rw [hcv] at hcons1 hcons2 hS
         simp only [Bool.not_false] at hcons2 hS
-        rw [hS, if_pos rfl]
+        rw [hS, ite_eq_left rfl]
         intro i
         show ai i (x, (y + 1) :: xs) + divpow2r (toN (x + 1, y :: xs)) i
           = ai i (x + 1, y :: xs) + divpow2r (toN (x, (y + 1) :: xs)) i
@@ -796,7 +796,7 @@ lemma Increment_a {s1 s2 : S17} (h : Increment s1 s2) :
     | true =>
         rw [hcv] at hcons1 hcons2 hS
         simp only [Bool.not_true] at hcons2 hS
-        rw [hS, if_neg (by simp)]
+        rw [hS, ite_eq_right (by simp)]
         intro i
         show ai i (x + 1, y :: xs) + divpow2r (toN (x + 1, y :: xs)) i
           = ai i (x, (y + 1) :: xs) + divpow2r (toN (x, (y + 1) :: xs)) i
@@ -1340,15 +1340,15 @@ lemma Zero_a {s1 s2 : S17} (h : Zero s1 s2) (i : ℕ) :
   rw [toL_def, show (xs ++ [y]).length - 1 = xs.length by simp]
   simp only [ai]
   rcases Nat.lt_trichotomy i xs.length with hip | hip | hip
-  · rw [if_neg (by omega), List.getD_append _ _ _ _ (by omega),
+  · rw [ite_eq_right (by omega), List.getD_append _ _ _ _ (by omega),
       List.getD_append _ _ _ _ (by omega)]
     omega
   · subst hip
-    rw [if_pos rfl, List.getD_append_right _ _ _ _ (by omega),
+    rw [ite_eq_left rfl, List.getD_append_right _ _ _ _ (by omega),
       List.getD_append_right _ _ _ _ (by omega), Nat.sub_self]
     rfl
   · obtain ⟨j, hj⟩ : ∃ j, i - xs.length = j + 1 := ⟨i - xs.length - 1, by omega⟩
-    rw [if_neg (by omega), List.getD_append_right _ _ _ _ (by omega),
+    rw [ite_eq_right (by omega), List.getD_append_right _ _ _ _ (by omega),
       List.getD_append_right _ _ _ _ (by omega), hj, getD_singleton_succ,
       show ([y + 1, 0, 0] : List ℕ).getD (j + 1) 0 = ([0, 0] : List ℕ).getD j 0
         from rfl, getD_pair_zero]
@@ -1364,15 +1364,15 @@ lemma Overflow_a {s1 s2 : S17} (h : Overflow s1 s2) (i : ℕ) :
   rw [toL_def, show (xs ++ [y]).length - 1 = xs.length by simp]
   simp only [ai]
   rcases Nat.lt_trichotomy i xs.length with hip | hip | hip
-  · rw [if_neg (by omega), List.getD_append _ _ _ _ (by omega),
+  · rw [ite_eq_right (by omega), List.getD_append _ _ _ _ (by omega),
       List.getD_append _ _ _ _ (by omega)]
     omega
   · subst hip
-    rw [if_pos rfl, List.getD_append_right _ _ _ _ (by omega),
+    rw [ite_eq_left rfl, List.getD_append_right _ _ _ _ (by omega),
       List.getD_append_right _ _ _ _ (by omega), Nat.sub_self]
     rfl
   · obtain ⟨j, hj⟩ : ∃ j, i - xs.length = j + 1 := ⟨i - xs.length - 1, by omega⟩
-    rw [if_neg (by omega), List.getD_append_right _ _ _ _ (by omega),
+    rw [ite_eq_right (by omega), List.getD_append_right _ _ _ _ (by omega),
       List.getD_append_right _ _ _ _ (by omega), hj, getD_singleton_succ,
       show ([y + 1, 0] : List ℕ).getD (j + 1) 0 = ([0] : List ℕ).getD j 0 from rfl]
     match j with
@@ -1455,7 +1455,7 @@ lemma Increment_inc_precond22 {s1 : S17} (h : WF2 s1) (hs : toS s1 = true)
               (x1, (y + 1) :: (zs ++ [0, 0])) := Increment.odd hx
           have hnn := Increment_n I1
           rw [hs] at hnn
-          simp only [if_pos] at hnn
+          simp only [ite_eq_left] at hnn
           have h0 : toN (x1, (y + 1) :: (zs ++ [0, 0])) = 0 :=
             toN_allEven (allEven_cons (Odd.add_one hy)
               (allEven_append hevz (by
@@ -1803,7 +1803,7 @@ lemma weakly_embanked_precond {s1 : S17} (hwf1 : WF1 s1) (hs1s : toS s1 = false)
   have hs3a0 := Increments_a0 I23
   have hs3a := Increments_a I23
   rw [hs2s] at hs3n hs3a0 hs3a
-  simp only [Bool.false_eq_true, if_false] at hs3n hs3a0 hs3a
+  simp only [Bool.false_eq_true, ite_false] at hs3n hs3a0 hs3a
   have hs3a0_0 : s3.1 = 0 := by omega
   have hs3n_odd : Odd (toN s3) := by
     rcases hs2n_odd with ⟨k, hk⟩
@@ -1846,7 +1846,7 @@ lemma weakly_embanked_precond {s1 : S17} (hwf1 : WF1 s1) (hs1s : toS s1 = false)
   have hs5a0 := Increments_a0 I45
   have hs5a := Increments_a I45
   rw [hs4s'] at hs5n hs5a0 hs5a
-  simp only [if_true] at hs5n hs5a0 hs5a
+  simp only [ite_true] at hs5n hs5a0 hs5a
   have hs5a0_0 : s5.1 = 0 := by omega
   have hn5_expr : toN s5 = ai 0 s1 + 2 ^ (toL s1 - 1) := by omega
   -- final Halve
@@ -1868,7 +1868,7 @@ lemma weakly_embanked_precond {s1 : S17} (hwf1 : WF1 s1) (hs1s : toS s1 = false)
   have ha60_expr : ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r (toN s5) 0 + 1
       = s6.1 + divpow2r (toN s4) 0 + divpow2r (toN s3) 1 := by
     have h1 := hs2a 1
-    rw [if_neg (by omega : (1:ℕ) ≠ toL s1 - 1)] at h1
+    rw [ite_eq_right (by omega : (1:ℕ) ≠ toL s1 - 1)] at h1
     have h2 := hs3a 1
     rw [hd21] at h2
     have h3 : ai 0 s4 = ai 1 s3 := hs4a 0
@@ -1909,7 +1909,7 @@ lemma embanked_precond {s1 s6 : S17} {s_1 h_1 s_2 h_2 : ℕ}
   have hs7a0 := Increments_a0 I67
   have hs7a := Increments_a I67
   rw [hs6s] at hs7n hs7a0 hs7a
-  simp only [Bool.false_eq_true, if_false] at hs7n hs7a0 hs7a
+  simp only [Bool.false_eq_true, ite_false] at hs7n hs7a0 hs7a
   have hn7_0 : toN s7 = 0 := by omega
   have ha70 : ai 1 s1 + 2 ^ (toL s1 - 2) + divpow2r (toN s5) 0 - toN s7 + 1
       = s7.1 + toN s6 + divpow2r (toN s4) 0 + divpow2r (toN s3) 1 := by omega
@@ -1958,8 +1958,8 @@ lemma divpow2r_S (n i : ℕ) :
     divpow2r (n + 1) i
       = divpow2r n i + (if n % 2 ^ (i + 1) = 2 ^ i - 1 then 1 else 0) := by
   by_cases h : n % 2 ^ (i + 1) = 2 ^ i - 1
-  · rw [if_pos h, ← divpow2r_inc h]
-  · rw [if_neg h, ← divpow2r_eq h]
+  · rw [ite_eq_left h, ← divpow2r_inc h]
+  · rw [ite_eq_right h, ← divpow2r_eq h]
     omega
 
 /-- Coq `ctzS n`: the number of trailing binary zeros of `n + 1`. -/
@@ -2065,8 +2065,8 @@ lemma emb_wemb_s_h {e ne nne : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' : ℕ
       simp only [Prod.mk.injEq]
       refine ⟨by omega, by omega, by omega, by omega⟩
   | (j + 2) =>
-      rw [if_neg (by omega : ¬(0:ℕ) = j + 2)] at h0
-      rw [if_neg (by omega : ¬(1:ℕ) = j + 2)] at h1
+      rw [ite_eq_right (by omega : ¬(0:ℕ) = j + 2)] at h0
+      rw [ite_eq_right (by omega : ¬(1:ℕ) = j + 2)] at h1
       simp only [Prod.mk.injEq]
       refine ⟨by omega, by omega, by omega, by omega⟩
 
@@ -2103,7 +2103,7 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
     obtain ⟨Q1, Q2, Q3, Q4⟩ := Hsh'
     rw [Q1, Q2, Q3, Q4] at a70 a7
     have hadd2_2 := hadd2 2
-    rw [if_neg (by omega : ¬(2:ℕ) = 0)] at hadd2_2
+    rw [ite_eq_right (by omega : ¬(2:ℕ) = 0)] at hadd2_2
     simp only [ai'] at hadd2_2
     obtain ⟨nne, He'⟩ := embanked_precond
       (WeaklyEmbanked.intro k1 k2 ne f2 f3 f4 f5 ne' Z12' I23' H34' I45' H56'
@@ -2134,7 +2134,7 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
             have ha7 := a7 j
             have ha7' := a7' j
             have hadj := hadd2 (j + 3)
-            rw [if_neg (by omega : ¬(j + 3 : ℕ) = 0)] at hadj
+            rw [ite_eq_right (by omega : ¬(j + 3 : ℕ) = 0)] at hadj
             simp only [ai'] at hadj
             have h1 : divpow2r (toN f4 + 1) (j + 1) = divpow2r (toN f3 + 2) (j + 2) :=
               H1 (j + 1)
@@ -2144,12 +2144,12 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
       refine Add2.intro _ _ _ fun k => ?_
       rw [show toN e4 - 1 = toN f4 by omega]
       by_cases hE : k = ctzS (toN f4)
-      · rw [if_pos hE]
+      · rw [ite_eq_left hE]
         have hcond := (ctzS_spec (toN f4) k).1 hE.symm
         have hinc := divpow2r_inc hcond
         have hHa := Ha k
         omega
-      · rw [if_neg hE]
+      · rw [ite_eq_right hE]
         have hcond : ¬ toN f4 % 2 ^ (k + 1) = 2 ^ k - 1 :=
           fun hc => hE ((ctzS_spec (toN f4) k).2 hc).symm
         have heq := divpow2r_eq hcond
@@ -2165,7 +2165,7 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
       have a60c := a60'
       rw [← Q3] at a60c
       have hadd2_2 := hadd2 2
-      rw [if_neg (by omega : ¬(2:ℕ) = 1)] at hadd2_2
+      rw [ite_eq_right (by omega : ¬(2:ℕ) = 1)] at hadd2_2
       simp only [ai'] at hadd2_2
       have hd20 : divpow2r (toN e5 + 2) 0 = divpow2r (toN e5) 0 + 1 := by
         rw [divpow2r_zero, divpow2r_zero]
@@ -2192,7 +2192,7 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
           have ha7 := a7 j
           have ha7' := a7' j
           have hadj := hadd2 (j + 3)
-          rw [if_neg (by omega : ¬(j + 3 : ℕ) = 1)] at hadj
+          rw [ite_eq_right (by omega : ¬(j + 3 : ℕ) = 1)] at hadj
           simp only [ai'] at hadj
           have h1 : divpow2r (toN s6 + 1) j = divpow2r (toN e5 + 2) (j + 1) := H1 j
           have h2 : divpow2r (toN s6) j = divpow2r (toN e5) (j + 1) := H2 j
@@ -2200,7 +2200,7 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
         refine Add2.intro _ _ _ fun k => ?_
         match k with
         | 0 =>
-            rw [if_neg (by omega : ¬(0:ℕ) = ctzS (toN s6) + 1)]
+            rw [ite_eq_right (by omega : ¬(0:ℕ) = ctzS (toN s6) + 1)]
             simp only [ai']
             have h1 : divpow2r (toN s6 + 1) 0 = divpow2r (toN e5 + 2) 1 := H1 0
             have h2 : divpow2r (toN s6) 0 = divpow2r (toN e5) 1 := H2 0
@@ -2209,11 +2209,11 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
             simp only [ai']
             have hHa := Ha j
             by_cases hE : j = ctzS (toN s6)
-            · rw [if_pos (by omega : j + 1 = ctzS (toN s6) + 1)]
+            · rw [ite_eq_left (by omega : j + 1 = ctzS (toN s6) + 1)]
               have hcond := (ctzS_spec (toN s6) j).1 hE.symm
               have hinc := divpow2r_inc hcond
               omega
-            · rw [if_neg (by omega : ¬(j + 1 : ℕ) = ctzS (toN s6) + 1)]
+            · rw [ite_eq_right (by omega : ¬(j + 1 : ℕ) = ctzS (toN s6) + 1)]
               have hcond : ¬ toN s6 % 2 ^ (j + 1) = 2 ^ j - 1 :=
                 fun hc => hE ((ctzS_spec (toN s6) j).2 hc).symm
               have heq := divpow2r_eq hcond
@@ -2239,11 +2239,11 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
         | 0 =>
             simp only [ai']
             by_cases hE : (0 : ℕ) = i0
-            · rw [if_pos hE]
-              rw [if_pos (by omega : (2 : ℕ) = i0 + 1 + 1)] at hadd2_2
+            · rw [ite_eq_left hE]
+              rw [ite_eq_left (by omega : (2 : ℕ) = i0 + 1 + 1)] at hadd2_2
               omega
-            · rw [if_neg hE]
-              rw [if_neg (by omega : ¬(2 : ℕ) = i0 + 1 + 1)] at hadd2_2
+            · rw [ite_eq_right hE]
+              rw [ite_eq_right (by omega : ¬(2 : ℕ) = i0 + 1 + 1)] at hadd2_2
               omega
         | (j + 1) =>
             simp only [ai']
@@ -2252,11 +2252,11 @@ lemma emb_wemb_Add2_emb {e ne ne' : S17} {i s_1 h_1 s_2 h_2 s_1' h_1' s_2' h_2' 
             have hadj := hadd2 (j + 3)
             simp only [ai'] at hadj
             by_cases hE : (j + 1 : ℕ) = i0
-            · rw [if_pos hE]
-              rw [if_pos (by omega : (j + 3 : ℕ) = i0 + 1 + 1)] at hadj
+            · rw [ite_eq_left hE]
+              rw [ite_eq_left (by omega : (j + 3 : ℕ) = i0 + 1 + 1)] at hadj
               omega
-            · rw [if_neg hE]
-              rw [if_neg (by omega : ¬(j + 3 : ℕ) = i0 + 1 + 1)] at hadj
+            · rw [ite_eq_right hE]
+              rw [ite_eq_right (by omega : ¬(j + 3 : ℕ) = i0 + 1 + 1)] at hadj
               omega
 
 /-! ## Level 5: `embanked_batch` (Coq lines 3666–4025) -/
@@ -2324,8 +2324,8 @@ lemma embanked_Add2SS_embanked {i : ℕ} {e ne : S17} {s_1' h_1' s_2' h_2' : ℕ
   have h0 := add2_inv Ha 0
   have h1 := add2_inv Ha 1
   simp only [ai'] at h0 h1
-  rw [if_neg (by omega : ¬(0:ℕ) = i + 2)] at h0
-  rw [if_neg (by omega : ¬(1:ℕ) = i + 2)] at h1
+  rw [ite_eq_right (by omega : ¬(0:ℕ) = i + 2)] at h0
+  rw [ite_eq_right (by omega : ¬(1:ℕ) = i + 2)] at h1
   rw [hleq] at hs1l hs1a0_lt hs1a1_lt
   obtain ⟨ne0, t1, t2, t3, t4, Hwe⟩ := weakly_embanked_precond hwf7 hs7s hs7n
     hs1l (dec_to_0_a0_odd hs7s hs7n) (by omega) (by omega)
@@ -2638,7 +2638,7 @@ lemma le_ctzS_sum (i m : ℕ) :
   have hspec := (ctzS_spec m (ctzS m)).1 rfl
   have hpi : 0 < 2 ^ i := Nat.two_pow_pos i
   by_cases hE : i ≤ ctzS m
-  · rw [if_pos hE]
+  · rw [ite_eq_left hE]
     have hdvd : (2:ℕ) ^ i ∣ 2 ^ (ctzS m + 1) := pow_dvd_pow 2 (by omega)
     have h1 : m % 2 ^ i = (m % 2 ^ (ctzS m + 1)) % 2 ^ i :=
       (Nat.mod_mod_of_dvd m hdvd).symm
@@ -2664,7 +2664,7 @@ lemma le_ctzS_sum (i m : ℕ) :
       rw [show m + 1 = 2 ^ i * (m / 2 ^ i + 1) by omega,
         Nat.mul_div_cancel_left _ hpi]
     omega
-  · rw [if_neg hE]
+  · rw [ite_eq_right hE]
     have hdvd : (2:ℕ) ^ (ctzS m + 1) ∣ 2 ^ i := pow_dvd_pow 2 (by omega)
     have hq := Nat.div_add_mod m (2 ^ i)
     have hrlt : m % 2 ^ i < 2 ^ i := Nat.mod_lt _ hpi

@@ -423,7 +423,7 @@ lemma Base1_spec : BaseS 1 Base1 := by
   | (n + 3) =>
       have h1 : ai (n + 3) Base1 = 0 := by
         simp [ai, Base1]
-      rw [h1, if_neg (by omega)]
+      rw [h1, ite_eq_right (by omega)]
 
 /-- Coq `Base_1_toConfig`. -/
 lemma Base1_toConfig : toConfig Base1 (lower [0, 4, 2, 0]) :=
@@ -501,11 +501,11 @@ lemma Base_ne {k : ℕ} (hk : k ≠ 0) {b b' : S17} {c c' : Config 4 1}
   · simp at hbl'
   · have ha : a = 2 ^ (k * 2) := by
       have := hba 0
-      rw [if_pos (by omega)] at this
+      rw [ite_eq_left (by omega)] at this
       simpa [ai] using this
     have ha' : a' = 2 ^ ((k + 1) * 2) := by
       have := hba' 0
-      rw [if_pos (by omega)] at this
+      rw [ite_eq_left (by omega)] at this
       simpa [ai] using this
     have hlt : a < a' := by
       rw [ha, ha']

@@ -933,7 +933,7 @@ lemma rxs_rxs (n m : ℕ) (t : List Rsym) : rxs n (rxs m t) = rxs (n + m) t := b
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [Nat.zero_add]; rfl
   unfold rxs
-  rw [if_neg hm.ne', if_neg hn.ne', if_neg (by omega : ¬ n + m = 0)]
+  rw [ite_eq_right hm.ne', ite_eq_right hn.ne', ite_eq_right (by omega : ¬ n + m = 0)]
   cases t with
   | nil => rfl
   | cons s t => cases s with
@@ -946,7 +946,7 @@ lemma Grs_Grs (n m : ℕ) (t : List Rsym) : Grs n (Grs m t) = Grs (n + m) t := b
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [Nat.zero_add]; rfl
   unfold Grs
-  rw [if_neg hm.ne', if_neg hn.ne', if_neg (by omega : ¬ n + m = 0)]
+  rw [ite_eq_right hm.ne', ite_eq_right hn.ne', ite_eq_right (by omega : ¬ n + m = 0)]
   cases t with
   | nil => rfl
   | cons s t => cases s with
@@ -959,7 +959,7 @@ lemma stride_rxs (xs n xs' : ℕ) (t : List Rsym) :
     stride xs n (rxs xs' t) = stride (xs + xs') n t := by
   rcases Nat.eq_zero_or_pos xs' with rfl | hxs'
   · rw [Nat.add_zero]; rfl
-  unfold rxs; rw [if_neg hxs'.ne']
+  unfold rxs; rw [ite_eq_right hxs'.ne']
   cases t with
   | nil => rfl
   | cons s t => cases s with
@@ -971,7 +971,7 @@ lemma stride_rxs (xs n xs' : ℕ) (t : List Rsym) :
 lemma strideLevel_rxs (xs : ℕ) (t : List Rsym) : strideLevel (rxs xs t) = strideLevel t := by
   rcases Nat.eq_zero_or_pos xs with hxs | hxs
   · subst hxs; simp [rxs]
-  · unfold rxs; rw [if_neg (by omega)]
+  · unfold rxs; rw [ite_eq_right (by omega)]
     cases t with
     | nil => rfl
     | cons s t => cases s <;> rfl
@@ -979,7 +979,7 @@ lemma strideLevel_rxs (xs : ℕ) (t : List Rsym) : strideLevel (rxs xs t) = stri
 lemma strideLevel_Grs (xs : ℕ) (t : List Rsym) : strideLevel (Grs xs t) = strideLevel t := by
   rcases Nat.eq_zero_or_pos xs with hxs | hxs
   · subst hxs; simp [Grs]
-  · unfold Grs; rw [if_neg (by omega)]
+  · unfold Grs; rw [ite_eq_right (by omega)]
     cases t with
     | nil => rfl
     | cons s t => cases s <;> rfl
@@ -1039,7 +1039,7 @@ lemma stride_more (t t' : List Rsym) (xs xs' n : ℕ) (H : stride xs' n t = some
       rename_i hle
       split at H <;> [skip; simp at H]
       rename_i t1 hE; simp only [Option.some.injEq] at H; subst H
-      rw [if_pos (by omega), rxs_rxs, show xs + xs' - n = xs + (xs' - n) from by omega]
+      rw [ite_eq_left (by omega), rxs_rxs, show xs + xs' - n = xs + (xs' - n) from by omega]
     | P =>
       cases t with
       | nil =>
@@ -1063,32 +1063,32 @@ lemma stride_Grs (t t' : List Rsym) (xs gs n : ℕ) (H : stride 0 n t = some t')
     cases s with
     | Gs k =>
       rw [show Grs gs (Rsym.Gs k :: t2) = Rsym.Gs (gs + k) :: t2 from by
-        unfold Grs; rw [if_neg hgs.ne']]
+        unfold Grs; rw [ite_eq_right hgs.ne']]
       simp only [stride] at H ⊢
       split at H <;> [skip; simp at H]
       rename_i t1 hE; simp only [Option.some.injEq] at H; subst H
       rw [show rxs 0 (Grs k t1) = Grs k t1 from rfl, Grs_Grs]
     | xs k =>
       rw [show Grs gs (Rsym.xs k :: t2) = Rsym.Gs gs :: (Rsym.xs k :: t2) from by
-        unfold Grs; rw [if_neg hgs.ne'],
+        unfold Grs; rw [ite_eq_right hgs.ne'],
         show stride xs n (Rsym.Gs gs :: (Rsym.xs k :: t2))
           = match stride 0 n (Rsym.xs k :: t2) with
             | some t1 => some (rxs xs (Grs gs t1)) | none => none from rfl, H]
     | D =>
       rw [show Grs gs (Rsym.D :: t2) = Rsym.Gs gs :: (Rsym.D :: t2) from by
-        unfold Grs; rw [if_neg hgs.ne'],
+        unfold Grs; rw [ite_eq_right hgs.ne'],
         show stride xs n (Rsym.Gs gs :: (Rsym.D :: t2))
           = match stride 0 n (Rsym.D :: t2) with
             | some t1 => some (rxs xs (Grs gs t1)) | none => none from rfl, H]
     | C =>
       rw [show Grs gs (Rsym.C :: t2) = Rsym.Gs gs :: (Rsym.C :: t2) from by
-        unfold Grs; rw [if_neg hgs.ne'],
+        unfold Grs; rw [ite_eq_right hgs.ne'],
         show stride xs n (Rsym.Gs gs :: (Rsym.C :: t2))
           = match stride 0 n (Rsym.C :: t2) with
             | some t1 => some (rxs xs (Grs gs t1)) | none => none from rfl, H]
     | P =>
       rw [show Grs gs (Rsym.P :: t2) = Rsym.Gs gs :: (Rsym.P :: t2) from by
-        unfold Grs; rw [if_neg hgs.ne'],
+        unfold Grs; rw [ite_eq_right hgs.ne'],
         show stride xs n (Rsym.Gs gs :: (Rsym.P :: t2))
           = match stride 0 n (Rsym.P :: t2) with
             | some t1 => some (rxs xs (Grs gs t1)) | none => none from rfl, H]
@@ -1124,10 +1124,10 @@ lemma stride_add (t t2 : List Rsym) (xs n m : ℕ) (H : stride xs (n + m) t = so
       obtain ⟨t1, h1, h2⟩ := IH t2' 0 (4 * n) (4 * m) hE
       refine ⟨rxs (xs - n) (.C :: rxs (2 * n) t1), ?_, ?_⟩
       · show stride xs n (Rsym.C :: t) = _
-        simp only [stride]; rw [if_pos (by omega : n ≤ xs), h1]
+        simp only [stride]; rw [ite_eq_left (by omega : n ≤ xs), h1]
       · rw [stride_rxs, Nat.zero_add]
         show stride (xs - n) m (Rsym.C :: rxs (2 * n) t1) = _
-        simp only [stride]; rw [if_pos (by omega : m ≤ xs - n), stride_rxs]
+        simp only [stride]; rw [ite_eq_left (by omega : m ≤ xs - n), stride_rxs]
         have h2' := stride_more t1 t2' (2 * n) 0 (4 * m) h2
         rw [Nat.add_zero] at h2'
         rw [Nat.zero_add, h2']
@@ -1337,7 +1337,7 @@ lemma Fls_Fls (n m : ℕ) (l : List Lsym) : Fls n (Fls m l) = Fls (n + m) l := b
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [Nat.zero_add]; rfl
   unfold Fls
-  rw [if_neg hm.ne', if_neg hn.ne', if_neg (by omega : ¬ n + m = 0)]
+  rw [ite_eq_right hm.ne', ite_eq_right hn.ne', ite_eq_right (by omega : ¬ n + m = 0)]
   cases l with
   | nil => rfl
   | cons s l => cases s with
@@ -1541,7 +1541,7 @@ lemma lxs_lxs (n m : ℕ) (t : List Lsym) : lxs n (lxs m t) = lxs (n + m) t := b
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [Nat.zero_add]; rfl
   unfold lxs
-  rw [if_neg hm.ne', if_neg hn.ne', if_neg (by omega : ¬ n + m = 0)]
+  rw [ite_eq_right hm.ne', ite_eq_right hn.ne', ite_eq_right (by omega : ¬ n + m = 0)]
   cases t with
   | nil => rfl
   | cons s t => cases s with
@@ -1555,7 +1555,7 @@ lemma Gls_Gls (n m : ℕ) (t : List Lsym) : Gls n (Gls m t) = Gls (n + m) t := b
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [Nat.zero_add]; rfl
   unfold Gls
-  rw [if_neg hm.ne', if_neg hn.ne', if_neg (by omega : ¬ n + m = 0)]
+  rw [ite_eq_right hm.ne', ite_eq_right hn.ne', ite_eq_right (by omega : ¬ n + m = 0)]
   cases t with
   | nil => rfl
   | cons s t => cases s with
@@ -1569,7 +1569,7 @@ lemma Hls_Hls (n m : ℕ) (t : List Lsym) : Hls n (Hls m t) = Hls (n + m) t := b
   rcases Nat.eq_zero_or_pos n with rfl | hn
   · rw [Nat.zero_add]; rfl
   unfold Hls
-  rw [if_neg hm.ne', if_neg hn.ne', if_neg (by omega : ¬ n + m = 0)]
+  rw [ite_eq_right hm.ne', ite_eq_right hn.ne', ite_eq_right (by omega : ¬ n + m = 0)]
   cases t with
   | nil => rfl
   | cons s t => cases s with
@@ -1767,7 +1767,7 @@ lemma strideH_subst (m : ℕ) {rt rt' : List Rsym} {t : List HRsym} :
               have inner := IH hs (by omega) hrt
               simp only [HN.subst] at inner
               rw [substR]
-              simp only [stride, if_pos (HN.le?_true hle m), inner]
+              simp only [stride, ite_eq_left (HN.le?_true hle m), inner]
               rw [substR_rxsH m rt' ht3, HN.sub_subst hle]
               simp only [substR]
               rw [substR_rxsH m rt' h2]
@@ -2123,7 +2123,7 @@ lemma substL_start (m : ℕ) (lt : List Lsym) :
   refine congrArg _ (congrArg _ ?_)
   show lxs (m + (uni_P + 1)) (Jconst ++ lt) = .xs (m + (uni_P + 1)) :: Jconst ++ lt
   unfold lxs
-  rw [if_neg (by unfold uni_P; omega)]
+  rw [ite_eq_right (by unfold uni_P; omega)]
   rfl
 
 /-- Substituting the end configuration's left tape. -/
@@ -2140,7 +2140,7 @@ lemma substL_end (m : ℕ) (lt : List Lsym) :
   show lxs (m + 1) (Jconst ++ ([.xs 10344, .D, .xs 7640, .C2] ++ lt)) =
     .xs (m + 1) :: Jconst ++ ([.xs 10344, .D, .xs 7640, .C2] ++ lt)
   unfold lxs
-  rw [if_neg (by omega)]
+  rw [ite_eq_right (by omega)]
   rfl
 
 /-- Lift congruence through a common prefix. -/
@@ -2425,7 +2425,7 @@ lemma substL_JH (m : ℕ) (lt : List Lsym) (l : List HLsym) :
 lemma lxs_J (k : ℕ) (hk : k ≠ 0) (X : List Lsym) :
     lxs k (Jconst ++ X) = .xs k :: Jconst ++ X := by
   unfold lxs
-  rw [if_neg hk]
+  rw [ite_eq_right hk]
   rfl
 
 /-- `substL` through the uni-cycle head shape (definitional except the
@@ -2446,7 +2446,7 @@ lemma substL_xs_pure (m : ℕ) (lt : List Lsym) (k : ℕ) (hk : k ≠ 0)
   show lxs (HN.subst m (.pure k)) (substL m lt (JH ++ l)) = _
   rw [HN.subst_pure, substL_JH]
   unfold lxs
-  rw [if_neg hk]
+  rw [ite_eq_right hk]
   rfl
 
 set_option maxHeartbeats 1000000 in
@@ -2462,14 +2462,14 @@ lemma tryUniCycleH_sound {c c' : HConf} (h : tryUniCycleH c = some c')
     obtain ⟨l, hJ, h⟩ := h
     simp only at h
     by_cases hk0 : uniCycleCountH xs r = 0
-    · rw [if_pos hk0] at h; exact absurd h (by simp)
-    · rw [if_neg hk0] at h
+    · rw [ite_eq_left hk0] at h; exact absurd h (by simp)
+    · rw [ite_eq_right hk0] at h
       rw [Option.bind_eq_some_iff] at h
       obtain ⟨p, hstr, h⟩ := h
       obtain ⟨r', d⟩ := p
       by_cases hd0 : d = 0
       · subst hd0
-        rw [if_pos rfl] at h
+        rw [ite_eq_left rfl] at h
         rw [Option.bind_eq_some_iff] at h
         obtain ⟨l', hFls, h⟩ := h
         rw [Option.map_eq_some_iff] at h
@@ -2499,7 +2499,7 @@ lemma tryUniCycleH_sound {c c' : HConf} (h : tryUniCycleH c = some c')
           substL_FlsH m lt hFls, substR_GrsH m rt hGrs, HN.subst_pure]
         rw [hsub, hxs]
         exact key
-      · rw [if_neg hd0] at h; exact absurd h (by simp)
+      · rw [ite_eq_right hd0] at h; exact absurd h (by simp)
   · exact absurd h (by simp)
 
 /-! ## Event-driven het runner (window chunks) -/
@@ -2525,7 +2525,7 @@ lemma stepEH_sound {e : ℕ} {c c' : HConf} (h : stepEH e c = some c')
     obtain ⟨⟨c0, d⟩, hst, h'⟩ := h'
     by_cases hd : d = 0
     · subst hd
-      rw [if_pos rfl] at h'
+      rw [ite_eq_left rfl] at h'
       injection h' with h'
       subst h'
       obtain ⟨dir, l, r⟩ := c
@@ -2541,7 +2541,7 @@ lemma stepEH_sound {e : ℕ} {c c' : HConf} (h : stepEH e c = some c')
         simp only [HN.subst_pure] at key
         simp only [HConf.subst, SConf.lift]
         exact stride_correct_0 _ _ _ key
-    · rw [if_neg hd] at h'; exact absurd h' (by simp)
+    · rw [ite_eq_right hd] at h'; exact absurd h' (by simp)
   | n + 2 => exact tryUniCycleH_sound h m lt rt
 
 /-- Run one packed group of `k ≤ 64` events (2 bits each, little-endian). -/

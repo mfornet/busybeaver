@@ -192,7 +192,7 @@ by {
 }
 
 lemma one_transition (hMt: M.halts_in n default) (hM: M.n_halting_trans = 1): terminating_children M = {⟨M, n, hMt⟩} :=
-by {
+by
   simp [terminating_children]
   ext M'
   simp
@@ -202,35 +202,27 @@ by {
     cases h
     simp
   intro hM'
-  obtain ⟨C, hCl, hCr⟩ := hMt
-
+  have hMt' := hMt
+  obtain ⟨C, hCl, hCr⟩ := hMt'
   obtain ⟨M', n', t'⟩ := M'
-  suffices M' = M by {
+  suffices M' = M by
     cases this
     simp
     apply Machine.halts_in.deterministic t'
     use C
-  }
-
   simp at hM'
   by_contra neq
   push Not at neq
-
   have hsub := is_child.ne_halt_trans_ssub hM' neq.symm
-
   have le1 := calc M'.n_halting_trans
-    _ < M.n_halting_trans := by {
+    _ < M.n_halting_trans := by
       simp [n_halting_trans]
       exact Finset.card_lt_card hsub
-    }
     _ = 1 := hM
   simp at le1
-
   have M'ns := Machine.halting_trans.eq_zero_nonhalts le1
-
   apply M'ns
   use n'
-}
 
 /-
 If two TMs have different next statements, their terminating_children are disjoint.

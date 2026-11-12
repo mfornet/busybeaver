@@ -390,11 +390,11 @@ lemma conds_of {cfg : Config} {M : Machine 4 1} {nfa : NFASet} {acc : AccSet}
     have h := hl s0 (by simp [labels]) i0 (by simp [symbols])
     simp only [heq, List.all_eq_true] at h
     have h6 := h u1 hu i2 (by simp [symbols]) su2 hsu2 su3 hsu3
-    rwa [if_pos e1, if_pos e2] at h6
+    rwa [ite_eq_left e1, ite_eq_left e2] at h6
   · intro su0 su1 hsu0 hsu1 e hacc
     unfold Edge at e
     have h2 := haccClosed su0 hsu0 su1 hsu1
-    rwa [if_pos e, if_pos hacc] at h2
+    rwa [ite_eq_left e, ite_eq_left hacc] at h2
   · intro u hu i
     exact of_decide_eq_true
       (hdfaClosed u (by rw [Config.uList, List.mem_range]; exact hu) i (by simp [symbols]))

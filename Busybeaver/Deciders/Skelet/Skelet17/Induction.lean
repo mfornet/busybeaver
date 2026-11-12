@@ -59,7 +59,7 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
       omega
     have h2 := ha (k * 2)
     simp only [ai] at h2
-    rw [h1, h2, if_neg (by omega)]
+    rw [h1, h2, ite_eq_right (by omega)]
   have hxs_eq : xs = xs.dropLast ++ [0] := by
     conv_lhs => rw [← List.dropLast_append_getLast hxs_ne]
     rw [hlast]
@@ -74,7 +74,7 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
       rw [List.getElem_dropLast, List.getD_eq_getElem _ _ (by omega)]
     have h2 := ha i
     simp only [ai] at h2
-    rw [hgd, h2, if_pos hi]
+    rw [hgd, h2, ite_eq_left hi]
     exact (Nat.two_pow_pos _).ne'
   have hev : AllEven xs := baseS_allEven ha
   -- preconditions of the weakly-embanked chain
@@ -96,10 +96,10 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
     conv_lhs => rw [show k * 2 = (k * 2 - 1) + 1 by omega]
     exact two_pow_succ' _
   have ha1 : ai 0 (1, xs) = 2 ^ (k * 2) := by
-    rw [ha 0, if_pos (by omega)]
+    rw [ha 0, ite_eq_left (by omega)]
     norm_num
   have ha2 : ai 1 (1, xs) = 2 ^ (k * 2 - 1) := by
-    rw [ha 1, if_pos (by omega)]
+    rw [ha 1, ite_eq_left (by omega)]
   have htl : toL (1, xs) = k * 2 + 1 := by rw [toL_def, hal]
   obtain ⟨s6, s_1, h_1, s_2, h_2, Hwemb⟩ := weakly_embanked_precond hwf1 hts htn
     (by omega) (by exact ⟨0, rfl⟩) (by rw [htl]; omega)
@@ -143,7 +143,7 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
     match j with
     | 0 =>
         simp only [ai']
-        rw [if_neg (by omega : ¬(0:ℕ) = k * 2 + 1)]
+        rw [ite_eq_right (by omega : ¬(0:ℕ) = k * 2 + 1)]
         rw [e50, e40, e31, ha2] at a70
         omega
     | (j + 1) =>
@@ -163,12 +163,12 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
             have := divpow2r_pow2sub1 (j + 1) (k * 2) (by omega)
             simpa [show k * 2 - (j + 1 + 1) = k * 2 - j - 2 by omega] using this
           rw [d1, d2, d3] at haj
-          rw [if_pos (by omega : j < k * 2), if_neg (by omega : ¬(j + 1 : ℕ) = k * 2 + 1)]
+          rw [ite_eq_left (by omega : j < k * 2), ite_eq_right (by omega : ¬(j + 1 : ℕ) = k * 2 + 1)]
           have hp1 : (2:ℕ) ^ (k * 2 - j) = 2 ^ (k * 2 - j - 1) + 2 ^ (k * 2 - j - 1) := by
             conv_lhs => rw [show k * 2 - j = (k * 2 - j - 1) + 1 by omega]
             exact two_pow_succ' _
           rcases Nat.lt_trichotomy (j + 2) (k * 2) with hr2 | hr2 | hr2
-          · rw [if_neg (by omega : ¬(j + 2 : ℕ) = k * 2), if_pos (by omega)] at haj
+          · rw [ite_eq_right (by omega : ¬(j + 2 : ℕ) = k * 2), ite_eq_left (by omega)] at haj
             have hp2 : (2:ℕ) ^ (k * 2 - j - 1)
                 = 2 ^ (k * 2 - j - 2) + 2 ^ (k * 2 - j - 2) := by
               conv_lhs => rw [show k * 2 - j - 1 = (k * 2 - j - 2) + 1 by omega]
@@ -176,7 +176,7 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
             have he : k * 2 - (j + 2) = k * 2 - j - 2 := by omega
             rw [he] at haj
             omega
-          · rw [if_pos (by omega : (j + 2 : ℕ) = k * 2), if_neg (by omega)] at haj
+          · rw [ite_eq_left (by omega : (j + 2 : ℕ) = k * 2), ite_eq_right (by omega)] at haj
             have : k * 2 - j - 2 = 0 := by omega
             rw [this] at haj
             have : (2:ℕ) ^ (0:ℕ) = 1 := rfl
@@ -190,10 +190,10 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
             simpa [show k * 2 - (j + 1) = 0 by omega] using this
           have d3 : divpow2r (2 ^ (k * 2) - 1) (j + 1) = 0 :=
             divpow2r_pow2sub1_small (by omega)
-          rw [d1, d2, d3, if_neg (by omega : ¬(j + 2 : ℕ) = k * 2),
-            if_neg (by omega : ¬(j + 2) < k * 2)] at haj
-          rw [if_pos (by omega : j < k * 2),
-            if_neg (by omega : ¬(j + 1 : ℕ) = k * 2 + 1),
+          rw [d1, d2, d3, ite_eq_right (by omega : ¬(j + 2 : ℕ) = k * 2),
+            ite_eq_right (by omega : ¬(j + 2) < k * 2)] at haj
+          rw [ite_eq_left (by omega : j < k * 2),
+            ite_eq_right (by omega : ¬(j + 1 : ℕ) = k * 2 + 1),
             show k * 2 - j = 1 by omega]
           omega
         · rcases Nat.lt_trichotomy j (k * 2) with hr2 | hr2 | hr2
@@ -206,9 +206,9 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
               exact divpow2r_pow2_1 _
             have d3 : divpow2r (2 ^ (k * 2) - 1) (j + 1) = 0 :=
               divpow2r_pow2sub1_small (by omega)
-            rw [d1, d2, d3, if_neg (by omega : ¬(j + 2 : ℕ) = k * 2),
-              if_neg (by omega : ¬(j + 2) < k * 2)] at haj
-            rw [if_neg (by omega : ¬j < k * 2), if_pos (by omega : j + 1 = k * 2 + 1)]
+            rw [d1, d2, d3, ite_eq_right (by omega : ¬(j + 2 : ℕ) = k * 2),
+              ite_eq_right (by omega : ¬(j + 2) < k * 2)] at haj
+            rw [ite_eq_right (by omega : ¬j < k * 2), ite_eq_left (by omega : j + 1 = k * 2 + 1)]
             omega
           · have d1 : divpow2r (2 ^ (k * 2 + 1)) (j + 1) = 0 :=
               divpow2r_pow2_small (by omega)
@@ -216,10 +216,10 @@ lemma Base_embanked {k : ℕ} (hk : k ≠ 0) {s1 : S17} (HB : BaseS k s1) :
               divpow2r_pow2_small (by omega)
             have d3 : divpow2r (2 ^ (k * 2) - 1) (j + 1) = 0 :=
               divpow2r_pow2sub1_small (by omega)
-            rw [d1, d2, d3, if_neg (by omega : ¬(j + 2 : ℕ) = k * 2),
-              if_neg (by omega : ¬(j + 2) < k * 2)] at haj
-            rw [if_neg (by omega : ¬j < k * 2),
-              if_neg (by omega : ¬(j + 1 : ℕ) = k * 2 + 1)]
+            rw [d1, d2, d3, ite_eq_right (by omega : ¬(j + 2 : ℕ) = k * 2),
+              ite_eq_right (by omega : ¬(j + 2) < k * 2)] at haj
+            rw [ite_eq_right (by omega : ¬j < k * 2),
+              ite_eq_right (by omega : ¬(j + 1 : ℕ) = k * 2 + 1)]
             omega
   refine ⟨s7, s_1, s_2, ?_, HAdd⟩
   rw [← hh_1, ← hh_2]
@@ -243,7 +243,7 @@ lemma Base_embanked_batch {k : ℕ} (hk : k ≠ 0) {e : S17} (HB : BaseS k e) :
   · rw [Ha1, hmod]
     simp only [ai']
     have := ha 0
-    rw [if_pos (by omega)] at this
+    rw [ite_eq_left (by omega)] at this
     simp only [Nat.sub_zero] at this
     omega
 
@@ -773,13 +773,13 @@ lemma Sk_to_E'' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
     intro i h2i hik
     obtain ⟨j, rfl⟩ : ∃ j, i = j + 2 := ⟨i - 2, by omega⟩
     have hAdd1 := add2s_inv (embanked_batch_Add2s HebF) (j + 2)
-    rw [if_neg (by omega)] at hAdd1
+    rw [ite_eq_right (by omega)] at hAdd1
     have hAdd0 := add2s_inv Hadd2s0 (j + 2)
     have hai := Ha (j + 1)
     have hdiv : (2 ^ (k * 2) - 2) / 2 ^ (j + 1) = 2 ^ (k * 2 - (j + 1)) - 1 :=
       pow2sub2_div_pow2 (by omega) (by omega)
     have hb := hba (j + 1)
-    rw [if_pos (by omega)] at hb
+    rw [ite_eq_left (by omega)] at hb
     simp only [ai'] at hAdd1 hAdd0 ⊢
     rw [hdiv] at hai
     rw [hb] at hAdd0
@@ -789,15 +789,15 @@ lemma Sk_to_E'' {k : ℕ} {Sk : S17} (HBase : BaseS k Sk) (hk : k ≠ 0) :
     split_ifs at hAdd0 with hc <;> omega
   · -- the top digit
     have hAdd1 := add2s_inv (embanked_batch_Add2s HebF) (k * 2 + 1)
-    rw [if_neg (by omega)] at hAdd1
+    rw [ite_eq_right (by omega)] at hAdd1
     have hAdd0 := add2s_inv Hadd2s0 (k * 2 + 1)
-    rw [if_pos (by omega)] at hAdd0
+    rw [ite_eq_left (by omega)] at hAdd0
     have hai := Ha (k * 2)
     have hdiv : (2 ^ (k * 2) - 2) / 2 ^ (k * 2) = 0 := by
       apply Nat.div_eq_of_lt
       omega
     have hb := hba (k * 2)
-    rw [if_neg (by omega)] at hb
+    rw [ite_eq_right (by omega)] at hb
     obtain ⟨j, hj⟩ : ∃ j, k * 2 + 1 = j + 1 := ⟨k * 2, rfl⟩
     simp only [ai'] at hAdd1 hAdd0 ⊢
     rw [hdiv] at hai
@@ -869,7 +869,7 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
   have ha30 := Increments_a0 I23
   have ha3 := Increments_a I23
   rw [hs2] at hn3 ha30 ha3
-  simp only [Bool.false_eq_true, if_false] at hn3 ha30 ha3
+  simp only [Bool.false_eq_true, ite_false] at hn3 ha30 ha3
   have ha30_0 : s3.1 = 0 := by omega
   have hn3' : toN s3 = 3 := by omega
   -- Halve
@@ -903,7 +903,7 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
   have ha50 := Increments_a0 I45
   have ha5 := Increments_a I45
   rw [hs4'] at hn5 ha50 ha5
-  simp only [if_true] at hn5 ha50 ha5
+  simp only [ite_true] at hn5 ha50 ha5
   have ha50' : s5.1 = 1 := by omega
   have hn5' : toN s5 = 2 ^ (k * 2 + 2) - 1 := by omega
   have hl5' : toL s5 = k * 2 + 2 := by omega
@@ -946,14 +946,14 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
   -- `ai 0 s6 = 2^(k*2+2) - 4`
   have ha61' : ai 0 s6 = 2 ^ (k * 2 + 2) - 4 := by
     have h6 := ha6 0
-    rw [if_neg (by omega)] at h6
+    rw [ite_eq_right (by omega)] at h6
     have h5 := ha5 0
     rw [hn4', hn5', hdp10, hdpB 0 (by omega)] at h5
     have h4 : ai 0 s4 = ai 1 s3 := ha4 0
     have h3 := ha3 1
     rw [hn2', hn3', hdpA 1 (by omega), hdp31] at h3
     have h2 := ha2 1
-    rw [if_neg (by omega)] at h2
+    rw [ite_eq_right (by omega)] at h2
     have h1 := ha1 2 (by omega) (by omega)
     simp only [ai'] at h1
     rw [show k * 2 + 1 - 2 = k * 2 - 1 by omega] at h1
@@ -970,7 +970,7 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
   have ha6last' : ai' (k * 2 + 3) s6 = 0 := by
     simp only [ai']
     have h6 := ha6 (k * 2 + 2)
-    rw [if_neg (by omega)] at h6
+    rw [ite_eq_right (by omega)] at h6
     have h5 := ha5 (k * 2 + 2)
     rw [hn4', hn5', hdp1 _ (by omega),
       divpow2r_pow2sub1_small (by omega : k * 2 + 2 ≤ k * 2 + 2)] at h5
@@ -978,7 +978,7 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
     have h3 := ha3 (k * 2 + 3)
     rw [hn2', hn3', hdpAs _ (by omega), hdp3 _ (by omega)] at h3
     have h2 := ha2 (k * 2 + 3)
-    rw [if_neg (by omega)] at h2
+    rw [ite_eq_right (by omega)] at h2
     have h1o : ai (k * 2 + 3) s1 = 0 := ai_out_of_bound (by omega)
     have h1o2 : ai (k * 2 + 2 + 1) s3 = ai (k * 2 + 3) s3 := by
       rw [show k * 2 + 2 + 1 = k * 2 + 3 by omega]
@@ -1000,8 +1000,8 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
       with hcase | hcase | hcase | hcase
     · -- interior
       rw [hdpA (u + 1) (by omega)] at h3
-      rw [if_neg (by omega)] at h2
-      rw [if_neg (by omega)] at h6
+      rw [ite_eq_right (by omega)] at h2
+      rw [ite_eq_right (by omega)] at h6
       have h1 := ha1 (u + 2) (by omega) (by omega)
       simp only [ai'] at h1
       have hE1 : k * 2 + 1 - (u + 1 + 1) = k * 2 - 1 - u := by omega
@@ -1027,8 +1027,8 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
     · -- u = k*2 - 1
       subst hcase
       rw [hdpA (k * 2 - 1 + 1) (by omega)] at h3
-      rw [if_pos (by omega : k * 2 - 1 + 1 = k * 2 + 1 - 1)] at h2
-      rw [if_neg (by omega)] at h6
+      rw [ite_eq_left (by omega : k * 2 - 1 + 1 = k * 2 + 1 - 1)] at h2
+      rw [ite_eq_right (by omega)] at h6
       rw [show k * 2 + 1 - (k * 2 - 1 + 1 + 1) = 0 by omega, pow_zero] at h3
       rw [show k * 2 - 1 + 1 = k * 2 by omega] at h2 h3 h4
       rw [show k * 2 + 2 - (k * 2 - 1 + 1) = 2 by omega,
@@ -1041,8 +1041,8 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
     · -- u = k*2
       subst hcase
       rw [hdpAs (k * 2 + 1) (by omega)] at h3
-      rw [if_neg (by omega)] at h2
-      rw [if_neg (by omega)] at h6
+      rw [ite_eq_right (by omega)] at h2
+      rw [ite_eq_right (by omega)] at h6
       have h1o : ai (k * 2 + 1) s1 = 0 := ai_out_of_bound (by omega)
       rw [show k * 2 + 2 - (k * 2 + 1) = 1 by omega, pow_one] at h5
       rw [show k * 2 + 3 - (k * 2 + 1) = 2 by omega,
@@ -1053,8 +1053,8 @@ lemma E''_Overflow {k : ℕ} (hk : k ≠ 0) {s1 : S17}
     · -- u = k*2 + 1
       subst hcase
       rw [hdpAs (k * 2 + 2) (by omega)] at h3
-      rw [if_neg (by omega)] at h2
-      rw [if_pos (by omega)] at h6
+      rw [ite_eq_right (by omega)] at h2
+      rw [ite_eq_left (by omega)] at h6
       have h1o : ai (k * 2 + 1 + 1) s1 = 0 := ai_out_of_bound (by omega)
       rw [show k * 2 + 2 - (k * 2 + 1 + 1) = 0 by omega, pow_zero] at h5
       rw [show k * 2 + 3 - (k * 2 + 1 + 1) = 1 by omega, pow_one]
@@ -1186,7 +1186,7 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
   match t with
   | 0 =>
       simp only [ai']
-      rw [if_neg (by omega)]
+      rw [ite_eq_right (by omega)]
       have h2v : ai 1 ne = 2 ^ (k * 2 + 1) := by
         have h2 := ha 2 (by omega) (by omega)
         simp only [ai'] at h2
@@ -1201,9 +1201,9 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
       have haj := a7 j
       match j with
       | 0 =>
-          rw [if_neg (by omega)]
+          rw [ite_eq_right (by omega)]
           simp only [Nat.zero_add] at haj
-          rw [if_neg (by omega), hdS1, hdH0, hdB 1 (by omega),
+          rw [ite_eq_right (by omega), hdS1, hdH0, hdB 1 (by omega),
             hdA 2 (by omega)] at haj
           have h3v : ai 2 ne = 2 ^ (k * 2) - 2 := by
             have h3 := ha 3 (by omega) (by omega)
@@ -1221,8 +1221,8 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
               u + 1 = k * 2 ∨ u + 1 = k * 2 + 1 ∨ u + 1 = k * 2 + 2 ∨
               k * 2 + 3 ≤ u + 1) with hc | hc | hc | hc | hc | hc
           · -- general interior
-            rw [if_neg (by omega)]
-            rw [if_neg (by omega), hdC u (by omega), hdA (u + 2 + 1) (by omega),
+            rw [ite_eq_right (by omega)]
+            rw [ite_eq_right (by omega), hdC u (by omega), hdA (u + 2 + 1) (by omega),
               hdB (u + 2) (by omega)] at haj
             have hv1 : ai (u + 2 + 1) ne = ai' (u + 2 + 2) ne := rfl
             have h1 := ha (u + 4) (by omega) (by omega)
@@ -1249,8 +1249,8 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
               simpa using this
             omega
           · -- u+1 = k*2 - 1 (ai'-index k*2)
-            rw [if_neg (by omega)]
-            rw [if_neg (by omega), hdC u (by omega), hdA (u + 2 + 1) (by omega),
+            rw [ite_eq_right (by omega)]
+            rw [ite_eq_right (by omega), hdC u (by omega), hdA (u + 2 + 1) (by omega),
               hdB (u + 2) (by omega)] at haj
             have h1 := ha (u + 4) (by omega) (by omega)
             simp only [ai'] at h1
@@ -1271,8 +1271,8 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             norm_num at haj ⊢
             omega
           · -- u+1 = k*2 (ai'-index k*2+1, the bump)
-            rw [if_pos (by omega)]
-            rw [if_pos (by omega), hdC u (by omega), hdA (u + 2 + 1) (by omega),
+            rw [ite_eq_left (by omega)]
+            rw [ite_eq_left (by omega), hdC u (by omega), hdA (u + 2 + 1) (by omega),
               hdB (u + 2) (by omega)] at haj
             have h1 : ai (u + 2 + 1) ne = 0 := by
               have hh := halast
@@ -1293,8 +1293,8 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             norm_num at haj ⊢
             omega
           · -- u+1 = k*2+1 (ai'-index k*2+2)
-            rw [if_neg (by omega)]
-            rw [if_neg (by omega), hdC u (by omega), hdBs (u + 2) (by omega),
+            rw [ite_eq_right (by omega)]
+            rw [ite_eq_right (by omega), hdC u (by omega), hdBs (u + 2) (by omega),
               hdAs (u + 2 + 1) (by omega)] at haj
             have h1 : ai (u + 2 + 1) ne = 0 := by
               rw [show u + 2 + 1 = k * 2 + 3 by omega]
@@ -1312,8 +1312,8 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             norm_num at haj ⊢
             omega
           · -- u+1 = k*2+2 (ai'-index k*2+3)
-            rw [if_neg (by omega)]
-            rw [if_neg (by omega), hdCs u (by omega), hdBs (u + 2) (by omega),
+            rw [ite_eq_right (by omega)]
+            rw [ite_eq_right (by omega), hdCs u (by omega), hdBs (u + 2) (by omega),
               hdAs (u + 2 + 1) (by omega)] at haj
             have h1 : ai (u + 2 + 1) ne = 0 := by
               rw [show u + 2 + 1 = k * 2 + 4 by omega]
@@ -1327,8 +1327,8 @@ lemma ZIHIO_emb_Add2 {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17} (HZ : ZIHIO k e n
             rw [h2]
             omega
           · -- beyond
-            rw [if_neg (by omega)]
-            rw [if_neg (by omega), hdCs u (by omega), hdBs (u + 2) (by omega),
+            rw [ite_eq_right (by omega)]
+            rw [ite_eq_right (by omega), hdCs u (by omega), hdBs (u + 2) (by omega),
               hdAs (u + 2 + 1) (by omega)] at haj
             have h1 : ai (u + 2 + 1) ne = 0 := ai_out_of_bound (by omega)
             have h2 : ai (u + 1) ne = 0 := ai_out_of_bound (by omega)
@@ -1375,18 +1375,18 @@ lemma ZIHIO_embanked_batch {k : ℕ} (hk : k ≠ 0) {e ne ne' : S17}
     rcases (by omega : m + 2 ≤ k * 2 + 2 ∨ m + 2 = k * 2 + 3 ∨
         k * 2 + 4 ≤ m + 2) with hc | hc | hc
     · have hv := ha (m + 2) (by omega) (by omega)
-      rw [if_pos (by omega : m + 2 < k * 2 + 3)]
+      rw [ite_eq_left (by omega : m + 2 < k * 2 + 3)]
       rw [hv] at hadd
       have hpw : (2:ℕ) ≤ 2 ^ (k * 2 + 3 - (m + 2)) := by
         calc (2:ℕ) = 2 ^ 1 := by norm_num
         _ ≤ 2 ^ (k * 2 + 3 - (m + 2)) :=
           Nat.pow_le_pow_right (by omega) (by omega)
       split_ifs at hadd <;> omega
-    · rw [if_neg (by omega)]
+    · rw [ite_eq_right (by omega)]
       rw [hc] at hadd ⊢
       rw [halast] at hadd
       split_ifs at hadd <;> omega
-    · rw [if_neg (by omega)]
+    · rw [ite_eq_right (by omega)]
       have hv : ai' (m + 2) ne = 0 := by
         simp only [ai']
         exact ai_out_of_bound (by omega)
@@ -1429,7 +1429,7 @@ lemma last_step {k : ℕ} {e ne : S17}
   refine ⟨b, _, _, hb1, BaseS.intro _ ?_ ?_ ?_⟩
   · -- head counter
     have h0 := add2s_inv HA 0
-    rw [if_neg (by omega)] at h0
+    rw [ite_eq_right (by omega)] at h0
     simp only [ai'] at h0 ha0
     omega
   · -- digit profile
@@ -1437,23 +1437,23 @@ lemma last_step {k : ℕ} {e ne : S17}
     have hi := add2s_inv HA (i + 1)
     match i with
     | 0 =>
-        rw [if_pos (by omega)] at hi
+        rw [ite_eq_left (by omega)] at hi
         simp only [ai'] at hi ha1
-        rw [if_pos (by omega : 0 < (k + 1) * 2),
+        rw [ite_eq_left (by omega : 0 < (k + 1) * 2),
           show (k + 1) * 2 - 0 = k * 2 + 2 by omega]
         omega
     | (m + 1) =>
-        rw [if_neg (by omega)] at hi
+        rw [ite_eq_right (by omega)] at hi
         simp only [ai'] at hi
         have hv := ha (m + 2) (by omega)
         simp only [ai'] at hv
         by_cases hc : m + 2 < k * 2 + 3
-        · rw [if_pos hc] at hv
-          rw [if_pos (by omega : m + 1 < (k + 1) * 2),
+        · rw [ite_eq_left hc] at hv
+          rw [ite_eq_left (by omega : m + 1 < (k + 1) * 2),
             show (k + 1) * 2 - (m + 1) = k * 2 + 3 - (m + 2) by omega]
           omega
-        · rw [if_neg hc] at hv
-          rw [if_neg (by omega : ¬(m + 1 < (k + 1) * 2))]
+        · rw [ite_eq_right hc] at hv
+          rw [ite_eq_right (by omega : ¬(m + 1 < (k + 1) * 2))]
           omega
   · rw [← hlen, hl]
     omega

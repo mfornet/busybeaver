@@ -350,7 +350,7 @@ lemma sgnClosed_decode {bound : Nat} {w : WDFA} {dir : Turing.Dir}
     (w.step u1 sym).2 * dirDelta dir ≥ 0 ∧ wdfaSgn bound w dir u1 = true := by
   rw [wdfaSgnClosed] at h
   have h1 := (List.all_eq_true.mp h) u0 (by rw [WDFA.uList, List.mem_range]; exact hu0)
-  rw [if_pos hsgn0] at h1
+  rw [ite_eq_left hsgn0] at h1
   have h2 := (List.all_eq_true.mp h1) u1 (by rw [WDFA.uList, List.mem_range]; exact hu1)
   have h3 := (List.all_eq_true.mp h2) sym (List.mem_finRange sym)
   simp only [hstep, ↓reduceIte, Bool.and_eq_true, decide_eq_true_eq, ge_iff_le] at h3

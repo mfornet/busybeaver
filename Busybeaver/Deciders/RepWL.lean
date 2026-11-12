@@ -543,7 +543,7 @@ lemma stepOne_spec (cfg : RepWLConfig) (M : Machine l s) (x : RepWLES l s) (w0 :
               | right =>
                   have hbf : isBack = false := hisb.trans (by decide)
                   subst hbf
-                  simp only [Bool.false_eq_true, if_false, Option.some.injEq] at h
+                  simp only [Bool.false_eq_true, ite_false, Option.some.injEq] at h
                   subst x1out
                   refine ⟨exitConfig x1 .right lb ft,
                     Machine.Progress.from_multistep hstep, hst1.symm,
@@ -587,7 +587,7 @@ lemma stepOne_spec (cfg : RepWLConfig) (M : Machine l s) (x : RepWLES l s) (w0 :
               | left =>
                   have hbf : isBack = false := hisb.trans (by decide)
                   subst hbf
-                  simp only [Bool.false_eq_true, if_false, Option.some.injEq] at h
+                  simp only [Bool.false_eq_true, ite_false, Option.some.injEq] at h
                   subst x1out
                   refine ⟨exitConfig x1 .left ft lb,
                     Machine.Progress.from_multistep hstep, hst1.symm,
@@ -666,15 +666,15 @@ lemma insertAllNew_spec [DecidableEq α] (items : List α) :
   | cons a items IH =>
       intro queue seen
       by_cases ha : a ∈ seen
-      · simp only [insertAllNew, insertNew, if_pos ha]
+      · simp only [insertAllNew, insertNew, ite_eq_left ha]
         obtain ⟨IH1, IH2⟩ := IH queue seen
         refine ⟨fun z => ?_, fun z hz => ?_⟩
         · rw [IH1 z]; aesop
         · exact IH2 z (by aesop)
-      · simp only [insertAllNew, insertNew, if_neg ha]
+      · simp [insertAllNew, insertNew, ha]
         obtain ⟨IH1, IH2⟩ := IH (a :: queue) (seen.push a)
         refine ⟨fun z => ?_, fun z hz => ?_⟩
-        · rw [IH1 z, Array.mem_push, List.mem_cons]; tauto
+        · rw [IH1 z, Array.mem_push]; tauto
         · refine IH2 z ?_
           simp only [List.mem_cons, Array.mem_push] at hz ⊢
           tauto

@@ -111,7 +111,7 @@ def pmachine: Parser MParseRes := attempt do
           exact hn.symm.trans (hmsc ⟨n.1, hna⟩)
         calc (List.map Array.size mcode.toList).sum
           _ = (List.map Array.size mcode.toList).length • asize := by
-            exact List.sum_eq_card_nsmul (List.map Array.size mcode.toList) asize hconst
+            exact List.sum_eq_length_nsmul (List.map Array.size mcode.toList) asize hconst
           _ = (List.map Array.size mcode.toList).length * asize := by rw [Nat.nsmul_eq_mul]
           _ = code.size * asize := by simp [hmc]
       }⟩
